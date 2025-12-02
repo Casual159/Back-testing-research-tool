@@ -327,8 +327,8 @@ class BinanceBulkFetcher:
             df['open_time'] = pd.to_datetime(df['open_time'], unit='ms')
             df['close_time'] = pd.to_datetime(df['close_time'], unit='ms')
 
-        # Drop unnecessary columns
-        df = df.drop(columns=['close_time', 'ignore'])
+        # Drop unnecessary columns (keep close_time for storage compatibility)
+        df = df.drop(columns=['ignore'])
 
         return df
 

@@ -16,6 +16,10 @@ requests>=2.31.0
 pytest>=7.3.1
 pytest-cov>=4.1.0
 
+# API (FastAPI backend)
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
 # Future: AI components (to be added later)
 # anthropic>=0.8.0
 # langchain>=0.1.0

@@ -132,7 +132,7 @@ class PostgresStorage:
                 float(row['volume']),
                 row['close_time'],
                 float(row.get('quote_volume', 0)),
-                int(row.get('trades', 0))
+                int(row.get('count', row.get('trades', 0)))  # 'count' from bulk_fetcher, 'trades' from API fetcher
             )
             for _, row in df.iterrows()
         ]
@@ -234,6 +234,66 @@ class PostgresStorage:
             return None
         except Exception as e:
             logger.error(f"Failed to get data range: {e}")
+            raise
+
+    def get_candles(self, symbol: str, timeframe: str) -> pd.DataFrame:
+        """
+        Get all candles for a symbol/timeframe (for chart visualization)
+
+        Args:
+            symbol: Trading pair symbol
+            timeframe: Timeframe
+
+        Returns:
+            DataFrame with all candle data ordered by time
+        """
+        if not self.conn:
+            self.connect()
+
+        query = """
+        SELECT open_time, open, high, low, close, volume,
+               close_time, quote_volume, trades
+        FROM candles
+        WHERE symbol = %s AND timeframe = %s
+        ORDER BY open_time ASC
+        """
+
+        try:
+            df = pd.read_sql_query(query, self.conn, params=(symbol, timeframe))
+            logger.info(f"Retrieved {len(df)} candles for {symbol} {timeframe}")
+            return df
+        except Exception as e:
+            logger.error(f"Failed to get candles: {e}")
+            raise
+
+    def delete_candles(self, symbol: str, timeframe: str) -> int:
+        """
+        Delete all candles for a symbol/timeframe
+
+        Args:
+            symbol: Trading pair symbol
+            timeframe: Timeframe
+
+        Returns:
+            Number of rows deleted
+        """
+        if not self.conn:
+            self.connect()
+
+        query = """
+        DELETE FROM candles
+        WHERE symbol = %s AND timeframe = %s
+        """
+
+        try:
+            self.cursor.execute(query, (symbol, timeframe))
+            self.conn.commit()
+            deleted = self.cursor.rowcount
+            logger.info(f"Deleted {deleted} candles for {symbol} {timeframe}")
+            return deleted
+        except Exception as e:
+            logger.error(f"Failed to delete candles: {e}")
+            self.conn.rollback()
             raise
 
     def get_data_stats(self) -> pd.DataFrame:

@@ -177,9 +177,29 @@ class UIConfig:
 # Convenience instance
 config = Config()
 
+
+def load_config():
+    """
+    Load configuration for use in API and other modules
+    Returns a dictionary with all config sections
+    """
+    return {
+        'database': config.get_postgres_config(),
+        'binance': config.get_binance_config(),
+        'redis': config.get_redis_config(),
+        'trading': {
+            'test_mode': Config.TEST_MODE,
+            'initial_capital': Config.INITIAL_CAPITAL,
+            'max_position_size': Config.MAX_POSITION_SIZE,
+            'default_symbol': Config.DEFAULT_SYMBOL,
+            'default_timeframe': Config.DEFAULT_TIMEFRAME
+        }
+    }
+
+
 # Validate on import (optional - can be disabled if needed)
 if __name__ != '__main__':
     try:
         config.validate()
     except ValueError as e:
-        print(f"�  Config warning: {e}")
+        print(f"Warning: Config validation failed: {e}")
