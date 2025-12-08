@@ -244,6 +244,79 @@ class TechnicalIndicators:
 
         return vwap
 
+    @staticmethod
+    def adx(
+        high: pd.Series,
+        low: pd.Series,
+        close: pd.Series,
+        period: int = 14
+    ) -> pd.Series:
+        """
+        Average Directional Index (ADX)
+
+        Measures trend strength regardless of direction.
+        - ADX > 25: Strong trend
+        - ADX < 20: Weak trend / ranging market
+
+        Args:
+            high: High prices
+            low: Low prices
+            close: Close prices
+            period: Smoothing period (default: 14)
+
+        Returns:
+            Series with ADX values (0-100)
+        """
+        # Calculate True Range (same as ATR)
+        tr1 = high - low
+        tr2 = abs(high - close.shift())
+        tr3 = abs(low - close.shift())
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+
+        # Calculate directional movement
+        high_diff = high - high.shift()
+        low_diff = low.shift() - low
+
+        # Positive directional movement (+DM)
+        plus_dm = high_diff.where((high_diff > low_diff) & (high_diff > 0), 0)
+
+        # Negative directional movement (-DM)
+        minus_dm = low_diff.where((low_diff > high_diff) & (low_diff > 0), 0)
+
+        # Smooth TR and DM using Wilder's smoothing (exponential moving average)
+        atr = tr.ewm(span=period, adjust=False).mean()
+        plus_di = 100 * (plus_dm.ewm(span=period, adjust=False).mean() / atr)
+        minus_di = 100 * (minus_dm.ewm(span=period, adjust=False).mean() / atr)
+
+        # Calculate DX (Directional Index)
+        dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
+
+        # Calculate ADX (smoothed DX)
+        adx = dx.ewm(span=period, adjust=False).mean()
+
+        return adx
+
+    @staticmethod
+    def roc(data: pd.Series, period: int = 12) -> pd.Series:
+        """
+        Rate of Change (ROC)
+
+        Measures the percentage change in price over a specified period.
+        - ROC > 0: Bullish momentum
+        - ROC < 0: Bearish momentum
+
+        Args:
+            data: Price series (typically close prices)
+            period: Lookback period (default: 12)
+
+        Returns:
+            Series with ROC values (percentage)
+        """
+        # ROC = ((close - close_n_periods_ago) / close_n_periods_ago) * 100
+        roc = ((data - data.shift(period)) / data.shift(period)) * 100
+
+        return roc
+
 
 def add_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -297,6 +370,12 @@ def add_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
         df['high'], df['low'], df['close'], df['volume']
     )
 
+    # ADX
+    result['adx'] = TechnicalIndicators.adx(df['high'], df['low'], df['close'])
+
+    # ROC
+    result['roc'] = TechnicalIndicators.roc(df['close'], 12)
+
     return result
 
 
@@ -325,6 +404,8 @@ def calculate_indicators(
         - 'stochastic'
         - 'obv'
         - 'vwap'
+        - 'adx'
+        - 'roc'
     """
     if indicators is None:
         return add_all_indicators(df)
@@ -366,5 +447,9 @@ def calculate_indicators(
             result['vwap'] = TechnicalIndicators.vwap(
                 df['high'], df['low'], df['close'], df['volume']
             )
+        elif indicator == 'adx':
+            result['adx'] = TechnicalIndicators.adx(df['high'], df['low'], df['close'])
+        elif indicator == 'roc':
+            result['roc'] = TechnicalIndicators.roc(df['close'], 12)
 
     return result

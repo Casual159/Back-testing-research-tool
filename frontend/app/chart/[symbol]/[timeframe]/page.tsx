@@ -17,6 +17,17 @@ interface CandleData {
   volume: number;
 }
 
+interface RegimeData {
+  time: number;
+  regime: string;
+  full_regime: string;
+  trend_state: string;
+  volatility_state: string;
+  momentum_state: string;
+  confidence: number;
+  color: string;
+}
+
 export default function ChartPage() {
   const params = useParams();
   const router = useRouter();
@@ -24,28 +35,41 @@ export default function ChartPage() {
   const timeframe = params.timeframe as string;
 
   const [candles, setCandles] = useState<CandleData[]>([]);
+  const [regimeData, setRegimeData] = useState<RegimeData[]>([]);
+  const [showRegime, setShowRegime] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchCandles = async () => {
+    const fetchData = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const response = await fetch(
-          `http://localhost:8000/api/data/candles/${symbol}/${timeframe}`
-        );
+        // Fetch both candles and regime data in parallel
+        const [candlesRes, regimeRes] = await Promise.all([
+          fetch(`http://localhost:8000/api/data/candles/${symbol}/${timeframe}`),
+          fetch(`http://localhost:8000/api/data/regime/${symbol}/${timeframe}`)
+        ]);
 
-        if (!response.ok) {
-          if (response.status === 404) {
+        if (!candlesRes.ok) {
+          if (candlesRes.status === 404) {
             throw new Error(`No data found for ${symbol} ${timeframe}`);
           }
-          throw new Error(`Failed to fetch candles: ${response.statusText}`);
+          throw new Error(`Failed to fetch candles: ${candlesRes.statusText}`);
         }
 
-        const data = await response.json();
-        setCandles(data);
+        const candlesData = await candlesRes.json();
+        setCandles(candlesData);
+
+        // Regime data is optional - don't fail if not available
+        if (regimeRes.ok) {
+          const regimeDataRes = await regimeRes.json();
+          setRegimeData(regimeDataRes);
+        } else {
+          console.warn('Regime data not available:', regimeRes.statusText);
+          setRegimeData([]);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load chart data");
       } finally {
@@ -54,7 +78,7 @@ export default function ChartPage() {
     };
 
     if (symbol && timeframe) {
-      fetchCandles();
+      fetchData();
     }
   }, [symbol, timeframe]);
 
@@ -113,11 +137,57 @@ export default function ChartPage() {
             )}
 
             {!loading && !error && candles.length > 0 && (
-              <CandlestickChart
-                data={candles}
-                symbol={symbol}
-                timeframe={timeframe}
-              />
+              <>
+                {/* Regime Toggle Control */}
+                {regimeData.length > 0 && (
+                  <div className="mb-4 flex items-center gap-4">
+                    <Button
+                      variant={showRegime ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setShowRegime(!showRegime)}
+                    >
+                      {showRegime ? "Hide" : "Show"} Market Regime
+                    </Button>
+                    {showRegime && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="text-neutral-600 dark:text-neutral-400">
+                          Regime Legend:
+                        </span>
+                        <div className="flex gap-2">
+                          <div className="flex items-center gap-1">
+                            <div className="h-3 w-3 rounded" style={{ backgroundColor: "#22c55e" }} />
+                            <span>TREND_UP</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="h-3 w-3 rounded" style={{ backgroundColor: "#ef4444" }} />
+                            <span>TREND_DOWN</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="h-3 w-3 rounded" style={{ backgroundColor: "#3b82f6" }} />
+                            <span>RANGE</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="h-3 w-3 rounded" style={{ backgroundColor: "#f59e0b" }} />
+                            <span>CHOPPY</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="h-3 w-3 rounded" style={{ backgroundColor: "#6b7280" }} />
+                            <span>NEUTRAL</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <CandlestickChart
+                  data={candles}
+                  symbol={symbol}
+                  timeframe={timeframe}
+                  regimeData={regimeData}
+                  showRegime={showRegime}
+                />
+              </>
             )}
           </CardContent>
         </Card>

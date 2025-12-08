@@ -9,12 +9,15 @@ from datetime import datetime
 from typing import Optional, List
 import sys
 from pathlib import Path
+import pandas as pd
 
 # Add parent directory to path to import core modules
 sys.path.append(str(Path(__file__).parent.parent))
 
 from core.data.bulk_fetcher import BinanceBulkFetcher
 from core.data.storage import PostgresStorage
+from core.indicators.technical import add_all_indicators
+from core.indicators.regime import detect_market_regimes
 from config.config import load_config
 
 app = FastAPI(
@@ -211,6 +214,69 @@ def delete_data(symbol: str, timeframe: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete data: {str(e)}")
+
+@app.get("/api/data/regime/{symbol}/{timeframe}")
+def get_regime_data(symbol: str, timeframe: str):
+    """
+    Calculate and return market regime data for visualization
+
+    Returns regime classification for each candle with:
+    - Granular 3D regime (trend/volatility/momentum)
+    - Simplified regime (TREND_UP/DOWN/RANGE/CHOPPY/NEUTRAL)
+    - Confidence score (0.0-1.0)
+    - Color for visualization
+    """
+    try:
+        with PostgresStorage(config['database']) as storage:
+            # 1. Fetch candles from database
+            df = storage.get_candles(symbol, timeframe)
+
+            if df.empty:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No data found for {symbol} {timeframe}"
+                )
+
+            # 2. Add all technical indicators
+            df = add_all_indicators(df)
+
+            # 3. Detect market regimes (event-driven, no lookahead)
+            df = detect_market_regimes(df)
+
+            # 4. Map regimes to visualization colors
+            regime_colors = {
+                "TREND_UP": "#22c55e",      # Green
+                "TREND_DOWN": "#ef4444",    # Red
+                "RANGE": "#3b82f6",         # Blue
+                "CHOPPY": "#f59e0b",        # Orange
+                "NEUTRAL": "#6b7280"        # Gray
+            }
+
+            # 5. Format for frontend
+            result = []
+            for _, row in df.iterrows():
+                simplified = row.get('simplified_regime')
+
+                result.append({
+                    "time": int(row['open_time'].timestamp()),
+                    "regime": simplified if not pd.isna(simplified) else "NEUTRAL",
+                    "full_regime": row.get('full_regime', ''),
+                    "trend_state": row.get('trend_state', ''),
+                    "volatility_state": row.get('volatility_state', ''),
+                    "momentum_state": row.get('momentum_state', ''),
+                    "confidence": float(row.get('regime_confidence', 0.5)),
+                    "color": regime_colors.get(simplified, "#6b7280")
+                })
+
+            return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to calculate regimes: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn
