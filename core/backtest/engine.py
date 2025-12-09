@@ -10,6 +10,8 @@ from typing import Optional, Dict, Any
 import pandas as pd
 from .events import MarketEvent, SignalEvent, OrderEvent, FillEvent
 from .portfolio import Portfolio
+from core.indicators.regime import MarketRegimeClassifier
+from core.indicators.technical import add_all_indicators
 
 
 class BacktestEngine:
@@ -39,7 +41,8 @@ class BacktestEngine:
         initial_capital: float = 10000.0,
         commission_rate: float = 0.001,
         slippage_rate: float = 0.0005,
-        position_size_pct: float = 1.0
+        position_size_pct: float = 1.0,
+        enable_regime_detection: bool = True
     ):
         """
         Initialize backtesting engine.
@@ -51,6 +54,7 @@ class BacktestEngine:
             commission_rate: Trading fee as decimal (0.001 = 0.1%)
             slippage_rate: Price impact as decimal (0.0005 = 0.05%)
             position_size_pct: Fraction of capital to use per trade (0.0 to 1.0)
+            enable_regime_detection: Enable market regime classification (default: True)
         """
         self.data = data
         self.strategy = strategy
@@ -58,9 +62,16 @@ class BacktestEngine:
         self.commission_rate = commission_rate
         self.slippage_rate = slippage_rate
         self.position_size_pct = max(0.0, min(1.0, position_size_pct))
+        self.enable_regime_detection = enable_regime_detection
 
         self.portfolio = Portfolio(initial_capital)
         self.symbol = 'BTC/USDT'  # Default symbol
+
+        # Regime classifier
+        self.regime_classifier = None
+        self.data_with_indicators = None
+        if self.enable_regime_detection:
+            self._prepare_regime_data()
 
         # Statistics
         self.bars_processed = 0
@@ -129,6 +140,24 @@ class BacktestEngine:
             'trades': self.portfolio.trades
         }
 
+    def _prepare_regime_data(self):
+        """
+        Prepare data with indicators and regime classification.
+        Called during initialization if regime detection is enabled.
+        """
+        print("Preparing regime data...")
+        # Add all technical indicators
+        self.data_with_indicators = add_all_indicators(self.data.copy())
+
+        # Initialize regime classifier
+        self.regime_classifier = MarketRegimeClassifier()
+
+        # Classify regimes for entire dataset
+        self.data_with_indicators = self.regime_classifier.classify_dataframe(
+            self.data_with_indicators
+        )
+        print(f"Regime data prepared ({len(self.data_with_indicators)} bars)")
+
     def _create_market_event(self, timestamp: datetime, bar: pd.Series) -> MarketEvent:
         """
         Create MarketEvent from data bar.
@@ -138,7 +167,7 @@ class BacktestEngine:
             bar: Series with OHLCV data
 
         Returns:
-            MarketEvent instance
+            MarketEvent instance with regime metadata (if enabled)
         """
         ohlcv = {
             'open': float(bar['open']),
@@ -147,7 +176,27 @@ class BacktestEngine:
             'close': float(bar['close']),
             'volume': float(bar['volume'])
         }
-        return MarketEvent(timestamp, self.symbol, ohlcv)
+
+        metadata = {}
+
+        # Add regime data if available
+        if self.enable_regime_detection and self.data_with_indicators is not None:
+            try:
+                # Get regime data for this timestamp from preprocessed DataFrame
+                regime_row = self.data_with_indicators.loc[timestamp]
+                metadata['regime'] = {
+                    'simplified': regime_row.get('simplified_regime'),
+                    'full_regime': regime_row.get('full_regime'),
+                    'trend_state': regime_row.get('trend_state'),
+                    'volatility_state': regime_row.get('volatility_state'),
+                    'momentum_state': regime_row.get('momentum_state'),
+                    'confidence': regime_row.get('regime_confidence', 0.0)
+                }
+            except (KeyError, AttributeError):
+                # Regime data not available for this bar
+                pass
+
+        return MarketEvent(timestamp, self.symbol, ohlcv, metadata)
 
     def _generate_signal(self, market_event: MarketEvent) -> Optional[SignalEvent]:
         """

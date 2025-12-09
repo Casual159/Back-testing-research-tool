@@ -10,12 +10,17 @@ Event-driven backtesting framework with:
 
 from .engine import BacktestEngine
 from .portfolio import Portfolio, Trade, Position
-from .metrics import PerformanceMetrics
+from .metrics import MetricsCalculator
+from .events import MarketEvent, SignalEvent, OrderEvent, FillEvent
 
 __all__ = [
     'BacktestEngine',
     'Portfolio',
     'Trade',
     'Position',
-    'PerformanceMetrics',
+    'MetricsCalculator',
+    'MarketEvent',
+    'SignalEvent',
+    'OrderEvent',
+    'FillEvent',
 ]
