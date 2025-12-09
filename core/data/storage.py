@@ -365,8 +365,14 @@ class PostgresStorage:
             self.connect()
 
         # Prepare data for insertion
+        # Reset index to ensure we have datetime in a column
+        df_reset = regimes_df.reset_index()
+
         data = []
-        for timestamp, row in regimes_df.iterrows():
+        for _, row in df_reset.iterrows():
+            # Get timestamp - could be 'open_time' or 'index' depending on reset_index
+            timestamp = row.get('open_time') or row.get('index')
+
             data.append((
                 symbol,
                 timeframe,

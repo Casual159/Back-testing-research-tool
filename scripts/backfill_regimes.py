@@ -24,11 +24,7 @@ def backfill_regimes(symbol: str, timeframe: str, storage: PostgresStorage):
 
     # 1. Check if regimes already exist
     if storage.has_regimes(symbol, timeframe):
-        print(f"⚠️  Regimes already exist for {symbol} {timeframe}")
-        response = input("   Overwrite? (y/n): ")
-        if response.lower() != 'y':
-            print("   Skipped.")
-            return
+        print(f"⚠️  Regimes already exist for {symbol} {timeframe} - overwriting...")
         # Delete existing regimes
         deleted = storage.delete_regimes(symbol, timeframe)
         print(f"   Deleted {deleted} existing regime records")
@@ -73,7 +69,7 @@ def backfill_regimes(symbol: str, timeframe: str, storage: PostgresStorage):
     print(f"{'='*70}")
 
 
-def backfill_all():
+def backfill_all(auto_confirm: bool = False):
     """Backfill regime data for all available datasets"""
     print("="*70)
     print("MARKET REGIME BACKFILL")
@@ -94,15 +90,17 @@ def backfill_all():
     print(f"Total datasets: {len(symbols) * len(timeframes)}")
     print()
 
-    response = input("Proceed with backfill? (y/n): ")
-    if response.lower() != 'y':
-        print("Aborted.")
-        return
+    if not auto_confirm:
+        response = input("Proceed with backfill? (y/n): ")
+        if response.lower() != 'y':
+            print("Aborted.")
+            return
+    else:
+        print("Auto-confirm enabled, proceeding...")
 
     # Process each dataset
     with PostgresStorage(config['database']) as storage:
         total_processed = 0
-        total_inserted = 0
 
         for symbol in symbols:
             for timeframe in timeframes:
@@ -136,4 +134,6 @@ def backfill_all():
 
 
 if __name__ == '__main__':
-    backfill_all()
+    import sys
+    auto_confirm = '--yes' in sys.argv or '-y' in sys.argv
+    backfill_all(auto_confirm=auto_confirm)
