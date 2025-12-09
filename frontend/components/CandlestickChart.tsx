@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createChart, ColorType } from "lightweight-charts";
 
 interface CandleData {
@@ -31,6 +31,24 @@ interface CandlestickChartProps {
   showRegime?: boolean;
 }
 
+interface TooltipData {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  regime?: {
+    simplified: string;
+    full_regime: string;
+    trend_state: string;
+    volatility_state: string;
+    momentum_state: string;
+    confidence: number;
+    color: string;
+  };
+}
+
 export default function CandlestickChart({
   data,
   symbol,
@@ -39,6 +57,8 @@ export default function CandlestickChart({
   showRegime = true
 }: CandlestickChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
 
   useEffect(() => {
     if (!chartContainerRef.current || data.length === 0) return;
@@ -147,6 +167,47 @@ export default function CandlestickChart({
     // Fit content to visible range
     chart.timeScale().fitContent();
 
+    // Subscribe to crosshair move for tooltip
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.point) {
+        setTooltipVisible(false);
+        return;
+      }
+
+      // Find candle data for this time
+      const candle = data.find((c) => c.time === param.time);
+      if (!candle) {
+        setTooltipVisible(false);
+        return;
+      }
+
+      // Find regime data for this time (if available)
+      const regime = regimeData?.find((r) => r.time === param.time);
+
+      // Format time
+      const date = new Date((param.time as number) * 1000);
+      const timeStr = date.toLocaleString();
+
+      setTooltipData({
+        time: timeStr,
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
+        volume: candle.volume,
+        regime: regime ? {
+          simplified: regime.regime,
+          full_regime: regime.full_regime,
+          trend_state: regime.trend_state,
+          volatility_state: regime.volatility_state,
+          momentum_state: regime.momentum_state,
+          confidence: regime.confidence,
+          color: regime.color,
+        } : undefined,
+      });
+      setTooltipVisible(true);
+    });
+
     // Handle resize
     const handleResize = () => {
       if (chartContainerRef.current) {
@@ -177,10 +238,109 @@ export default function CandlestickChart({
           </p>
         </div>
       </div>
-      <div
-        ref={chartContainerRef}
-        className="rounded-lg border border-neutral-300 dark:border-neutral-700"
-      />
+      <div className="relative">
+        <div
+          ref={chartContainerRef}
+          className="rounded-lg border border-neutral-300 dark:border-neutral-700"
+        />
+
+        {/* Tooltip */}
+        {tooltipVisible && tooltipData && (
+          <div className="absolute top-4 left-4 z-10 rounded-lg border border-neutral-700 bg-neutral-900/95 p-4 shadow-xl backdrop-blur-sm">
+            <div className="space-y-3">
+              {/* Time */}
+              <div className="border-b border-neutral-700 pb-2">
+                <p className="text-xs text-neutral-400">{tooltipData.time}</p>
+              </div>
+
+              {/* OHLCV */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                <div>
+                  <span className="text-neutral-400">O:</span>{" "}
+                  <span className="font-mono text-neutral-100">
+                    ${tooltipData.open.toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-neutral-400">H:</span>{" "}
+                  <span className="font-mono text-neutral-100">
+                    ${tooltipData.high.toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-neutral-400">L:</span>{" "}
+                  <span className="font-mono text-neutral-100">
+                    ${tooltipData.low.toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-neutral-400">C:</span>{" "}
+                  <span className="font-mono text-neutral-100">
+                    ${tooltipData.close.toLocaleString()}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-neutral-400">Vol:</span>{" "}
+                  <span className="font-mono text-neutral-100">
+                    {tooltipData.volume.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Regime Info */}
+              {tooltipData.regime && showRegime && (
+                <>
+                  <div className="border-t border-neutral-700 pt-2">
+                    <p className="text-xs font-semibold text-neutral-300 mb-2">
+                      Market Regime
+                    </p>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-3 w-3 rounded"
+                        style={{ backgroundColor: tooltipData.regime.color }}
+                      />
+                      <span className="font-semibold text-neutral-100">
+                        {tooltipData.regime.simplified}
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-xs">
+                      <div>
+                        <span className="text-neutral-400">Trend:</span>{" "}
+                        <span className="text-neutral-200">
+                          {tooltipData.regime.trend_state}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400">Volatility:</span>{" "}
+                        <span className="text-neutral-200">
+                          {tooltipData.regime.volatility_state}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400">Momentum:</span>{" "}
+                        <span className="text-neutral-200">
+                          {tooltipData.regime.momentum_state}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400">Confidence:</span>{" "}
+                        <span className="font-mono text-neutral-200">
+                          {(tooltipData.regime.confidence * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="pt-1 text-neutral-500">
+                        {tooltipData.regime.full_regime}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
