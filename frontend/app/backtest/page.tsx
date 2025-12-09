@@ -91,15 +91,26 @@ function BacktestPageContent() {
     const loadStrategies = async () => {
       try {
         const response = await fetch("http://localhost:8000/api/strategies");
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
-        setStrategies(data);
 
-        // If initial strategy is provided and valid, select it
-        if (initialStrategy && data.some((s: Strategy) => s.name === initialStrategy)) {
-          setSelectedStrategy(initialStrategy);
+        // Ensure data is an array
+        if (Array.isArray(data)) {
+          setStrategies(data);
+
+          // If initial strategy is provided and valid, select it
+          if (initialStrategy && data.some((s: Strategy) => s.name === initialStrategy)) {
+            setSelectedStrategy(initialStrategy);
+          }
+        } else {
+          console.error("Strategies response is not an array:", data);
+          setStrategies([]);
         }
       } catch (err) {
         console.error("Failed to load strategies:", err);
+        setStrategies([]);  // Ensure strategies remains an array
       }
     };
     loadStrategies();

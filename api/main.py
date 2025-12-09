@@ -353,26 +353,36 @@ def list_strategies():
     """
     List all available trading strategies.
 
-    Returns built-in and user-created strategies with their parameters.
+    Returns strategies from the new 'strategies' table.
     Used by agent tool: list_strategies
     """
     try:
-        storage = StrategyStorage(config['database'])
-        storage.connect()
-        strategies = storage.list_strategies(active_only=True)
-        storage.disconnect()
+        with PostgresStorage(config['database']) as storage:
+            query = """
+                SELECT
+                    name,
+                    description,
+                    class_name as strategy_type,
+                    parameters,
+                    regime_filter,
+                    metadata
+                FROM strategies
+                ORDER BY created_at DESC
+            """
+            storage.cursor.execute(query)
+            rows = storage.cursor.fetchall()
 
-        return [
-            StrategyResponse(
-                name=s.name,
-                description=s.description,
-                strategy_type=s.strategy_type,
-                parameters=s.parameters,
-                regime_filter=s.regime_filter,
-                sub_regime_filter=s.sub_regime_filter
-            )
-            for s in strategies
-        ]
+            return [
+                StrategyResponse(
+                    name=row[0],
+                    description=row[1],
+                    strategy_type=row[2],
+                    parameters=row[3] or {},
+                    regime_filter=row[4],
+                    sub_regime_filter=None  # Not used in new schema
+                )
+                for row in rows
+            ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list strategies: {str(e)}")
 
@@ -385,27 +395,39 @@ def get_strategy(name: str):
     Used by agent tool: get_strategy
     """
     try:
-        storage = StrategyStorage(config['database'])
-        storage.connect()
-        strategy = storage.get_strategy(name)
-        storage.disconnect()
+        with PostgresStorage(config['database']) as storage:
+            query = """
+                SELECT
+                    name,
+                    description,
+                    class_name,
+                    parameters,
+                    regime_filter,
+                    metadata,
+                    created_at,
+                    updated_at
+                FROM strategies
+                WHERE name = %s
+            """
+            storage.cursor.execute(query, (name,))
+            row = storage.cursor.fetchone()
 
-        if not strategy:
-            raise HTTPException(status_code=404, detail=f"Strategy '{name}' not found")
+            if not row:
+                raise HTTPException(status_code=404, detail=f"Strategy '{name}' not found")
 
-        return {
-            "name": strategy.name,
-            "description": strategy.description,
-            "strategy_type": strategy.strategy_type,
-            "builtin_class": strategy.builtin_class,
-            "parameters": strategy.parameters,
-            "entry_logic": strategy.entry_logic,
-            "exit_logic": strategy.exit_logic,
-            "regime_filter": strategy.regime_filter,
-            "sub_regime_filter": strategy.sub_regime_filter,
-            "created_at": strategy.created_at.isoformat(),
-            "updated_at": strategy.updated_at.isoformat()
-        }
+            return {
+                "name": row[0],
+                "description": row[1],
+                "strategy_type": row[2],
+                "builtin_class": row[2],  # class_name serves as builtin_class
+                "parameters": row[3] or {},
+                "entry_logic": None,  # Not used in new schema
+                "exit_logic": None,  # Not used in new schema
+                "regime_filter": row[4],
+                "sub_regime_filter": None,  # Not used in new schema
+                "created_at": row[6].isoformat() if row[6] else None,
+                "updated_at": row[7].isoformat() if row[7] else None
+            }
     except HTTPException:
         raise
     except Exception as e:

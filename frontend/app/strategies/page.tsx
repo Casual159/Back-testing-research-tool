@@ -9,17 +9,20 @@ import Link from "next/link";
 interface Strategy {
   name: string;
   description: string;
-  strategy_type: "builtin" | "composite";
+  strategy_type: string;  // Class name (e.g., "MovingAverageCrossover") or "composite"
   parameters: Record<string, any>;
   regime_filter: string[] | null;
   sub_regime_filter: Record<string, string[]> | null;
 }
 
 // Strategy type badge colors
-const TYPE_COLORS = {
+const TYPE_COLORS: Record<string, string> = {
   builtin: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200",
   composite: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200",
 };
+
+// Default color for class-based strategies
+const DEFAULT_TYPE_COLOR = "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200";
 
 // Regime badge colors
 const REGIME_COLORS: Record<string, string> = {
@@ -80,8 +83,10 @@ export default function StrategiesPage() {
   };
 
   // Separate strategies by type
-  const builtinStrategies = strategies.filter((s) => s.strategy_type === "builtin");
+  // Composite strategies have strategy_type === "composite"
+  // Built-in strategies have class names (e.g., "MovingAverageCrossover")
   const compositeStrategies = strategies.filter((s) => s.strategy_type === "composite");
+  const builtinStrategies = strategies.filter((s) => s.strategy_type !== "composite");
 
   return (
     <div className="min-h-screen bg-neutral-100 dark:bg-neutral-800">
@@ -210,7 +215,7 @@ function StrategyCard({
           <div className="flex-1">
             <CardTitle className="text-lg">{strategy.name}</CardTitle>
             <div className="flex gap-2 mt-2">
-              <span className={`px-2 py-0.5 text-xs font-medium rounded ${TYPE_COLORS[strategy.strategy_type]}`}>
+              <span className={`px-2 py-0.5 text-xs font-medium rounded ${TYPE_COLORS[strategy.strategy_type] || DEFAULT_TYPE_COLOR}`}>
                 {strategy.strategy_type}
               </span>
             </div>
