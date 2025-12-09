@@ -16,6 +16,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from core.data.bulk_fetcher import BinanceBulkFetcher
 from core.data.storage import PostgresStorage
+from core.data.strategy_storage import StrategyStorage
 from core.indicators.technical import add_all_indicators
 from core.indicators.regime import detect_market_regimes
 from config.config import load_config
@@ -321,6 +322,413 @@ def get_regime_data(symbol: str, timeframe: str):
             status_code=500,
             detail=f"Failed to get regimes: {str(e)}"
         )
+
+# =============================================================================
+# STRATEGY ENDPOINTS
+# =============================================================================
+
+class StrategyResponse(BaseModel):
+    """Response model for strategy data"""
+    name: str
+    description: str
+    strategy_type: str
+    parameters: dict
+    regime_filter: Optional[List[str]] = None
+    sub_regime_filter: Optional[dict] = None
+
+
+class CreateStrategyRequest(BaseModel):
+    """Request model for creating a composite strategy"""
+    name: str
+    description: str = ""
+    entry_logic: dict  # LogicTree JSON
+    exit_logic: dict   # LogicTree JSON
+    parameters: Optional[dict] = None
+    regime_filter: Optional[List[str]] = None
+    sub_regime_filter: Optional[dict] = None
+
+
+@app.get("/api/strategies", response_model=List[StrategyResponse])
+def list_strategies():
+    """
+    List all available trading strategies.
+
+    Returns built-in and user-created strategies with their parameters.
+    Used by agent tool: list_strategies
+    """
+    try:
+        storage = StrategyStorage(config['database'])
+        storage.connect()
+        strategies = storage.list_strategies(active_only=True)
+        storage.disconnect()
+
+        return [
+            StrategyResponse(
+                name=s.name,
+                description=s.description,
+                strategy_type=s.strategy_type,
+                parameters=s.parameters,
+                regime_filter=s.regime_filter,
+                sub_regime_filter=s.sub_regime_filter
+            )
+            for s in strategies
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list strategies: {str(e)}")
+
+
+@app.get("/api/strategies/{name}")
+def get_strategy(name: str):
+    """
+    Get detailed information about a specific strategy.
+
+    Used by agent tool: get_strategy
+    """
+    try:
+        storage = StrategyStorage(config['database'])
+        storage.connect()
+        strategy = storage.get_strategy(name)
+        storage.disconnect()
+
+        if not strategy:
+            raise HTTPException(status_code=404, detail=f"Strategy '{name}' not found")
+
+        return {
+            "name": strategy.name,
+            "description": strategy.description,
+            "strategy_type": strategy.strategy_type,
+            "builtin_class": strategy.builtin_class,
+            "parameters": strategy.parameters,
+            "entry_logic": strategy.entry_logic,
+            "exit_logic": strategy.exit_logic,
+            "regime_filter": strategy.regime_filter,
+            "sub_regime_filter": strategy.sub_regime_filter,
+            "created_at": strategy.created_at.isoformat(),
+            "updated_at": strategy.updated_at.isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get strategy: {str(e)}")
+
+
+@app.post("/api/strategies")
+def create_strategy(request: CreateStrategyRequest):
+    """
+    Create a new composite strategy.
+
+    Used by agent tool: create_strategy
+    """
+    try:
+        storage = StrategyStorage(config['database'])
+        storage.connect()
+
+        strategy = storage.create_strategy(
+            name=request.name,
+            description=request.description,
+            strategy_type='composite',
+            entry_logic=request.entry_logic,
+            exit_logic=request.exit_logic,
+            parameters=request.parameters or {},
+            regime_filter=request.regime_filter,
+            sub_regime_filter=request.sub_regime_filter
+        )
+
+        storage.disconnect()
+
+        return {
+            "success": True,
+            "message": f"Strategy '{request.name}' created successfully",
+            "strategy": {
+                "id": strategy.id,
+                "name": strategy.name,
+                "strategy_type": strategy.strategy_type
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create strategy: {str(e)}")
+
+
+@app.delete("/api/strategies/{name}")
+def delete_strategy(name: str):
+    """Delete a strategy (soft delete)"""
+    try:
+        storage = StrategyStorage(config['database'])
+        storage.connect()
+        deleted = storage.delete_strategy(name)
+        storage.disconnect()
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail=f"Strategy '{name}' not found")
+
+        return {
+            "success": True,
+            "message": f"Strategy '{name}' deleted"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete strategy: {str(e)}")
+
+
+# =============================================================================
+# BACKTEST ENDPOINT
+# =============================================================================
+
+class BacktestRequest(BaseModel):
+    """Request model for running a backtest"""
+    strategy_name: str
+    symbol: str = "BTCUSDT"
+    timeframe: str = "1h"
+    start_date: str  # ISO format: "2024-01-01"
+    end_date: Optional[str] = None
+    initial_capital: float = 10000.0
+    commission_rate: float = 0.001
+    slippage_rate: float = 0.0005
+    position_size_pct: float = 1.0
+    # Override strategy parameters for this run
+    parameters: Optional[dict] = None
+    # Override regime filter for this run
+    regime_filter: Optional[List[str]] = None
+
+
+class TradeResult(BaseModel):
+    """Single trade result"""
+    entry_time: str
+    exit_time: str
+    entry_price: float
+    exit_price: float
+    pnl: float
+    pnl_pct: float
+    duration_hours: float
+
+
+class BacktestResponse(BaseModel):
+    """Response model for backtest results"""
+    success: bool
+    strategy_name: str
+    symbol: str
+    timeframe: str
+    start_date: str
+    end_date: str
+
+    # Key metrics for AI analysis
+    total_return_pct: float
+    sharpe_ratio: float
+    max_drawdown_pct: float
+    win_rate_pct: float
+    total_trades: int
+    profit_factor: float
+
+    # Data for visualization
+    equity_curve: List[dict]
+    trades: List[TradeResult]
+
+    # Regime statistics
+    regime_stats: Optional[dict] = None
+
+
+@app.post("/api/backtest", response_model=BacktestResponse)
+def run_backtest(request: BacktestRequest):
+    """
+    Run a backtest with specified strategy on historical data.
+
+    Domain model: Backtest = f(Strategy, Dataset)
+    - Strategy must exist in database
+    - Dataset (candles) must exist for the requested range
+
+    Used by agent tool: run_backtest
+
+    Returns metrics and trade data for AI analysis.
+    """
+    try:
+        # 1. Get strategy from database
+        strategy_storage = StrategyStorage(config['database'])
+        strategy_storage.connect()
+
+        strategy_record = strategy_storage.get_strategy(request.strategy_name)
+        if not strategy_record:
+            strategy_storage.disconnect()
+            raise HTTPException(
+                status_code=404,
+                detail=f"Strategy '{request.strategy_name}' not found. Use list_strategies to see available strategies."
+            )
+
+        # 2. Check if data exists
+        with PostgresStorage(config['database']) as data_storage:
+            # Parse dates
+            start_dt = datetime.fromisoformat(request.start_date)
+            end_dt = datetime.fromisoformat(request.end_date) if request.end_date else None
+
+            # Check data availability
+            data_range = data_storage.get_available_data_range(request.symbol, request.timeframe)
+            if data_range is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No data found for {request.symbol} {request.timeframe}. Fetch data first using /api/data/fetch."
+                )
+
+            # Get candles
+            df = data_storage.get_candles(
+                request.symbol,
+                request.timeframe,
+                start_time=start_dt,
+                end_time=end_dt
+            )
+
+            if df.empty:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No candles found for {request.symbol} {request.timeframe} in range {request.start_date} to {request.end_date}"
+                )
+
+        # 3. Apply parameter overrides
+        override_params = request.parameters or {}
+
+        # Apply regime filter override if provided
+        if request.regime_filter:
+            strategy_record.regime_filter = request.regime_filter
+
+        # 4. Instantiate strategy
+        strategy = strategy_storage.instantiate_strategy(strategy_record, override_params)
+
+        # For composite strategies, apply regime filter from request if provided
+        if hasattr(strategy, 'regime_filter') and request.regime_filter:
+            strategy.regime_filter = request.regime_filter
+
+        strategy_storage.disconnect()
+
+        # 5. Run backtest
+        from core.backtest import BacktestEngine
+
+        engine = BacktestEngine(
+            data=df,
+            strategy=strategy,
+            initial_capital=request.initial_capital,
+            commission_rate=request.commission_rate,
+            slippage_rate=request.slippage_rate,
+            position_size_pct=request.position_size_pct,
+            enable_regime_detection=True
+        )
+
+        results = engine.run()
+
+        # 6. Get regime stats if available
+        regime_stats = None
+        if hasattr(strategy, 'get_regime_stats'):
+            regime_stats = strategy.get_regime_stats()
+
+        # 7. Format response
+        # Get actual date range from data
+        actual_start = df.index[0] if hasattr(df.index[0], 'isoformat') else df.iloc[0]['open_time']
+        actual_end = df.index[-1] if hasattr(df.index[-1], 'isoformat') else df.iloc[-1]['open_time']
+
+        return BacktestResponse(
+            success=True,
+            strategy_name=request.strategy_name,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            start_date=actual_start.isoformat() if hasattr(actual_start, 'isoformat') else str(actual_start),
+            end_date=actual_end.isoformat() if hasattr(actual_end, 'isoformat') else str(actual_end),
+
+            # Metrics
+            total_return_pct=round(results['metrics'].get('total_return', 0), 4),
+            sharpe_ratio=round(results['metrics'].get('sharpe_ratio', 0), 4),
+            max_drawdown_pct=round(results['metrics'].get('max_drawdown', 0), 4),
+            win_rate_pct=round(results['metrics'].get('win_rate', 0), 2),
+            total_trades=results['metrics'].get('total_trades', 0),
+            profit_factor=round(results['metrics'].get('profit_factor', 0), 4),
+
+            # Equity curve for visualization
+            equity_curve=[
+                {"time": ts.isoformat() if hasattr(ts, 'isoformat') else str(ts), "value": round(val, 2)}
+                for ts, val in results['equity_curve']
+            ],
+
+            # Trades for analysis
+            trades=[
+                TradeResult(
+                    entry_time=t.entry_time.isoformat() if hasattr(t.entry_time, 'isoformat') else str(t.entry_time),
+                    exit_time=t.exit_time.isoformat() if hasattr(t.exit_time, 'isoformat') else str(t.exit_time),
+                    entry_price=round(t.entry_price, 2),
+                    exit_price=round(t.exit_price, 2),
+                    pnl=round(t.pnl, 2),
+                    pnl_pct=round(t.return_pct, 4),
+                    duration_hours=round(t.duration.total_seconds() / 3600, 2) if hasattr(t.duration, 'total_seconds') else 0
+                )
+                for t in results['trades']
+            ],
+
+            # Regime stats
+            regime_stats=regime_stats
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+
+
+@app.get("/api/data/check/{symbol}/{timeframe}")
+def check_data_availability(symbol: str, timeframe: str, start_date: Optional[str] = None, end_date: Optional[str] = None):
+    """
+    Check if data is available for backtesting.
+
+    Used by agent to validate before running backtest.
+    """
+    try:
+        with PostgresStorage(config['database']) as storage:
+            data_range = storage.get_available_data_range(symbol, timeframe)
+
+            if data_range is None:
+                return {
+                    "available": False,
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "message": "No data found. Use /api/data/fetch to download data."
+                }
+
+            # Check if requested range is covered
+            if start_date:
+                start_dt = datetime.fromisoformat(start_date)
+                if start_dt < data_range[0]:
+                    return {
+                        "available": False,
+                        "symbol": symbol,
+                        "timeframe": timeframe,
+                        "data_start": data_range[0].isoformat(),
+                        "data_end": data_range[1].isoformat(),
+                        "message": f"Requested start date {start_date} is before available data ({data_range[0].date()})"
+                    }
+
+            if end_date:
+                end_dt = datetime.fromisoformat(end_date)
+                if end_dt > data_range[1]:
+                    return {
+                        "available": False,
+                        "symbol": symbol,
+                        "timeframe": timeframe,
+                        "data_start": data_range[0].isoformat(),
+                        "data_end": data_range[1].isoformat(),
+                        "message": f"Requested end date {end_date} is after available data ({data_range[1].date()})"
+                    }
+
+            return {
+                "available": True,
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "data_start": data_range[0].isoformat(),
+                "data_end": data_range[1].isoformat(),
+                "message": "Data is available for the requested range"
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check data: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -3,6 +3,8 @@ Composite Strategy - Combine multiple signals with custom logic
 
 Allows building complex strategies by composing multiple indicator signals
 with AND/OR logic for entry and exit conditions.
+
+Supports regime filtering to only trade in specific market conditions.
 """
 from typing import Dict, Any, Optional
 import pandas as pd
@@ -11,6 +13,12 @@ from ..base import Strategy
 from ...events import MarketEvent, SignalEvent
 from .logic_tree import LogicTree
 from .signal import IndicatorSignal
+
+# Valid regime values for validation
+VALID_SIMPLIFIED_REGIMES = ['TREND_UP', 'TREND_DOWN', 'RANGE', 'CHOPPY', 'NEUTRAL']
+VALID_TREND_STATES = ['uptrend', 'downtrend', 'neutral']
+VALID_VOLATILITY_STATES = ['low', 'high']
+VALID_MOMENTUM_STATES = ['bullish', 'bearish', 'weak']
 
 
 class CompositeStrategy(Strategy):
@@ -54,7 +62,9 @@ class CompositeStrategy(Strategy):
         name: str,
         entry_logic: LogicTree,
         exit_logic: LogicTree,
-        description: str = ""
+        description: str = "",
+        regime_filter: Optional[list[str]] = None,
+        sub_regime_filter: Optional[Dict[str, list[str]]] = None
     ):
         """
         Initialize composite strategy
@@ -64,6 +74,10 @@ class CompositeStrategy(Strategy):
             entry_logic: Logic tree for entry signals
             exit_logic: Logic tree for exit signals
             description: Strategy description
+            regime_filter: List of allowed simplified regimes.
+                          e.g., ["TREND_UP", "RANGE"] - only trade in these regimes
+            sub_regime_filter: Filter by sub-regime components.
+                              e.g., {"trend": ["uptrend"], "volatility": ["low"]}
         """
         # Set name BEFORE calling super().__init__() (it calls get_name())
         self.name = name
@@ -71,14 +85,53 @@ class CompositeStrategy(Strategy):
         self.exit_logic = exit_logic
         self.description = description
 
+        # Regime filtering
+        self.regime_filter = regime_filter
+        self.sub_regime_filter = sub_regime_filter
+
+        # Validate regime filter values
+        self._validate_regime_filters()
+
         # State - will be set by initialize()
         self._data_df = None
         self._entry_signals = None
         self._exit_signals = None
         self._in_position = False
 
+        # Statistics for regime filtering
+        self._regime_skipped_count = 0
+
         # Call parent __init__ after setting attributes
         super().__init__()
+
+    def _validate_regime_filters(self):
+        """Validate that regime filter values are valid"""
+        if self.regime_filter:
+            for regime in self.regime_filter:
+                if regime not in VALID_SIMPLIFIED_REGIMES:
+                    raise ValueError(
+                        f"Invalid regime '{regime}'. "
+                        f"Valid values: {VALID_SIMPLIFIED_REGIMES}"
+                    )
+
+        if self.sub_regime_filter:
+            valid_components = {
+                'trend': VALID_TREND_STATES,
+                'volatility': VALID_VOLATILITY_STATES,
+                'momentum': VALID_MOMENTUM_STATES
+            }
+            for component, values in self.sub_regime_filter.items():
+                if component not in valid_components:
+                    raise ValueError(
+                        f"Invalid sub-regime component '{component}'. "
+                        f"Valid components: {list(valid_components.keys())}"
+                    )
+                for value in values:
+                    if value not in valid_components[component]:
+                        raise ValueError(
+                            f"Invalid value '{value}' for {component}. "
+                            f"Valid values: {valid_components[component]}"
+                        )
 
     def initialize(self, data: pd.DataFrame):
         """
@@ -91,6 +144,7 @@ class CompositeStrategy(Strategy):
             data: Full OHLCV DataFrame with datetime index
         """
         self._data_df = data
+        self._regime_skipped_count = 0
 
         # Evaluate entry logic for entire series
         self._entry_signals = self.entry_logic.evaluate_series(data)
@@ -98,11 +152,51 @@ class CompositeStrategy(Strategy):
         # Evaluate exit logic for entire series
         self._exit_signals = self.exit_logic.evaluate_series(data)
 
+    def _regime_allowed(self, market_event: MarketEvent) -> bool:
+        """
+        Check if current market regime is allowed for this strategy.
+
+        Args:
+            market_event: Current market data with regime metadata
+
+        Returns:
+            True if regime is allowed (or no filter set), False otherwise
+        """
+        # No filter = allow all
+        if not self.regime_filter and not self.sub_regime_filter:
+            return True
+
+        # Get regime data from market event
+        regime_data = market_event.metadata.get('regime', {})
+
+        # If no regime data available, allow trading (conservative approach)
+        if not regime_data:
+            return True
+
+        # Check simplified regime filter
+        if self.regime_filter:
+            simplified = regime_data.get('simplified')
+            if simplified and simplified not in self.regime_filter:
+                return False
+
+        # Check sub-regime filter
+        if self.sub_regime_filter:
+            for component, allowed_values in self.sub_regime_filter.items():
+                # Map component name to regime_data key
+                state_key = f'{component}_state'
+                current_value = regime_data.get(state_key)
+
+                if current_value and current_value not in allowed_values:
+                    return False
+
+        return True
+
     def calculate_signals(self, market_event: MarketEvent) -> Optional[SignalEvent]:
         """
         Generate trading signal from market event
 
         This is called by BacktestEngine for each new bar.
+        Respects regime_filter - skips signals in disallowed regimes.
 
         Args:
             market_event: Current market data
@@ -128,29 +222,54 @@ class CompositeStrategy(Strategy):
             # Timestamp not in index
             return None
 
-        # Check entry signal (if not in position)
+        # Check regime filter for ENTRY signals only
+        # (we always allow exits to protect capital)
         if not self._in_position:
+            # Check regime before considering entry
+            if not self._regime_allowed(market_event):
+                self._regime_skipped_count += 1
+                return None
+
             if self._entry_signals.iloc[idx]:
                 self._in_position = True
+                # Include regime info in signal metadata
+                regime_data = market_event.metadata.get('regime', {})
                 return SignalEvent(
                     timestamp=timestamp,
                     symbol=market_event.symbol,
                     signal_type='BUY',
-                    strength=1.0
+                    strength=1.0,
+                    metadata={
+                        'regime': regime_data.get('simplified'),
+                        'regime_confidence': regime_data.get('confidence')
+                    }
                 )
 
-        # Check exit signal (if in position)
+        # Check exit signal (if in position) - always allow exits
         else:
             if self._exit_signals.iloc[idx]:
                 self._in_position = False
+                regime_data = market_event.metadata.get('regime', {})
                 return SignalEvent(
                     timestamp=timestamp,
                     symbol=market_event.symbol,
                     signal_type='SELL',
-                    strength=1.0
+                    strength=1.0,
+                    metadata={
+                        'regime': regime_data.get('simplified'),
+                        'regime_confidence': regime_data.get('confidence')
+                    }
                 )
 
         return None
+
+    def get_regime_stats(self) -> Dict[str, Any]:
+        """Get statistics about regime filtering"""
+        return {
+            'regime_filter': self.regime_filter,
+            'sub_regime_filter': self.sub_regime_filter,
+            'signals_skipped_by_regime': self._regime_skipped_count
+        }
 
     def get_name(self) -> str:
         """Get strategy name"""
@@ -172,13 +291,21 @@ class CompositeStrategy(Strategy):
         Returns:
             Dictionary representation
         """
-        return {
+        result = {
             'type': 'CompositeStrategy',
             'name': self.name,
             'description': self.description,
             'entry_logic': self.entry_logic.to_dict(),
             'exit_logic': self.exit_logic.to_dict()
         }
+
+        # Include regime filters if set
+        if self.regime_filter:
+            result['regime_filter'] = self.regime_filter
+        if self.sub_regime_filter:
+            result['sub_regime_filter'] = self.sub_regime_filter
+
+        return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'CompositeStrategy':
@@ -198,7 +325,9 @@ class CompositeStrategy(Strategy):
             name=data['name'],
             entry_logic=entry_logic,
             exit_logic=exit_logic,
-            description=data.get('description', '')
+            description=data.get('description', ''),
+            regime_filter=data.get('regime_filter'),
+            sub_regime_filter=data.get('sub_regime_filter')
         )
 
     def get_entry_summary(self) -> str:

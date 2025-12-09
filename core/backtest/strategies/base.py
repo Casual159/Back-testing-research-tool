@@ -22,7 +22,34 @@ class Strategy(ABC):
         parameters: Strategy-specific parameters (e.g., periods, thresholds)
         data_buffer: Recent MarketEvents for calculation
         name: Human-readable strategy name
+        DESCRIPTION: Markdown description of strategy (class attribute)
+        METADATA: Structured metadata for AI/filtering (class attribute)
     """
+
+    # Default description (override in subclass)
+    DESCRIPTION = """
+Base trading strategy - no specific logic implemented.
+
+Override this in your strategy subclass with detailed information about:
+- Intent and trading philosophy
+- Market regime fit
+- Entry/Exit logic
+- Risk profile
+- Parameter explanations
+    """.strip()
+
+    # Default metadata (override in subclass)
+    METADATA = {
+        "preferred_regimes": [],
+        "avoid_regimes": [],
+        "risk_level": "moderate",
+        "category": "unknown",
+        "entry_type": "market",
+        "exit_type": "market",
+        "drawdown_tolerance": "medium",
+        "avg_trade_duration": "medium",
+        "win_rate_range": [0.4, 0.6]
+    }
 
     def __init__(self, parameters: Dict[str, Any] = None):
         """

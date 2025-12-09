@@ -236,30 +236,49 @@ class PostgresStorage:
             logger.error(f"Failed to get data range: {e}")
             raise
 
-    def get_candles(self, symbol: str, timeframe: str) -> pd.DataFrame:
+    def get_candles(
+        self,
+        symbol: str,
+        timeframe: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None
+    ) -> pd.DataFrame:
         """
-        Get all candles for a symbol/timeframe (for chart visualization)
+        Get candles for a symbol/timeframe with optional date range
 
         Args:
             symbol: Trading pair symbol
             timeframe: Timeframe
+            start_time: Optional start datetime (inclusive)
+            end_time: Optional end datetime (inclusive)
 
         Returns:
-            DataFrame with all candle data ordered by time
+            DataFrame with candle data ordered by time
         """
         if not self.conn:
             self.connect()
 
+        # Build query with optional date filters
         query = """
         SELECT open_time, open, high, low, close, volume,
                close_time, quote_volume, trades
         FROM candles
         WHERE symbol = %s AND timeframe = %s
-        ORDER BY open_time ASC
         """
+        params = [symbol, timeframe]
+
+        if start_time:
+            query += " AND open_time >= %s"
+            params.append(start_time)
+
+        if end_time:
+            query += " AND open_time <= %s"
+            params.append(end_time)
+
+        query += " ORDER BY open_time ASC"
 
         try:
-            df = pd.read_sql_query(query, self.conn, params=(symbol, timeframe))
+            df = pd.read_sql_query(query, self.conn, params=tuple(params))
             logger.info(f"Retrieved {len(df)} candles for {symbol} {timeframe}")
             return df
         except Exception as e:

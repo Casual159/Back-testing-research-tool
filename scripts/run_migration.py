@@ -74,5 +74,11 @@ def run_migration(migration_file: str):
         conn.close()
 
 if __name__ == '__main__':
-    migration_file = '/Users/jakub/Back-testing-research-tool/migrations/001_add_market_regimes.sql'
+    import sys
+
+    if len(sys.argv) < 2:
+        print("Usage: python run_migration.py <migration_file.sql>")
+        sys.exit(1)
+
+    migration_file = sys.argv[1]
     run_migration(migration_file)

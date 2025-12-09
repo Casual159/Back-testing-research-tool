@@ -660,17 +660,6 @@ chart.timeScale().setVisibleRange({
 
 ## 8. Implementation Phases
 
-**⚠️ IMPORTANT: Execute phases sequentially with validation checkpoints**
-
-After EACH phase:
-1. ✅ Run tests / sanity checks
-2. ✅ User review & approval
-3. ✅ Commit working code before proceeding
-
-**Do NOT proceed to next phase without explicit confirmation.**
-
----
-
 ### Phase 1: Core Indicators (1-2 hours)
 1. ✅ Add ADX to technical.py
 2. ✅ Add ROC to technical.py

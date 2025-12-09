@@ -37,6 +37,37 @@ class MovingAverageCrossover(Strategy):
         >>> # Strategy will buy when 20-MA crosses above 50-MA
     """
 
+    # Markdown description for user/AI
+    DESCRIPTION = """
+Trend-following strategy using two moving averages (fast and slow).
+
+**Best for:** TREND_UP, TREND_DOWN (clear trends)
+**Avoid:** RANGE, CHOPPY (whipsaws)
+
+**Entry:** Fast MA crosses above slow MA (golden cross)
+**Exit:** Fast MA crosses below slow MA (death cross)
+
+**Risk:** Moderate drawdown during reversals. Requires patience in sideways markets.
+
+**Parameters:**
+- `fast_period`: Responsive to recent price (default: 20)
+- `slow_period`: Trend baseline (default: 50)
+- `ma_type`: 'SMA' or 'EMA' (default: 'SMA')
+    """.strip()
+
+    # Structured metadata for AI/filtering
+    METADATA = {
+        "preferred_regimes": ["TREND_UP", "TREND_DOWN"],
+        "avoid_regimes": ["RANGE", "CHOPPY"],
+        "risk_level": "moderate",
+        "category": "trend-following",
+        "entry_type": "market",
+        "exit_type": "market",
+        "drawdown_tolerance": "medium",
+        "avg_trade_duration": "medium",
+        "win_rate_range": [0.45, 0.55]
+    }
+
     def __init__(
         self,
         fast_period: int = 20,
