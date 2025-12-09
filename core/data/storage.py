@@ -338,6 +338,227 @@ class PostgresStorage:
             logger.error(f"Failed to get stats: {e}")
             raise
 
+    # =========================================================================
+    # MARKET REGIMES METHODS
+    # =========================================================================
+
+    def insert_regimes(
+        self,
+        symbol: str,
+        timeframe: str,
+        regimes_df: pd.DataFrame,
+        classifier_version: str = 'v1.0'
+    ) -> int:
+        """
+        Insert regime data for a symbol/timeframe.
+
+        Args:
+            symbol: Trading pair symbol
+            timeframe: Timeframe
+            regimes_df: DataFrame with regime data (must have regime columns)
+            classifier_version: Version of classifier used
+
+        Returns:
+            Number of rows inserted
+        """
+        if not self.conn:
+            self.connect()
+
+        # Prepare data for insertion
+        data = []
+        for timestamp, row in regimes_df.iterrows():
+            data.append((
+                symbol,
+                timeframe,
+                timestamp,
+                row.get('trend_state'),
+                row.get('volatility_state'),
+                row.get('momentum_state'),
+                row.get('full_regime'),
+                row.get('simplified_regime'),
+                row.get('regime_confidence'),
+                classifier_version
+            ))
+
+        # Insert with ON CONFLICT to handle duplicates
+        insert_query = """
+        INSERT INTO market_regimes (
+            symbol, timeframe, open_time,
+            trend_state, volatility_state, momentum_state,
+            full_regime, simplified_regime, confidence,
+            classifier_version
+        )
+        VALUES %s
+        ON CONFLICT (symbol, timeframe, open_time)
+        DO UPDATE SET
+            trend_state = EXCLUDED.trend_state,
+            volatility_state = EXCLUDED.volatility_state,
+            momentum_state = EXCLUDED.momentum_state,
+            full_regime = EXCLUDED.full_regime,
+            simplified_regime = EXCLUDED.simplified_regime,
+            confidence = EXCLUDED.confidence,
+            classifier_version = EXCLUDED.classifier_version,
+            created_at = NOW()
+        """
+
+        try:
+            execute_values(self.cursor, insert_query, data)
+            self.conn.commit()
+            logger.info(f"Inserted {len(data)} regime records for {symbol} {timeframe}")
+            return len(data)
+        except Exception as e:
+            logger.error(f"Failed to insert regimes: {e}")
+            self.conn.rollback()
+            raise
+
+    def get_regimes(
+        self,
+        symbol: str,
+        timeframe: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None
+    ) -> pd.DataFrame:
+        """
+        Get regime data for a symbol/timeframe.
+
+        Args:
+            symbol: Trading pair symbol
+            timeframe: Timeframe
+            start_time: Optional start time filter
+            end_time: Optional end time filter
+
+        Returns:
+            DataFrame with regime data indexed by open_time
+        """
+        if not self.conn:
+            self.connect()
+
+        # Build query with optional time filters
+        query = """
+        SELECT
+            open_time,
+            trend_state,
+            volatility_state,
+            momentum_state,
+            full_regime,
+            simplified_regime,
+            confidence,
+            classifier_version
+        FROM market_regimes
+        WHERE symbol = %s AND timeframe = %s
+        """
+        params = [symbol, timeframe]
+
+        if start_time:
+            query += " AND open_time >= %s"
+            params.append(start_time)
+
+        if end_time:
+            query += " AND open_time <= %s"
+            params.append(end_time)
+
+        query += " ORDER BY open_time"
+
+        try:
+            df = pd.read_sql_query(query, self.conn, params=params, index_col='open_time')
+            logger.info(f"Retrieved {len(df)} regime records for {symbol} {timeframe}")
+            return df
+        except Exception as e:
+            logger.error(f"Failed to get regimes: {e}")
+            raise
+
+    def has_regimes(self, symbol: str, timeframe: str) -> bool:
+        """
+        Check if regime data exists for symbol/timeframe.
+
+        Args:
+            symbol: Trading pair symbol
+            timeframe: Timeframe
+
+        Returns:
+            True if regime data exists
+        """
+        if not self.conn:
+            self.connect()
+
+        query = """
+        SELECT EXISTS(
+            SELECT 1 FROM market_regimes
+            WHERE symbol = %s AND timeframe = %s
+            LIMIT 1
+        )
+        """
+
+        try:
+            self.cursor.execute(query, (symbol, timeframe))
+            result = self.cursor.fetchone()
+            return result[0] if result else False
+        except Exception as e:
+            logger.error(f"Failed to check regimes: {e}")
+            raise
+
+    def get_regime_stats(self) -> pd.DataFrame:
+        """
+        Get statistics about stored regime data.
+
+        Returns:
+            DataFrame with regime statistics per symbol/timeframe
+        """
+        if not self.conn:
+            self.connect()
+
+        query = """
+        SELECT
+            symbol,
+            timeframe,
+            COUNT(*) as regime_count,
+            MIN(open_time) as first_regime,
+            MAX(open_time) as last_regime,
+            AVG(confidence) as avg_confidence,
+            classifier_version
+        FROM market_regimes
+        GROUP BY symbol, timeframe, classifier_version
+        ORDER BY symbol, timeframe
+        """
+
+        try:
+            df = pd.read_sql_query(query, self.conn)
+            logger.info(f"Retrieved regime stats for {len(df)} datasets")
+            return df
+        except Exception as e:
+            logger.error(f"Failed to get regime stats: {e}")
+            raise
+
+    def delete_regimes(self, symbol: str, timeframe: str) -> int:
+        """
+        Delete regime data for a symbol/timeframe.
+
+        Args:
+            symbol: Trading pair symbol
+            timeframe: Timeframe
+
+        Returns:
+            Number of rows deleted
+        """
+        if not self.conn:
+            self.connect()
+
+        delete_query = """
+        DELETE FROM market_regimes
+        WHERE symbol = %s AND timeframe = %s
+        """
+
+        try:
+            self.cursor.execute(delete_query, (symbol, timeframe))
+            deleted = self.cursor.rowcount
+            self.conn.commit()
+            logger.info(f"Deleted {deleted} regime records for {symbol} {timeframe}")
+            return deleted
+        except Exception as e:
+            logger.error(f"Failed to delete regimes: {e}")
+            self.conn.rollback()
+            raise
+
     def __enter__(self):
         """Context manager entry"""
         self.connect()
