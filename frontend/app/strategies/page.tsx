@@ -223,8 +223,16 @@ function StrategyCard({
         </div>
       </CardHeader>
       <CardContent className="flex-1 pb-3">
-        <CardDescription className="text-sm line-clamp-2 mb-3">
-          {strategy.description || "No description"}
+        <CardDescription className="text-sm mb-3">
+          <div className="line-clamp-3">
+            {strategy.description?.split('\n')[0] || "No description"}
+          </div>
+          <Link
+            href={`/strategies/${encodeURIComponent(strategy.name)}`}
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1 inline-block"
+          >
+            Read more →
+          </Link>
         </CardDescription>
 
         {/* Parameters */}

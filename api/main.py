@@ -16,7 +16,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from core.data.bulk_fetcher import BinanceBulkFetcher
 from core.data.storage import PostgresStorage
-from core.data.strategy_storage import StrategyStorage
+# from core.data.strategy_storage import StrategyStorage  # Deprecated - using new strategies table
 from core.indicators.technical import add_all_indicators
 from core.indicators.regime import detect_market_regimes
 from config.config import load_config
@@ -441,54 +441,27 @@ def create_strategy(request: CreateStrategyRequest):
 
     Used by agent tool: create_strategy
     """
-    try:
-        storage = StrategyStorage(config['database'])
-        storage.connect()
-
-        strategy = storage.create_strategy(
-            name=request.name,
-            description=request.description,
-            strategy_type='composite',
-            entry_logic=request.entry_logic,
-            exit_logic=request.exit_logic,
-            parameters=request.parameters or {},
-            regime_filter=request.regime_filter,
-            sub_regime_filter=request.sub_regime_filter
-        )
-
-        storage.disconnect()
-
-        return {
-            "success": True,
-            "message": f"Strategy '{request.name}' created successfully",
-            "strategy": {
-                "id": strategy.id,
-                "name": strategy.name,
-                "strategy_type": strategy.strategy_type
-            }
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create strategy: {str(e)}")
+    # TODO: Implement using new strategies table
+    raise HTTPException(status_code=501, detail="Strategy creation temporarily disabled during migration to new schema")
 
 
 @app.delete("/api/strategies/{name}")
 def delete_strategy(name: str):
-    """Delete a strategy (soft delete)"""
+    """Delete a strategy from strategies table"""
     try:
-        storage = StrategyStorage(config['database'])
-        storage.connect()
-        deleted = storage.delete_strategy(name)
-        storage.disconnect()
+        with PostgresStorage(config['database']) as storage:
+            query = "DELETE FROM strategies WHERE name = %s RETURNING id"
+            storage.cursor.execute(query, (name,))
+            result = storage.cursor.fetchone()
+            storage.conn.commit()
 
-        if not deleted:
-            raise HTTPException(status_code=404, detail=f"Strategy '{name}' not found")
+            if not result:
+                raise HTTPException(status_code=404, detail=f"Strategy '{name}' not found")
 
-        return {
-            "success": True,
-            "message": f"Strategy '{name}' deleted"
-        }
+            return {
+                "success": True,
+                "message": f"Strategy '{name}' deleted"
+            }
     except HTTPException:
         raise
     except Exception as e:
@@ -566,17 +539,23 @@ def run_backtest(request: BacktestRequest):
     Returns metrics and trade data for AI analysis.
     """
     try:
-        # 1. Get strategy from database
-        strategy_storage = StrategyStorage(config['database'])
-        strategy_storage.connect()
+        # 1. Get strategy from database (new strategies table)
+        with PostgresStorage(config['database']) as storage:
+            query = """
+                SELECT name, class_name, parameters, regime_filter
+                FROM strategies
+                WHERE name = %s
+            """
+            storage.cursor.execute(query, (request.strategy_name,))
+            row = storage.cursor.fetchone()
 
-        strategy_record = strategy_storage.get_strategy(request.strategy_name)
-        if not strategy_record:
-            strategy_storage.disconnect()
-            raise HTTPException(
-                status_code=404,
-                detail=f"Strategy '{request.strategy_name}' not found. Use list_strategies to see available strategies."
-            )
+            if not row:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Strategy '{request.strategy_name}' not found. Use list_strategies to see available strategies."
+                )
+
+            strategy_name, class_name, parameters, regime_filter = row
 
         # 2. Check if data exists
         with PostgresStorage(config['database']) as data_storage:
@@ -606,21 +585,32 @@ def run_backtest(request: BacktestRequest):
                     detail=f"No candles found for {request.symbol} {request.timeframe} in range {request.start_date} to {request.end_date}"
                 )
 
-        # 3. Apply parameter overrides
-        override_params = request.parameters or {}
+        # 3. Merge parameters (database params + override params)
+        final_params = {**(parameters or {}), **(request.parameters or {})}
 
         # Apply regime filter override if provided
-        if request.regime_filter:
-            strategy_record.regime_filter = request.regime_filter
+        final_regime_filter = request.regime_filter if request.regime_filter else regime_filter
 
-        # 4. Instantiate strategy
-        strategy = strategy_storage.instantiate_strategy(strategy_record, override_params)
+        # 4. Instantiate strategy from class name
+        from core.backtest.strategies.ma_crossover import MovingAverageCrossover
 
-        # For composite strategies, apply regime filter from request if provided
-        if hasattr(strategy, 'regime_filter') and request.regime_filter:
-            strategy.regime_filter = request.regime_filter
+        # Map class names to actual classes (expand as we add more strategies)
+        STRATEGY_CLASSES = {
+            'MovingAverageCrossover': MovingAverageCrossover,
+        }
 
-        strategy_storage.disconnect()
+        strategy_class = STRATEGY_CLASSES.get(class_name)
+        if not strategy_class:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown strategy class: {class_name}. Available: {list(STRATEGY_CLASSES.keys())}"
+            )
+
+        strategy = strategy_class(**final_params)
+
+        # Apply regime filter if provided
+        if hasattr(strategy, 'regime_filter') and final_regime_filter:
+            strategy.regime_filter = final_regime_filter
 
         # 5. Run backtest
         from core.backtest import BacktestEngine
