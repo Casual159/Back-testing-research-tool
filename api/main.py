@@ -218,7 +218,11 @@ def delete_data(symbol: str, timeframe: str):
 @app.get("/api/data/regime/{symbol}/{timeframe}")
 def get_regime_data(symbol: str, timeframe: str):
     """
-    Calculate and return market regime data for visualization
+    Get market regime data for visualization (HYBRID MODE)
+
+    Strategy:
+    1. Try to fetch pre-computed regimes from database (FAST: ~10ms)
+    2. If not found, compute on-the-fly and optionally store (FALLBACK: ~61ms)
 
     Returns regime classification for each candle with:
     - Granular 3D regime (trend/volatility/momentum)
@@ -228,6 +232,39 @@ def get_regime_data(symbol: str, timeframe: str):
     """
     try:
         with PostgresStorage(config['database']) as storage:
+            # HYBRID MODE: Try database first
+            if storage.has_regimes(symbol, timeframe):
+                # FAST PATH: Fetch pre-computed regimes (~10ms)
+                regimes_df = storage.get_regimes(symbol, timeframe)
+
+                # Map regimes to visualization colors
+                regime_colors = {
+                    "TREND_UP": "#22c55e",      # Green
+                    "TREND_DOWN": "#ef4444",    # Red
+                    "RANGE": "#3b82f6",         # Blue
+                    "CHOPPY": "#f59e0b",        # Orange
+                    "NEUTRAL": "#6b7280"        # Gray
+                }
+
+                # Format for frontend
+                result = []
+                for timestamp, row in regimes_df.iterrows():
+                    simplified = row.get('simplified_regime')
+
+                    result.append({
+                        "time": int(timestamp.timestamp()),
+                        "regime": simplified if not pd.isna(simplified) else "NEUTRAL",
+                        "full_regime": row.get('full_regime', ''),
+                        "trend_state": row.get('trend_state', ''),
+                        "volatility_state": row.get('volatility_state', ''),
+                        "momentum_state": row.get('momentum_state', ''),
+                        "confidence": float(row.get('confidence', 0.5)),
+                        "color": regime_colors.get(simplified, "#6b7280")
+                    })
+
+                return result
+
+            # FALLBACK: Compute on-the-fly (~61ms)
             # 1. Fetch candles from database
             df = storage.get_candles(symbol, timeframe)
 
@@ -268,6 +305,13 @@ def get_regime_data(symbol: str, timeframe: str):
                     "color": regime_colors.get(simplified, "#6b7280")
                 })
 
+            # Optional: Store computed regimes for next time (async)
+            # Uncomment to enable auto-caching:
+            # try:
+            #     storage.insert_regimes(symbol, timeframe, df)
+            # except Exception:
+            #     pass  # Ignore storage errors
+
             return result
 
     except HTTPException:
@@ -275,7 +319,7 @@ def get_regime_data(symbol: str, timeframe: str):
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to calculate regimes: {str(e)}"
+            detail=f"Failed to get regimes: {str(e)}"
         )
 
 if __name__ == "__main__":
