@@ -1,9 +1,13 @@
+'use client';
+
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Database, TrendingUp, Settings, BarChart3 } from "lucide-react";
+import { Database, TrendingUp, Settings, BarChart3, MessageSquare } from "lucide-react";
+import { useChatContext } from "@/components/chat";
 
 export default function HomePage() {
+  const { openSidebar } = useChatContext();
+
   return (
     <div className="min-h-screen bg-neutral-100 dark:bg-neutral-800">
       <div className="container mx-auto px-4 py-16">
@@ -16,6 +20,25 @@ export default function HomePage() {
             AI-Enhanced Cryptocurrency Trading Strategy Research Platform
           </p>
         </div>
+
+        {/* Research Agent Banner */}
+        <Card
+          onClick={openSidebar}
+          className="mb-8 cursor-pointer transition-all hover:shadow-lg bg-gradient-to-r from-blue-900/50 to-purple-900/50 border-blue-700"
+        >
+          <CardContent className="flex items-center gap-4 py-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600">
+              <MessageSquare className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-white">Research Agent</h3>
+              <p className="text-sm text-blue-200">
+                Chat with AI to design strategies, run backtests, and analyze results
+              </p>
+            </div>
+            <div className="text-blue-400 text-sm">Open Chat &rarr;</div>
+          </CardContent>
+        </Card>
 
         {/* Main Cards Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 mb-12">
@@ -34,6 +57,26 @@ export default function HomePage() {
               <CardContent>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
                   Download OHLCV data, view database statistics, and manage your data storage.
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Strategies Card */}
+          <Link href="/strategies">
+            <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-105">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Settings className="h-6 w-6 text-orange-600" />
+                  <CardTitle>Strategies</CardTitle>
+                </div>
+                <CardDescription>
+                  Browse and configure trading strategies
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  Explore built-in strategies: RSI, MACD, Bollinger Bands, and more.
                 </p>
               </CardContent>
             </Card>
@@ -74,26 +117,6 @@ export default function HomePage() {
               <CardContent>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
                   Analyze returns, Sharpe ratio, drawdowns, and detailed trade history.
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* Strategies Card */}
-          <Link href="/strategies">
-            <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-105">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Settings className="h-6 w-6 text-orange-600" />
-                  <CardTitle>Strategies</CardTitle>
-                </div>
-                <CardDescription>
-                  Browse and configure trading strategies
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Explore built-in strategies: RSI, MACD, Bollinger Bands, and more.
                 </p>
               </CardContent>
             </Card>
