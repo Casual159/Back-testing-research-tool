@@ -16,6 +16,14 @@ interface Strategy {
   strategy_type: string;
 }
 
+interface Dataset {
+  symbol: string;
+  timeframe: string;
+  candle_count: number;
+  first_candle: string;
+  last_candle: string;
+}
+
 interface Trade {
   entry_time: string;
   entry_price: number;
@@ -75,6 +83,10 @@ function BacktestPageContent() {
 
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [selectedStrategy, setSelectedStrategy] = useState(initialStrategy);
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [selectedDataset, setSelectedDataset] = useState<string>("");
+  const [showFetchDialog, setShowFetchDialog] = useState(false);
+  const [datasetSelected, setDatasetSelected] = useState(false); // Flag to skip availability check
   const [symbol, setSymbol] = useState("BTCUSDT");
   const [timeframe, setTimeframe] = useState("1h");
   const [startDate, setStartDate] = useState("2024-01-01");
@@ -116,10 +128,75 @@ function BacktestPageContent() {
     loadStrategies();
   }, [initialStrategy]);
 
+  // Load datasets on mount
+  useEffect(() => {
+    const loadDatasets = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/api/data/stats");
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+
+        if (Array.isArray(data)) {
+          setDatasets(data);
+        } else {
+          console.error("Datasets response is not an array:", data);
+          setDatasets([]);
+        }
+      } catch (err) {
+        console.error("Failed to load datasets:", err);
+        setDatasets([]);
+      }
+    };
+    loadDatasets();
+  }, []);
+
+  // Handler for dataset selection
+  const handleDatasetChange = (datasetKey: string) => {
+    setSelectedDataset(datasetKey);
+
+    if (datasetKey === "fetch-new") {
+      setShowFetchDialog(true);
+      return;
+    }
+
+    if (!datasetKey) {
+      setDatasetSelected(false);
+      return;
+    }
+
+    // Parse dataset key: "BTCUSDT|1h"
+    const [sym, tf] = datasetKey.split("|");
+    const dataset = datasets.find(d => d.symbol === sym && d.timeframe === tf);
+
+    if (dataset) {
+      // Set flag to skip automatic availability check
+      setDatasetSelected(true);
+
+      setSymbol(dataset.symbol);
+      setTimeframe(dataset.timeframe);
+
+      // Parse dates from ISO strings - handle timezone by parsing date parts directly
+      const firstDate = dataset.first_candle.split('T')[0];
+      const lastDate = dataset.last_candle.split('T')[0];
+
+      setStartDate(firstDate);
+      setEndDate(lastDate);
+      setDataAvailable(true);
+    }
+  };
+
   // Check data availability when params change
   useEffect(() => {
     const checkData = async () => {
       if (!symbol || !timeframe) return;
+
+      // Skip check if dataset was just selected from dropdown (we know it exists)
+      if (datasetSelected) {
+        setDatasetSelected(false); // Reset flag
+        return;
+      }
 
       setCheckingData(true);
       try {
@@ -141,7 +218,7 @@ function BacktestPageContent() {
 
     const debounce = setTimeout(checkData, 500);
     return () => clearTimeout(debounce);
-  }, [symbol, timeframe, startDate, endDate]);
+  }, [symbol, timeframe, startDate, endDate, datasetSelected]);
 
   const handleRunBacktest = async () => {
     if (!selectedStrategy) {
@@ -227,52 +304,35 @@ function BacktestPageContent() {
                   </select>
                 </div>
 
-                {/* Symbol */}
+                {/* Dataset Selection */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Symbol</label>
-                  <input
-                    type="text"
-                    value={symbol}
-                    onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
-                    placeholder="BTCUSDT"
-                  />
-                </div>
-
-                {/* Timeframe */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Timeframe</label>
+                  <label className="text-sm font-medium">Dataset</label>
                   <select
-                    value={timeframe}
-                    onChange={(e) => setTimeframe(e.target.value)}
+                    value={selectedDataset}
+                    onChange={(e) => handleDatasetChange(e.target.value)}
                     className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
                   >
-                    <option value="1h">1 hour</option>
-                    <option value="4h">4 hours</option>
-                    <option value="1d">1 day</option>
+                    <option value="">Select a dataset...</option>
+                    {datasets.map((ds) => {
+                      const key = `${ds.symbol}|${ds.timeframe}`;
+                      const firstDate = new Date(ds.first_candle).toISOString().split('T')[0];
+                      const lastDate = new Date(ds.last_candle).toISOString().split('T')[0];
+                      const label = `${ds.symbol} ${ds.timeframe} (${ds.candle_count} bars) ${firstDate} → ${lastDate}`;
+                      return (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      );
+                    })}
+                    <option value="fetch-new" className="font-semibold text-blue-600">
+                      + Fetch new data...
+                    </option>
                   </select>
-                </div>
-
-                {/* Date Range */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Start Date</label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">End Date</label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
-                    />
-                  </div>
+                  {selectedDataset && selectedDataset !== "fetch-new" && (
+                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                      {symbol} {timeframe}: {startDate} → {endDate}
+                    </p>
+                  )}
                 </div>
 
                 {/* Initial Capital */}
@@ -474,6 +534,42 @@ function BacktestPageContent() {
             )}
           </div>
         </div>
+
+        {/* Fetch Data Dialog */}
+        {showFetchDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <Card className="w-full max-w-md">
+              <CardHeader>
+                <CardTitle>Fetch New Data</CardTitle>
+                <CardDescription>
+                  Navigate to Data Management to fetch historical data
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  The Data Management page allows you to fetch historical price data
+                  from Binance for any symbol and timeframe.
+                </p>
+                <div className="flex gap-2">
+                  <Link href="/data" className="flex-1">
+                    <Button className="w-full">
+                      Go to Data Management
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowFetchDialog(false);
+                      setSelectedDataset("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

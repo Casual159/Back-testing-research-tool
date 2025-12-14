@@ -10,6 +10,7 @@ from typing import Optional, List
 import sys
 from pathlib import Path
 import pandas as pd
+import json
 
 # Add parent directory to path to import core modules
 sys.path.append(str(Path(__file__).parent.parent))
@@ -338,14 +339,16 @@ class StrategyResponse(BaseModel):
 
 
 class CreateStrategyRequest(BaseModel):
-    """Request model for creating a composite strategy"""
+    """Request model for creating a strategy (composite or built-in variant)"""
     name: str
     description: str = ""
-    entry_logic: dict  # LogicTree JSON
-    exit_logic: dict   # LogicTree JSON
+    builtin_class: Optional[str] = None  # For built-in strategy variants (e.g., "MovingAverageCrossover")
+    entry_logic: Optional[dict] = None  # LogicTree JSON for composite strategies
+    exit_logic: Optional[dict] = None   # LogicTree JSON for composite strategies
     parameters: Optional[dict] = None
     regime_filter: Optional[List[str]] = None
     sub_regime_filter: Optional[dict] = None
+    metadata: Optional[dict] = None  # Optional metadata override
 
 
 @app.get("/api/strategies", response_model=List[StrategyResponse])
@@ -387,7 +390,7 @@ def list_strategies():
         raise HTTPException(status_code=500, detail=f"Failed to list strategies: {str(e)}")
 
 
-@app.get("/api/strategies/{name}")
+@app.get("/api/strategies/{name:path}")
 def get_strategy(name: str):
     """
     Get detailed information about a specific strategy.
@@ -437,15 +440,99 @@ def get_strategy(name: str):
 @app.post("/api/strategies")
 def create_strategy(request: CreateStrategyRequest):
     """
-    Create a new composite strategy.
+    Create a new strategy (built-in variant or composite).
 
     Used by agent tool: create_strategy
+
+    Built-in variant example:
+        POST /api/strategies
+        {
+            "name": "MA Crossover 10/30 Fast",
+            "description": "Faster MA crossover variant",
+            "builtin_class": "MovingAverageCrossover",
+            "parameters": {"fast_period": 10, "slow_period": 30},
+            "regime_filter": ["TREND_UP", "TREND_DOWN"]
+        }
+
+    Composite strategy example:
+        POST /api/strategies
+        {
+            "name": "My Composite Strategy",
+            "description": "Custom logic-based strategy",
+            "entry_logic": {...},
+            "exit_logic": {...},
+            "regime_filter": ["TREND_UP"]
+        }
     """
-    # TODO: Implement using new strategies table
-    raise HTTPException(status_code=501, detail="Strategy creation temporarily disabled during migration to new schema")
+    try:
+        with PostgresStorage(config['database']) as storage:
+            # Check for duplicate name
+            check_query = "SELECT 1 FROM strategies WHERE name = %s"
+            storage.cursor.execute(check_query, (request.name,))
+            if storage.cursor.fetchone():
+                raise HTTPException(status_code=400, detail=f"Strategy '{request.name}' already exists")
+
+            # Determine strategy type and class name
+            if request.builtin_class:
+                # Built-in strategy variant
+                class_name = request.builtin_class
+                parameters = request.parameters or {}
+                metadata = request.metadata or {
+                    "category": "builtin-variant",
+                    "preferred_regimes": request.regime_filter or [],
+                    "risk_level": "moderate"
+                }
+            else:
+                # Composite strategy
+                class_name = "CompositeStrategy"
+                # Store entry/exit logic in parameters
+                parameters = {
+                    "entry_logic": request.entry_logic,
+                    "exit_logic": request.exit_logic,
+                    **(request.parameters or {})
+                }
+                metadata = request.metadata or {
+                    "category": "composite",
+                    "preferred_regimes": request.regime_filter or [],
+                    "risk_level": "moderate"
+                }
+
+            # Insert into strategies table
+            insert_query = """
+                INSERT INTO strategies
+                (name, class_name, description, metadata, parameters, regime_filter)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id, name, class_name
+            """
+
+            storage.cursor.execute(insert_query, (
+                request.name,
+                class_name,
+                request.description,
+                json.dumps(metadata),
+                json.dumps(parameters),
+                json.dumps(request.regime_filter) if request.regime_filter else None
+            ))
+
+            result = storage.cursor.fetchone()
+            storage.conn.commit()
+
+            return {
+                "success": True,
+                "strategy": {
+                    "id": result[0],
+                    "name": result[1],
+                    "class_name": result[2]
+                }
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create strategy: {str(e)}")
 
 
-@app.delete("/api/strategies/{name}")
+@app.delete("/api/strategies/{name:path}")
 def delete_strategy(name: str):
     """Delete a strategy from strategies table"""
     try:
@@ -592,11 +679,19 @@ def run_backtest(request: BacktestRequest):
         final_regime_filter = request.regime_filter if request.regime_filter else regime_filter
 
         # 4. Instantiate strategy from class name
-        from core.backtest.strategies.ma_crossover import MovingAverageCrossover
+        from core.backtest.strategies import (
+            MovingAverageCrossover,
+            RSIReversal,
+            MACDCross,
+            BollingerBands
+        )
 
-        # Map class names to actual classes (expand as we add more strategies)
+        # Map class names to actual classes
         STRATEGY_CLASSES = {
             'MovingAverageCrossover': MovingAverageCrossover,
+            'RSIReversal': RSIReversal,
+            'MACDCross': MACDCross,
+            'BollingerBands': BollingerBands,
         }
 
         strategy_class = STRATEGY_CLASSES.get(class_name)
@@ -740,6 +835,299 @@ def check_data_availability(symbol: str, timeframe: str, start_date: Optional[st
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to check data: {str(e)}")
+
+
+# =============================================================================
+# AGENT ENDPOINTS
+# =============================================================================
+
+class AgentChatRequest(BaseModel):
+    """Request model for agent chat"""
+    message: str
+    conversation_id: Optional[str] = None
+
+
+@app.post("/api/agent/chat")
+async def agent_chat(request: AgentChatRequest):
+    """
+    Chat with the backtesting research agent.
+
+    The agent can:
+    - Help design trading strategies
+    - Run backtests
+    - Analyze results
+    - Provide recommendations
+
+    Returns structured response with message, phase, and metadata.
+    """
+    try:
+        from uuid import UUID
+        from agent import create_agent
+
+        agent = create_agent()
+
+        conv_id = UUID(request.conversation_id) if request.conversation_id else None
+        response = await agent.chat(request.message, conv_id)
+
+        return {
+            "message": response.message,
+            "conversation_id": str(response.conversation_id),
+            "phase": response.phase.value,
+            "awaiting_confirmation": response.awaiting_confirmation,
+            "confirmation_prompt": response.confirmation_prompt,
+            "data": response.data,
+            "tool_calls": [
+                {
+                    "tool_name": tc.tool_name,
+                    "arguments": tc.arguments,
+                    "timestamp": tc.timestamp.isoformat()
+                }
+                for tc in response.tool_calls
+            ],
+            "tokens_used": response.tokens_used,
+            "cost_usd": response.cost_usd
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
+
+
+# =============================================================================
+# REPORTS ENDPOINTS
+# =============================================================================
+
+@app.get("/api/reports")
+def list_reports(limit: int = 50):
+    """List saved backtest reports."""
+    try:
+        with PostgresStorage(config['database']) as storage:
+            query = """
+                SELECT
+                    id, strategy_name, symbol, timeframe,
+                    start_date, end_date, total_return_pct,
+                    sharpe_ratio, total_trades, created_at
+                FROM backtest_reports
+                ORDER BY created_at DESC
+                LIMIT %s
+            """
+            storage.cursor.execute(query, (limit,))
+            rows = storage.cursor.fetchall()
+
+            return [
+                {
+                    "id": str(row[0]),
+                    "strategy_name": row[1],
+                    "symbol": row[2],
+                    "timeframe": row[3],
+                    "start_date": row[4].isoformat() if row[4] else None,
+                    "end_date": row[5].isoformat() if row[5] else None,
+                    "total_return_pct": float(row[6]) if row[6] else None,
+                    "sharpe_ratio": float(row[7]) if row[7] else None,
+                    "total_trades": row[8],
+                    "created_at": row[9].isoformat() if row[9] else None
+                }
+                for row in rows
+            ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list reports: {str(e)}")
+
+
+@app.get("/api/reports/{report_id}")
+def get_report(report_id: str):
+    """Get full backtest report by ID."""
+    try:
+        from uuid import UUID
+        report_uuid = UUID(report_id)
+
+        with PostgresStorage(config['database']) as storage:
+            query = """
+                SELECT *
+                FROM backtest_reports
+                WHERE id = %s
+            """
+            storage.cursor.execute(query, (report_uuid,))
+            row = storage.cursor.fetchone()
+
+            if not row:
+                raise HTTPException(status_code=404, detail=f"Report {report_id} not found")
+
+            # Get column names
+            columns = [desc[0] for desc in storage.cursor.description]
+            report = dict(zip(columns, row))
+
+            # Convert UUID and datetime fields
+            report['id'] = str(report['id'])
+            if report.get('conversation_id'):
+                report['conversation_id'] = str(report['conversation_id'])
+            if report.get('created_at'):
+                report['created_at'] = report['created_at'].isoformat()
+
+            # Convert decimal fields to float
+            decimal_fields = [
+                'initial_capital', 'total_return_pct', 'sharpe_ratio',
+                'max_drawdown_pct', 'win_rate_pct', 'profit_factor',
+                'calmar_ratio', 'sortino_ratio', 'recovery_factor',
+                'avg_trade_duration_hours', 'best_trade_pct', 'worst_trade_pct'
+            ]
+            for field in decimal_fields:
+                if report.get(field) is not None:
+                    report[field] = float(report[field])
+
+            return report
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get report: {str(e)}")
+
+
+@app.post("/api/reports")
+def save_report(request: dict):
+    """
+    Save backtest results as a persistent report.
+
+    Used by agent tool: save_report
+    """
+    try:
+        backtest_results = request.get('backtest_results', {})
+        ai_summary = request.get('ai_summary')
+        ai_recommendations = request.get('ai_recommendations', [])
+        ai_concerns = request.get('ai_concerns', [])
+        conversation_id = request.get('conversation_id')
+
+        with PostgresStorage(config['database']) as storage:
+            query = """
+                INSERT INTO backtest_reports (
+                    strategy_name, strategy_config, symbol, timeframe,
+                    start_date, end_date, initial_capital,
+                    total_return_pct, sharpe_ratio, max_drawdown_pct,
+                    win_rate_pct, total_trades, profit_factor,
+                    equity_curve, trades,
+                    ai_summary, ai_recommendations, ai_concerns,
+                    conversation_id
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
+                RETURNING id
+            """
+
+            storage.cursor.execute(query, (
+                backtest_results.get('strategy_name'),
+                json.dumps(backtest_results.get('strategy_config', {})),
+                backtest_results.get('symbol'),
+                backtest_results.get('timeframe'),
+                backtest_results.get('start_date'),
+                backtest_results.get('end_date'),
+                backtest_results.get('initial_capital', 10000),
+                backtest_results.get('total_return_pct'),
+                backtest_results.get('sharpe_ratio'),
+                backtest_results.get('max_drawdown_pct'),
+                backtest_results.get('win_rate_pct'),
+                backtest_results.get('total_trades'),
+                backtest_results.get('profit_factor'),
+                json.dumps(backtest_results.get('equity_curve', [])),
+                json.dumps(backtest_results.get('trades', [])),
+                ai_summary,
+                json.dumps(ai_recommendations),
+                json.dumps(ai_concerns),
+                conversation_id
+            ))
+
+            result = storage.cursor.fetchone()
+            storage.conn.commit()
+
+            return {
+                "success": True,
+                "report_id": str(result[0])
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save report: {str(e)}")
+
+
+# =============================================================================
+# SUGGESTIONS ENDPOINT
+# =============================================================================
+
+@app.post("/api/suggestions")
+def save_suggestion(request: dict):
+    """
+    Save an agent suggestion for tool improvement.
+
+    Used by agent tool: suggest_enhancement
+    """
+    try:
+        with PostgresStorage(config['database']) as storage:
+            query = """
+                INSERT INTO agent_suggestions (
+                    category, title, description, rationale,
+                    conversation_id
+                ) VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+            """
+
+            storage.cursor.execute(query, (
+                request.get('category'),
+                request.get('title'),
+                request.get('description'),
+                request.get('rationale'),
+                request.get('conversation_id')
+            ))
+
+            result = storage.cursor.fetchone()
+            storage.conn.commit()
+
+            return {
+                "success": True,
+                "suggestion_id": str(result[0])
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save suggestion: {str(e)}")
+
+
+@app.get("/api/suggestions")
+def list_suggestions(status: Optional[str] = None, limit: int = 50):
+    """List agent suggestions for tool improvements."""
+    try:
+        with PostgresStorage(config['database']) as storage:
+            if status:
+                query = """
+                    SELECT id, category, title, description, rationale, status, created_at
+                    FROM agent_suggestions
+                    WHERE status = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                """
+                storage.cursor.execute(query, (status, limit))
+            else:
+                query = """
+                    SELECT id, category, title, description, rationale, status, created_at
+                    FROM agent_suggestions
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                """
+                storage.cursor.execute(query, (limit,))
+
+            rows = storage.cursor.fetchall()
+
+            return [
+                {
+                    "id": str(row[0]),
+                    "category": row[1],
+                    "title": row[2],
+                    "description": row[3],
+                    "rationale": row[4],
+                    "status": row[5],
+                    "created_at": row[6].isoformat() if row[6] else None
+                }
+                for row in rows
+            ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list suggestions: {str(e)}")
 
 
 if __name__ == "__main__":
