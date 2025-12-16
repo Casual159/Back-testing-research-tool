@@ -233,6 +233,93 @@ RECOMMENDATION BY REGIME:
             },
             "required": ["name", "entry_logic", "exit_logic"]
         }
+    },
+    {
+        "name": "fetch_data",
+        "description": """Fetch historical OHLCV data from Binance and store in database.
+
+Use this when check_data shows that data is not available for the requested range.
+Data comes from Binance Public Data repository (no API limits, fast downloads).
+
+Note: Public data has ~2 day lag (today's data is available in 2 days).
+
+Returns:
+- success: true/false
+- candles_fetched: Number of candles downloaded
+- candles_inserted: Number of new candles added to database
+
+Progress will be streamed as data downloads.""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Trading pair (e.g., 'BTCUSDT', 'ETHUSDT')",
+                    "default": "BTCUSDT"
+                },
+                "timeframe": {
+                    "type": "string",
+                    "enum": ["1m", "5m", "15m", "1h", "4h", "1d"],
+                    "description": "Candle timeframe",
+                    "default": "1h"
+                },
+                "start_date": {
+                    "type": "string",
+                    "description": "Start date in ISO format (YYYY-MM-DD)"
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "End date in ISO format (YYYY-MM-DD). Defaults to 2 days ago."
+                }
+            },
+            "required": ["symbol", "timeframe", "start_date"]
+        }
+    },
+    {
+        "name": "get_data_stats",
+        "description": """Get statistics about all available data in the database.
+
+Returns list of symbol/timeframe combinations with:
+- candle_count: Number of candles stored
+- first_candle: Earliest data point
+- last_candle: Most recent data point
+
+Use this to see what data is already available for backtesting.""",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
+        "name": "get_market_regime",
+        "description": """Get current market regime classification for a symbol.
+
+Returns regime data including:
+- simplified_regime: TREND_UP, TREND_DOWN, RANGE, CHOPPY, or NEUTRAL
+- confidence: Score from 0.0 to 1.0
+
+Use this to decide which strategy type would be appropriate:
+- TREND_UP/DOWN: Use trend-following (MA Crossover, MACD Cross)
+- RANGE: Use mean-reversion (RSI Reversal, Bollinger Bands)
+- CHOPPY: Avoid trading""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Trading pair",
+                    "default": "BTCUSDT"
+                },
+                "timeframe": {
+                    "type": "string",
+                    "enum": ["1h", "4h", "1d"],
+                    "description": "Timeframe for regime detection",
+                    "default": "1h"
+                }
+            },
+            "required": []
+        }
     }
 ]
 
@@ -289,6 +376,24 @@ async def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, A
             response = await client.post(
                 f"{API_BASE_URL}/api/strategies",
                 json=arguments
+            )
+
+        elif tool_name == "fetch_data":
+            # Use regular fetch endpoint (progress streaming is handled separately)
+            response = await client.post(
+                f"{API_BASE_URL}/api/data/fetch",
+                json=arguments,
+                timeout=300.0  # 5 min timeout for large downloads
+            )
+
+        elif tool_name == "get_data_stats":
+            response = await client.get(f"{API_BASE_URL}/api/data/stats")
+
+        elif tool_name == "get_market_regime":
+            symbol = arguments.get("symbol", "BTCUSDT")
+            timeframe = arguments.get("timeframe", "1h")
+            response = await client.get(
+                f"{API_BASE_URL}/api/data/regime/{symbol}/{timeframe}"
             )
 
         else:

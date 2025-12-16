@@ -132,6 +132,107 @@ class BinanceBulkFetcher:
             logger.warning("No data fetched from public repository")
             return pd.DataFrame()
 
+    def fetch_historical_with_progress(
+        self,
+        symbol: str,
+        timeframe: str,
+        start_date: datetime,
+        end_date: Optional[datetime] = None
+    ):
+        """
+        Generator version of fetch_historical that yields progress updates.
+
+        Yields:
+            dict with either:
+            - {"type": "progress", "current": N, "total": M, "pct": 0-100}
+            - {"type": "done", "df": DataFrame, "candles": count}
+        """
+        if end_date is None:
+            end_date = self.get_public_data_cutoff()
+        else:
+            cutoff = self.get_public_data_cutoff()
+            if end_date > cutoff:
+                end_date = cutoff
+
+        all_data = []
+        days_requested = (end_date - start_date).days
+
+        # Calculate total files to download
+        if days_requested <= 31:
+            total_files = days_requested + 1
+        else:
+            # Monthly files
+            months = 0
+            current = datetime(start_date.year, start_date.month, 1)
+            end_month = datetime(end_date.year, end_date.month, 1)
+            while current < end_month:
+                months += 1
+                current += relativedelta(months=1)
+            total_files = max(months, 1)
+
+        current_file = 0
+
+        if days_requested <= 31:
+            # Short range: daily files
+            current = start_date
+            while current <= end_date:
+                date_str = current.strftime('%Y-%m-%d')
+                try:
+                    df = self._download_daily_file(symbol, timeframe, date_str)
+                    if not df.empty:
+                        all_data.append(df)
+                except Exception:
+                    pass
+
+                current_file += 1
+                yield {
+                    "type": "progress",
+                    "current": current_file,
+                    "total": total_files,
+                    "pct": min(99, int(current_file / total_files * 100))
+                }
+                current += timedelta(days=1)
+        else:
+            # Long range: monthly files
+            current = datetime(start_date.year, start_date.month, 1)
+            end_month = datetime(end_date.year, end_date.month, 1)
+
+            while current < end_month:
+                year_month = current.strftime('%Y-%m')
+                try:
+                    df = self._download_monthly_file(symbol, timeframe, year_month)
+                    if not df.empty:
+                        all_data.append(df)
+                except Exception:
+                    pass
+
+                current_file += 1
+                yield {
+                    "type": "progress",
+                    "current": current_file,
+                    "total": total_files,
+                    "pct": min(99, int(current_file / total_files * 100))
+                }
+                current += relativedelta(months=1)
+
+            # Daily files for gaps
+            daily_data = self._fetch_daily_range(symbol, timeframe, start_date, end_date)
+            if not daily_data.empty:
+                all_data.append(daily_data)
+
+        # Combine and return final result
+        if all_data:
+            combined = pd.concat(all_data, ignore_index=True)
+            combined = combined.drop_duplicates(subset=['open_time'])
+            combined = combined[
+                (combined['open_time'] >= start_date) &
+                (combined['open_time'] <= end_date)
+            ]
+            combined = combined.sort_values('open_time').reset_index(drop=True)
+            yield {"type": "done", "df": combined, "candles": len(combined)}
+        else:
+            yield {"type": "done", "df": pd.DataFrame(), "candles": 0}
+
     def _fetch_monthly_range(
         self,
         symbol: str,

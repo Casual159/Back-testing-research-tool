@@ -4,9 +4,18 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Database, TrendingUp, Settings, BarChart3, MessageSquare } from "lucide-react";
 import { useChatContext } from "@/components/chat";
+import { useEffect, useState } from "react";
 
 export default function HomePage() {
   const { openSidebar } = useChatContext();
+  const [strategyCount, setStrategyCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/strategies')
+      .then(res => res.json())
+      .then(data => setStrategyCount(Array.isArray(data) ? data.length : 0))
+      .catch(() => setStrategyCount(null));
+  }, []);
 
   return (
     <div className="min-h-screen bg-neutral-100 dark:bg-neutral-800">
@@ -135,9 +144,11 @@ export default function HomePage() {
                 <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                   Available Strategies
                 </div>
-                <div className="mt-2 text-3xl font-bold">5</div>
+                <div className="mt-2 text-3xl font-bold">
+                  {strategyCount !== null ? strategyCount : '...'}
+                </div>
                 <p className="mt-1 text-xs text-neutral-500">
-                  RSI, MACD, Bollinger Bands, MA Crossover
+                  Built-in + custom strategies
                 </p>
               </div>
               <div className="rounded-lg border p-4">

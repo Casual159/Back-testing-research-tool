@@ -69,11 +69,82 @@ function getSharpeColor(value: number | null): string {
   return 'text-red-400';
 }
 
+interface Filters {
+  symbol: string;
+  timeframe: string;
+  strategy: string;
+  period: string;
+}
+
 export default function ResultsPage() {
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [selectedReport, setSelectedReport] = useState<ReportDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>({
+    symbol: '',
+    timeframe: '',
+    strategy: '',
+    period: '',
+  });
+
+  // Extract unique values for filter options
+  const uniqueSymbols = [...new Set(reports.map(r => r.symbol))].sort();
+  const uniqueTimeframes = [...new Set(reports.map(r => r.timeframe))].sort();
+  const uniqueStrategies = [...new Set(reports.map(r => r.strategy_name))].sort();
+  const uniquePeriods = [...new Set(reports.map(r => `${r.start_date}|${r.end_date}`))].sort();
+
+  // Apply filters
+  const filteredReports = reports.filter(report => {
+    if (filters.symbol && report.symbol !== filters.symbol) return false;
+    if (filters.timeframe && report.timeframe !== filters.timeframe) return false;
+    if (filters.strategy && report.strategy_name !== filters.strategy) return false;
+    if (filters.period) {
+      const reportPeriod = `${report.start_date}|${report.end_date}`;
+      if (reportPeriod !== filters.period) return false;
+    }
+    return true;
+  });
+
+  const activeFiltersCount = Object.values(filters).filter(Boolean).length;
+
+  const clearFilters = () => {
+    setFilters({ symbol: '', timeframe: '', strategy: '', period: '' });
+  };
+
+  const FilterSelect = ({
+    label,
+    value,
+    options,
+    onChange,
+    formatOption
+  }: {
+    label: string;
+    value: string;
+    options: string[];
+    onChange: (val: string) => void;
+    formatOption?: (opt: string) => string;
+  }) => (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`px-2 py-1 text-xs rounded border transition-colors bg-gray-900 ${
+        value ? 'border-blue-500 text-white' : 'border-gray-700 text-gray-400'
+      }`}
+    >
+      <option value="">{label}</option>
+      {options.map(opt => (
+        <option key={opt} value={opt}>
+          {formatOption ? formatOption(opt) : opt}
+        </option>
+      ))}
+    </select>
+  );
+
+  const formatPeriodOption = (period: string) => {
+    const [start, end] = period.split('|');
+    return `${formatDate(start)} - ${formatDate(end)}`;
+  };
 
   useEffect(() => {
     fetchReports();
@@ -153,44 +224,82 @@ export default function ResultsPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Reports list */}
-            <div className="lg:col-span-1 space-y-3">
-              <h2 className="text-sm font-medium text-gray-400 mb-3">
-                {reports.length} Reports
-              </h2>
-              {reports.map((report) => (
+          <div className="space-y-6">
+            {/* Filters bar */}
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-900 rounded-lg p-4 border border-gray-800">
+              <div className="flex flex-wrap items-center gap-2">
+                <FilterSelect
+                  label="Ticker"
+                  value={filters.symbol}
+                  options={uniqueSymbols}
+                  onChange={(val) => setFilters(f => ({ ...f, symbol: val }))}
+                />
+                <FilterSelect
+                  label="Timeframe"
+                  value={filters.timeframe}
+                  options={uniqueTimeframes}
+                  onChange={(val) => setFilters(f => ({ ...f, timeframe: val }))}
+                />
+                <FilterSelect
+                  label="Strategy"
+                  value={filters.strategy}
+                  options={uniqueStrategies}
+                  onChange={(val) => setFilters(f => ({ ...f, strategy: val }))}
+                />
+                <FilterSelect
+                  label="Period"
+                  value={filters.period}
+                  options={uniquePeriods}
+                  onChange={(val) => setFilters(f => ({ ...f, period: val }))}
+                  formatOption={formatPeriodOption}
+                />
+                {activeFiltersCount > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="px-2 py-1 text-xs text-gray-400 hover:text-white"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <span className="text-sm text-gray-400">
+                {filteredReports.length} / {reports.length}
+              </span>
+            </div>
+
+            {/* Reports grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredReports.map((report) => (
                 <button
                   key={report.id}
                   onClick={() => fetchReportDetail(report.id)}
-                  className={`w-full text-left p-4 rounded-lg border transition-colors ${
+                  className={`text-left p-4 rounded-lg border transition-colors ${
                     selectedReport?.id === report.id
                       ? 'bg-gray-800 border-blue-500'
                       : 'bg-gray-900 border-gray-800 hover:border-gray-700'
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <span className="font-medium truncate">{report.strategy_name}</span>
-                    <span className={`text-sm ${getReturnColor(report.total_return_pct)}`}>
+                    <span className="font-medium truncate text-sm">{report.strategy_name}</span>
+                    <span className={`text-sm font-semibold ${getReturnColor(report.total_return_pct)}`}>
                       {formatPercent(report.total_return_pct)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <span>{report.symbol}</span>
+                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                    <span className="font-medium">{report.symbol}</span>
                     <span>&bull;</span>
                     <span>{report.timeframe}</span>
-                    <span>&bull;</span>
-                    <span>{report.total_trades} trades</span>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {formatDate(report.created_at)}
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>{report.total_trades} trades</span>
+                    <span>{formatDate(report.created_at)}</span>
                   </div>
                 </button>
               ))}
             </div>
 
             {/* Report detail */}
-            <div className="lg:col-span-2">
+            <div>
               {selectedReport ? (
                 <div className="space-y-6">
                   {/* Header */}

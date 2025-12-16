@@ -121,8 +121,10 @@ export function ChatSidebar() {
                   role={message.role}
                   content={message.content}
                   toolCalls={message.toolCalls}
+                  activeTools={message.activeTools}
                   phase={message.phase}
                   timestamp={message.timestamp}
+                  isStreaming={message.isStreaming}
                 />
               ))}
 
@@ -134,20 +136,6 @@ export function ChatSidebar() {
                   onCancel={handleCancel}
                   disabled={isLoading}
                 />
-              )}
-
-              {/* Loading indicator */}
-              {isLoading && (
-                <div className="flex items-center gap-3 p-4">
-                  <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs">
-                    AI
-                  </div>
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
               )}
 
               <div ref={messagesEndRef} />

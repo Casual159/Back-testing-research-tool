@@ -4,6 +4,7 @@ Provides REST API endpoints for the Next.js frontend
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List
@@ -98,6 +99,58 @@ def get_data_stats() -> List[DataStatsResponse]:
             return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+
+@app.post("/api/data/fetch/stream")
+async def fetch_data_stream(request: DataFetchRequest):
+    """
+    Streaming version of fetch_data that emits progress events via SSE.
+
+    Events:
+    - {"type": "progress", "pct": 0-100, "current": N, "total": M}
+    - {"type": "done", "candles_fetched": N, "candles_inserted": M}
+    - {"type": "error", "message": "..."}
+    """
+    async def event_generator():
+        try:
+            start_date = datetime.fromisoformat(request.start_date)
+            end_date = datetime.fromisoformat(request.end_date) if request.end_date else None
+
+            fetcher = BinanceBulkFetcher()
+            final_df = None
+
+            for event in fetcher.fetch_historical_with_progress(
+                symbol=request.symbol,
+                timeframe=request.timeframe,
+                start_date=start_date,
+                end_date=end_date
+            ):
+                if event["type"] == "progress":
+                    yield f"data: {json.dumps(event)}\n\n"
+                elif event["type"] == "done":
+                    final_df = event["df"]
+
+            # Store in PostgreSQL
+            inserted = 0
+            if final_df is not None and not final_df.empty:
+                with PostgresStorage(config['database']) as storage:
+                    storage.create_tables()
+                    inserted = storage.insert_candles(final_df, request.symbol, request.timeframe)
+
+            yield f"data: {json.dumps({'type': 'done', 'success': True, 'candles_fetched': len(final_df) if final_df is not None else 0, 'candles_inserted': inserted})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
 
 @app.post("/api/data/fetch")
 def fetch_data(request: DataFetchRequest) -> DataFetchResponse:
@@ -611,6 +664,9 @@ class BacktestResponse(BaseModel):
     # Regime statistics
     regime_stats: Optional[dict] = None
 
+    # Auto-saved report ID
+    report_id: Optional[str] = None
+
 
 @app.post("/api/backtest", response_model=BacktestResponse)
 def run_backtest(request: BacktestRequest):
@@ -727,49 +783,103 @@ def run_backtest(request: BacktestRequest):
         if hasattr(strategy, 'get_regime_stats'):
             regime_stats = strategy.get_regime_stats()
 
-        # 7. Format response
+        # 7. Format response data
         # Get actual date range from data
         actual_start = df.index[0] if hasattr(df.index[0], 'isoformat') else df.iloc[0]['open_time']
         actual_end = df.index[-1] if hasattr(df.index[-1], 'isoformat') else df.iloc[-1]['open_time']
 
+        start_date_str = actual_start.isoformat() if hasattr(actual_start, 'isoformat') else str(actual_start)
+        end_date_str = actual_end.isoformat() if hasattr(actual_end, 'isoformat') else str(actual_end)
+
+        # Format metrics
+        total_return_pct = round(results['metrics'].get('total_return', 0), 4)
+        sharpe_ratio = round(results['metrics'].get('sharpe_ratio', 0), 4)
+        max_drawdown_pct = round(results['metrics'].get('max_drawdown', 0), 4)
+        win_rate_pct = round(results['metrics'].get('win_rate', 0), 2)
+        total_trades = results['metrics'].get('total_trades', 0)
+        profit_factor = round(results['metrics'].get('profit_factor', 0), 4)
+
+        # Format equity curve
+        equity_curve = [
+            {"time": ts.isoformat() if hasattr(ts, 'isoformat') else str(ts), "value": round(val, 2)}
+            for ts, val in results['equity_curve']
+        ]
+
+        # Format trades
+        trades_list = [
+            TradeResult(
+                entry_time=t.entry_time.isoformat() if hasattr(t.entry_time, 'isoformat') else str(t.entry_time),
+                exit_time=t.exit_time.isoformat() if hasattr(t.exit_time, 'isoformat') else str(t.exit_time),
+                entry_price=round(t.entry_price, 2),
+                exit_price=round(t.exit_price, 2),
+                pnl=round(t.pnl, 2),
+                pnl_pct=round(t.return_pct, 4),
+                duration_hours=round(t.duration.total_seconds() / 3600, 2) if hasattr(t.duration, 'total_seconds') else 0
+            )
+            for t in results['trades']
+        ]
+
+        # 8. Auto-save report to database
+        report_id = None
+        try:
+            with PostgresStorage(config['database']) as storage:
+                query = """
+                    INSERT INTO backtest_reports (
+                        strategy_name, strategy_config, symbol, timeframe,
+                        start_date, end_date, initial_capital,
+                        total_return_pct, sharpe_ratio, max_drawdown_pct,
+                        win_rate_pct, total_trades, profit_factor,
+                        equity_curve, trades, regime_performance
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    )
+                    RETURNING id
+                """
+
+                storage.cursor.execute(query, (
+                    request.strategy_name,
+                    json.dumps(final_params),
+                    request.symbol,
+                    request.timeframe,
+                    start_date_str[:10],  # Just date part
+                    end_date_str[:10],
+                    request.initial_capital,
+                    total_return_pct,
+                    sharpe_ratio,
+                    max_drawdown_pct,
+                    win_rate_pct,
+                    total_trades,
+                    profit_factor,
+                    json.dumps(equity_curve),
+                    json.dumps([t.model_dump() for t in trades_list]),
+                    json.dumps(regime_stats) if regime_stats else None
+                ))
+
+                result = storage.cursor.fetchone()
+                storage.conn.commit()
+                report_id = str(result[0])
+        except Exception as save_err:
+            # Log but don't fail the backtest if saving fails
+            print(f"Warning: Failed to auto-save report: {save_err}")
+
+        # 9. Return response
         return BacktestResponse(
             success=True,
             strategy_name=request.strategy_name,
             symbol=request.symbol,
             timeframe=request.timeframe,
-            start_date=actual_start.isoformat() if hasattr(actual_start, 'isoformat') else str(actual_start),
-            end_date=actual_end.isoformat() if hasattr(actual_end, 'isoformat') else str(actual_end),
-
-            # Metrics
-            total_return_pct=round(results['metrics'].get('total_return', 0), 4),
-            sharpe_ratio=round(results['metrics'].get('sharpe_ratio', 0), 4),
-            max_drawdown_pct=round(results['metrics'].get('max_drawdown', 0), 4),
-            win_rate_pct=round(results['metrics'].get('win_rate', 0), 2),
-            total_trades=results['metrics'].get('total_trades', 0),
-            profit_factor=round(results['metrics'].get('profit_factor', 0), 4),
-
-            # Equity curve for visualization
-            equity_curve=[
-                {"time": ts.isoformat() if hasattr(ts, 'isoformat') else str(ts), "value": round(val, 2)}
-                for ts, val in results['equity_curve']
-            ],
-
-            # Trades for analysis
-            trades=[
-                TradeResult(
-                    entry_time=t.entry_time.isoformat() if hasattr(t.entry_time, 'isoformat') else str(t.entry_time),
-                    exit_time=t.exit_time.isoformat() if hasattr(t.exit_time, 'isoformat') else str(t.exit_time),
-                    entry_price=round(t.entry_price, 2),
-                    exit_price=round(t.exit_price, 2),
-                    pnl=round(t.pnl, 2),
-                    pnl_pct=round(t.return_pct, 4),
-                    duration_hours=round(t.duration.total_seconds() / 3600, 2) if hasattr(t.duration, 'total_seconds') else 0
-                )
-                for t in results['trades']
-            ],
-
-            # Regime stats
-            regime_stats=regime_stats
+            start_date=start_date_str,
+            end_date=end_date_str,
+            total_return_pct=total_return_pct,
+            sharpe_ratio=sharpe_ratio,
+            max_drawdown_pct=max_drawdown_pct,
+            win_rate_pct=win_rate_pct,
+            total_trades=total_trades,
+            profit_factor=profit_factor,
+            equity_curve=equity_curve,
+            trades=trades_list,
+            regime_stats=regime_stats,
+            report_id=report_id
         )
 
     except HTTPException:
@@ -896,6 +1006,47 @@ async def agent_chat(request: AgentChatRequest):
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
 
 
+@app.post("/api/agent/chat/stream")
+async def agent_chat_stream(request: AgentChatRequest):
+    """
+    Chat with the backtesting research agent using Server-Sent Events (SSE).
+
+    Streams events as they happen:
+    - text_delta: Partial text as it's generated
+    - tool_start: When agent starts using a tool
+    - tool_result: When tool execution completes
+    - done: Final metadata (conversation_id, tokens, cost)
+    - error: If something goes wrong
+
+    This provides real-time visibility into agent's progress.
+    """
+    from uuid import UUID
+    from agent import create_agent
+
+    agent = create_agent()
+    conv_id = UUID(request.conversation_id) if request.conversation_id else None
+
+    async def event_generator():
+        try:
+            async for event in agent.chat_stream(request.message, conv_id):
+                # Format as SSE
+                yield f"data: {json.dumps(event, default=str)}\n\n"
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        }
+    )
+
+
 # =============================================================================
 # REPORTS ENDPOINTS
 # =============================================================================
@@ -941,7 +1092,8 @@ def get_report(report_id: str):
     """Get full backtest report by ID."""
     try:
         from uuid import UUID
-        report_uuid = UUID(report_id)
+        # Validate UUID format
+        UUID(report_id)
 
         with PostgresStorage(config['database']) as storage:
             query = """
@@ -949,7 +1101,7 @@ def get_report(report_id: str):
                 FROM backtest_reports
                 WHERE id = %s
             """
-            storage.cursor.execute(query, (report_uuid,))
+            storage.cursor.execute(query, (report_id,))
             row = storage.cursor.fetchone()
 
             if not row:
@@ -996,9 +1148,10 @@ def save_report(request: dict):
         ai_summary = request.get('ai_summary')
         ai_recommendations = request.get('ai_recommendations', [])
         ai_concerns = request.get('ai_concerns', [])
-        conversation_id = request.get('conversation_id')
 
         with PostgresStorage(config['database']) as storage:
+            # Note: conversation_id is not included because conversations
+            # are stored in-memory, not in DB. FK constraint would fail.
             query = """
                 INSERT INTO backtest_reports (
                     strategy_name, strategy_config, symbol, timeframe,
@@ -1006,10 +1159,9 @@ def save_report(request: dict):
                     total_return_pct, sharpe_ratio, max_drawdown_pct,
                     win_rate_pct, total_trades, profit_factor,
                     equity_curve, trades,
-                    ai_summary, ai_recommendations, ai_concerns,
-                    conversation_id
+                    ai_summary, ai_recommendations, ai_concerns
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 RETURNING id
             """
@@ -1032,8 +1184,7 @@ def save_report(request: dict):
                 json.dumps(backtest_results.get('trades', [])),
                 ai_summary,
                 json.dumps(ai_recommendations),
-                json.dumps(ai_concerns),
-                conversation_id
+                json.dumps(ai_concerns)
             ))
 
             result = storage.cursor.fetchone()
