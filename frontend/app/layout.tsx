@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ChatProvider, ChatSidebar, ChatToggleButton } from "@/components/chat";
+import { ChatProvider, ChatSidebar, ChatToggleButton, MainContent } from "@/components/chat";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,7 +29,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ChatProvider>
-          {children}
+          <MainContent>{children}</MainContent>
           <ChatSidebar />
           <ChatToggleButton />
         </ChatProvider>

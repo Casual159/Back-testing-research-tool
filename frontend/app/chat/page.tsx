@@ -3,18 +3,20 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { ChatMessage, ChatInput, ConfirmationCard } from '@/components/chat';
+import { MessageBlock, TextBlock, ToolBlock } from '@/components/chat/ChatProvider';
 
 interface ToolCall {
   tool_name: string;
   arguments: Record<string, unknown>;
   timestamp: string;
+  result?: Record<string, unknown>;
+  success?: boolean;
 }
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
-  content: string;
-  toolCalls?: ToolCall[];
+  blocks: MessageBlock[];
   phase?: string;
   timestamp: Date;
 }
@@ -54,7 +56,7 @@ export default function ChatPage() {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content,
+      blocks: [{ type: 'text', content }],
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMessage]);
@@ -83,12 +85,33 @@ export default function ChatPage() {
       setTotalCost((prev) => prev + data.cost_usd);
       setTotalTokens((prev) => prev + data.tokens_used);
 
+      // Build blocks from response - tool calls first, then text
+      const blocks: MessageBlock[] = [];
+
+      // Add tool call blocks
+      if (data.tool_calls && data.tool_calls.length > 0) {
+        for (const tc of data.tool_calls) {
+          blocks.push({
+            type: 'tool',
+            id: `tool-${tc.timestamp}`,
+            name: tc.tool_name,
+            args: tc.arguments,
+            status: tc.success === false ? 'error' : 'completed',
+            result: tc.result,
+          } as ToolBlock);
+        }
+      }
+
+      // Add text block
+      if (data.message) {
+        blocks.push({ type: 'text', content: data.message });
+      }
+
       // Add assistant message
       const assistantMessage: Message = {
         id: Date.now().toString() + '-assistant',
         role: 'assistant',
-        content: data.message,
-        toolCalls: data.tool_calls,
+        blocks,
         phase: data.phase,
         timestamp: new Date(),
       };
@@ -104,7 +127,10 @@ export default function ChatPage() {
       const errorMessage: Message = {
         id: Date.now().toString() + '-error',
         role: 'assistant',
-        content: `Error: ${error instanceof Error ? error.message : 'Failed to send message'}. Make sure the API server is running.`,
+        blocks: [{
+          type: 'text',
+          content: `Error: ${error instanceof Error ? error.message : 'Failed to send message'}. Make sure the API server is running.`,
+        }],
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -210,9 +236,7 @@ export default function ChatPage() {
                 <ChatMessage
                   key={message.id}
                   role={message.role}
-                  content={message.content}
-                  toolCalls={message.toolCalls}
-                  phase={message.phase}
+                  blocks={message.blocks}
                   timestamp={message.timestamp}
                 />
               ))}

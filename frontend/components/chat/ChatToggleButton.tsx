@@ -10,8 +10,8 @@ export function ChatToggleButton() {
       onClick={toggleSidebar}
       className={`fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 ${
         isOpen
-          ? 'bg-gray-700 hover:bg-gray-600'
-          : 'bg-blue-600 hover:bg-blue-700'
+          ? 'bg-neutral-700 hover:bg-neutral-600'
+          : 'bg-gradient-to-br from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500'
       }`}
       title={isOpen ? 'Close chat' : 'Open research agent'}
     >

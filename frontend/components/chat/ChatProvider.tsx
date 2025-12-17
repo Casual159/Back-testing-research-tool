@@ -2,15 +2,18 @@
 
 import { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
 
-interface ToolCall {
-  tool_name: string;
-  arguments: Record<string, unknown>;
-  timestamp: string;
-  result?: Record<string, unknown>;
-  success?: boolean;
+// =============================================================================
+// Types - Block-based message structure
+// =============================================================================
+
+export interface TextBlock {
+  type: 'text';
+  content: string;
 }
 
-interface ActiveTool {
+export interface ToolBlock {
+  type: 'tool';
+  id: string;
   name: string;
   args: Record<string, unknown>;
   status: 'running' | 'completed' | 'error';
@@ -22,15 +25,15 @@ interface ActiveTool {
   };
 }
 
-interface Message {
+export type MessageBlock = TextBlock | ToolBlock;
+
+export interface Message {
   id: string;
   role: 'user' | 'assistant';
-  content: string;
-  toolCalls?: ToolCall[];
-  activeTools?: ActiveTool[];
-  phase?: string;
+  blocks: MessageBlock[];
   timestamp: Date;
   isStreaming?: boolean;
+  phase?: string;
 }
 
 // Streaming event types from backend
@@ -49,7 +52,6 @@ interface StreamEvent {
   tokens_used?: number;
   cost_usd?: number;
   message?: string;
-  data?: Record<string, unknown>;
   // Progress fields
   current?: number;
   total?: number;
@@ -66,7 +68,6 @@ interface ChatContextType {
   currentPhase: string;
   totalCost: number;
   totalTokens: number;
-  activeTools: ActiveTool[];
   sendMessage: (content: string) => Promise<void>;
   handleConfirm: () => void;
   handleCancel: () => void;
@@ -100,25 +101,25 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const [currentPhase, setCurrentPhase] = useState<string>('CONVERSATION');
   const [totalCost, setTotalCost] = useState(0);
   const [totalTokens, setTotalTokens] = useState(0);
-  const [activeTools, setActiveTools] = useState<ActiveTool[]>([]);
 
   // Ref to track the current assistant message ID during streaming
   const streamingMessageIdRef = useRef<string | null>(null);
+  // Counter for unique tool IDs
+  const toolIdCounterRef = useRef(0);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isLoading) return;
 
-    // Add user message
+    // Add user message with blocks structure
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content,
+      blocks: [{ type: 'text', content }],
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
     setAwaitingConfirmation(false);
-    setActiveTools([]);
 
     // Create placeholder assistant message for streaming
     const assistantId = Date.now().toString() + '-assistant';
@@ -127,8 +128,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
     const assistantMessage: Message = {
       id: assistantId,
       role: 'assistant',
-      content: '',
-      activeTools: [],
+      blocks: [],
       timestamp: new Date(),
       isStreaming: true,
     };
@@ -155,8 +155,6 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
       const decoder = new TextDecoder();
       let buffer = '';
-      const currentActiveTools: ActiveTool[] = [];
-      const completedToolCalls: ToolCall[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -166,7 +164,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
         // Parse SSE events from buffer
         const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
@@ -183,102 +181,104 @@ export function ChatProvider({ children }: ChatProviderProps) {
                 case 'text_delta':
                   if (event.delta) {
                     setMessages((prev) =>
-                      prev.map((m) =>
-                        m.id === assistantId
-                          ? { ...m, content: m.content + event.delta }
-                          : m
-                      )
+                      prev.map((m) => {
+                        if (m.id !== assistantId) return m;
+
+                        const blocks = [...m.blocks];
+                        const lastBlock = blocks[blocks.length - 1];
+
+                        // If last block is text, append to it
+                        if (lastBlock?.type === 'text') {
+                          blocks[blocks.length - 1] = {
+                            ...lastBlock,
+                            content: lastBlock.content + event.delta,
+                          };
+                        } else {
+                          // Otherwise create new text block
+                          blocks.push({ type: 'text', content: event.delta! });
+                        }
+
+                        return { ...m, blocks };
+                      })
                     );
                   }
                   break;
 
                 case 'tool_start':
                   if (event.tool) {
-                    const newTool: ActiveTool = {
+                    const toolId = `tool-${++toolIdCounterRef.current}`;
+                    const toolBlock: ToolBlock = {
+                      type: 'tool',
+                      id: toolId,
                       name: event.tool,
                       args: event.args || {},
                       status: 'running',
                     };
-                    currentActiveTools.push(newTool);
-                    setActiveTools([...currentActiveTools]);
 
-                    // Update message with active tools
                     setMessages((prev) =>
-                      prev.map((m) =>
-                        m.id === assistantId
-                          ? { ...m, activeTools: [...currentActiveTools] }
-                          : m
-                      )
+                      prev.map((m) => {
+                        if (m.id !== assistantId) return m;
+                        return { ...m, blocks: [...m.blocks, toolBlock] };
+                      })
                     );
                   }
                   break;
 
                 case 'tool_result':
                   if (event.tool) {
-                    // Update the tool status
-                    const toolIndex = currentActiveTools.findIndex(
-                      (t) => t.name === event.tool && t.status === 'running'
+                    setMessages((prev) =>
+                      prev.map((m) => {
+                        if (m.id !== assistantId) return m;
+
+                        const blocks = m.blocks.map((block) => {
+                          if (
+                            block.type === 'tool' &&
+                            block.name === event.tool &&
+                            block.status === 'running'
+                          ) {
+                            return {
+                              ...block,
+                              status: event.success ? 'completed' : 'error',
+                              result: event.result,
+                              progress: undefined,
+                            } as ToolBlock;
+                          }
+                          return block;
+                        });
+
+                        return { ...m, blocks };
+                      })
                     );
-                    if (toolIndex !== -1) {
-                      currentActiveTools[toolIndex] = {
-                        ...currentActiveTools[toolIndex],
-                        status: event.success ? 'completed' : 'error',
-                        result: event.result,
-                        progress: undefined, // Clear progress when done
-                      };
-                      setActiveTools([...currentActiveTools]);
-
-                      // Add to completed tool calls
-                      completedToolCalls.push({
-                        tool_name: event.tool,
-                        arguments: currentActiveTools[toolIndex].args,
-                        timestamp: new Date().toISOString(),
-                        result: event.result,
-                        success: event.success,
-                      });
-
-                      // Update message
-                      setMessages((prev) =>
-                        prev.map((m) =>
-                          m.id === assistantId
-                            ? {
-                                ...m,
-                                activeTools: [...currentActiveTools],
-                                toolCalls: [...completedToolCalls],
-                              }
-                            : m
-                        )
-                      );
-                    }
                   }
                   break;
 
                 case 'tool_progress':
                   if (event.tool) {
-                    // Update the tool with progress info
-                    const progressToolIndex = currentActiveTools.findIndex(
-                      (t) => t.name === event.tool && t.status === 'running'
-                    );
-                    if (progressToolIndex !== -1) {
-                      currentActiveTools[progressToolIndex] = {
-                        ...currentActiveTools[progressToolIndex],
-                        progress: {
-                          current: event.current || 0,
-                          total: event.total || 1,
-                          pct: event.pct || 0,
-                        },
-                      };
-                      setActiveTools([...currentActiveTools]);
+                    setMessages((prev) =>
+                      prev.map((m) => {
+                        if (m.id !== assistantId) return m;
 
-                      // Update message
-                      setMessages((prev) =>
-                        prev.map((m) =>
-                          m.id === assistantId
-                            ? { ...m, activeTools: [...currentActiveTools] }
-                            : m
-                        )
-                      );
-                    }
+                        const blocks = m.blocks.map((block) => {
+                          if (
+                            block.type === 'tool' &&
+                            block.name === event.tool &&
+                            block.status === 'running'
+                          ) {
+                            return {
+                              ...block,
+                              progress: {
+                                current: event.current || 0,
+                                total: event.total || 1,
+                                pct: event.pct || 0,
+                              },
+                            } as ToolBlock;
+                          }
+                          return block;
+                        });
+
+                        return { ...m, blocks };
+                      })
+                    );
                   }
                   break;
 
@@ -305,7 +305,6 @@ export function ChatProvider({ children }: ChatProviderProps) {
                             ...m,
                             isStreaming: false,
                             phase: event.phase,
-                            toolCalls: completedToolCalls,
                           }
                         : m
                     )
@@ -326,21 +325,33 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
       // Update the streaming message with error
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId
-            ? {
-                ...m,
-                content:
-                  m.content ||
-                  `Error: ${error instanceof Error ? error.message : 'Failed to send message'}. Make sure the API server is running.`,
-                isStreaming: false,
-              }
-            : m
-        )
+        prev.map((m) => {
+          if (m.id !== assistantId) return m;
+
+          const errorText =
+            error instanceof Error ? error.message : 'Failed to send message';
+          const hasContent = m.blocks.some(
+            (b) => b.type === 'text' && b.content.trim()
+          );
+
+          if (hasContent) {
+            return { ...m, isStreaming: false };
+          }
+
+          return {
+            ...m,
+            blocks: [
+              {
+                type: 'text',
+                content: `Error: ${errorText}. Make sure the API server is running.`,
+              },
+            ],
+            isStreaming: false,
+          };
+        })
       );
     } finally {
       setIsLoading(false);
-      setActiveTools([]);
       streamingMessageIdRef.current = null;
     }
   }, [conversationId, isLoading]);
@@ -361,7 +372,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
     setConfirmationPrompt(null);
     setTotalCost(0);
     setTotalTokens(0);
-    setActiveTools([]);
+    toolIdCounterRef.current = 0;
   }, []);
 
   const toggleSidebar = useCallback(() => {
@@ -388,7 +399,6 @@ export function ChatProvider({ children }: ChatProviderProps) {
         currentPhase,
         totalCost,
         totalTokens,
-        activeTools,
         sendMessage,
         handleConfirm,
         handleCancel,
