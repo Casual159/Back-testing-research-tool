@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 import anthropic
 import httpx
 
-from .prompts import SYSTEM_PROMPT
+from .prompts import get_system_prompt
 from .protocols import AgentProtocol
 from .schemas import (
     AgentChatResponse,
@@ -596,7 +596,7 @@ class BacktestingAgent(AgentProtocol):
                 async with self.async_client.messages.stream(
                     model=self.model,
                     max_tokens=4096,
-                    system=SYSTEM_PROMPT,
+                    system=get_system_prompt(),
                     tools=TOOLS,
                     messages=claude_messages
                 ) as stream:
@@ -982,7 +982,7 @@ class BacktestingAgent(AgentProtocol):
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=4096,
-                system=SYSTEM_PROMPT,
+                system=get_system_prompt(),
                 tools=TOOLS,
                 messages=claude_messages
             )

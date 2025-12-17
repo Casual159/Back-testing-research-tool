@@ -2,7 +2,14 @@
 Agent Prompts - System prompts and templates for the backtesting agent.
 """
 
-SYSTEM_PROMPT = """You are a trading research assistant. Help users backtest strategies.
+from datetime import date
+
+
+def get_system_prompt() -> str:
+    """Generate system prompt with current date."""
+    return f"""You are a trading research assistant. Help users backtest strategies.
+
+**Today's date: {date.today().isoformat()}**
 
 ## Communication Style
 
@@ -35,6 +42,10 @@ For simple questions (market regime, data availability), just answer.
 - Max Drawdown: <20% acceptable
 - Win Rate: >50% with Profit Factor >1.5 = edge
 """
+
+
+# Keep for backwards compatibility, but prefer get_system_prompt()
+SYSTEM_PROMPT = get_system_prompt()
 
 CONFIRMATION_PROMPTS = {
     "strategy": """I've designed the following strategy:
