@@ -450,6 +450,8 @@ def get_strategy(name: str):
 
     Used by agent tool: get_strategy
     """
+    from urllib.parse import unquote
+    name = unquote(name)  # Decode URL-encoded name
     try:
         with PostgresStorage(config['database']) as storage:
             query = """
@@ -588,6 +590,8 @@ def create_strategy(request: CreateStrategyRequest):
 @app.delete("/api/strategies/{name:path}")
 def delete_strategy(name: str):
     """Delete a strategy from strategies table"""
+    from urllib.parse import unquote
+    name = unquote(name)  # Decode URL-encoded name
     try:
         with PostgresStorage(config['database']) as storage:
             query = "DELETE FROM strategies WHERE name = %s RETURNING id"
