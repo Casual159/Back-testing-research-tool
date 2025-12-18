@@ -1,53 +1,76 @@
 # Backtesting Research Tool
 
-**Cryptocurrency Trading Strategy Research Platform**
+**AI-Powered Cryptocurrency Trading Strategy Research Platform**
+
+A comprehensive platform for researching, backtesting, and analyzing trading strategies with an integrated AI research agent.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│         Frontend (Next.js + React)              │
-│         http://localhost:3000                   │
-│  - Interactive charts (Plotly.js)               │
-│  - Data management UI                           │
-└──────────────────┬──────────────────────────────┘
-                   │ REST API
-┌──────────────────▼──────────────────────────────┐
-│         Backend (FastAPI)                       │
-│         http://localhost:8000                   │
-│  - Data fetch endpoints                         │
-│  - Chart data API                               │
-└──────────────────┬──────────────────────────────┘
-                   │ Python imports
-┌──────────────────▼──────────────────────────────┐
-│         Core Data Layer                         │
-│  - BinanceBulkFetcher (data.binance.vision)     │
-│  - PostgresStorage (candles table)              │
-└──────────────────┬──────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────┐
-│         PostgreSQL Database                     │
-│  - Historical OHLCV data                        │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│              Frontend (Next.js + React)                 │
+│              http://localhost:3000                      │
+│  - AI Chat Interface (research agent)                   │
+│  - Strategy Management                                  │
+│  - Backtest Results & Reports                           │
+│  - Interactive Candlestick Charts                       │
+└────────────────────────┬────────────────────────────────┘
+                         │ REST API + Streaming
+┌────────────────────────▼────────────────────────────────┐
+│              Backend (FastAPI)                          │
+│              http://localhost:8000                      │
+│  - AI Agent with Claude (tool-calling)                  │
+│  - Backtest Engine                                      │
+│  - Strategy CRUD                                        │
+│  - Market Regime Detection                              │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│              Core Engine                                │
+│  - Event-driven Backtesting                             │
+│  - Technical Indicators (RSI, MACD, BB, MA, ATR)        │
+│  - Market Regime Classification                         │
+│  - Composable Strategy Framework                        │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
+│              PostgreSQL Database                        │
+│  - OHLCV candles, strategies, backtest_reports          │
+│  - market_regimes, conversations, suggestions           │
+└─────────────────────────────────────────────────────────┘
 ```
-
-### Active Components
-- **Data fetching & storage** - Binance Public Data → PostgreSQL
-- **FastAPI backend** - REST endpoints for data operations
-- **React frontend** - Interactive candlestick charts & data management
-
-### Reference Code (Legacy)
-- `core/backtest/` - Event-driven backtest engine patterns
-- `core/indicators/` - Technical indicator implementations
-- `core/backtest/strategies/` - Strategy composition patterns
-
-These provide design patterns from [CryptoAnalyzer](https://github.com/Casual159/CryptoAnalyzer) for future implementation.
 
 ---
 
-## 🚀 Quick Start
+## Features
+
+### AI Research Agent
+- Natural language interface for strategy research
+- Guided workflow: Design → Validate → Backtest → Analyze
+- Streaming responses with tool execution visibility
+- Conversation history and context management
+
+### Backtesting Engine
+- Event-driven execution (no look-ahead bias)
+- Built-in strategies: MA Crossover, RSI Reversal, Bollinger Bands, MACD Cross
+- Composable strategy framework for custom logic
+- Performance metrics: Sharpe ratio, max drawdown, win rate, profit factor
+
+### Market Analysis
+- Multi-dimensional regime detection (trend, volatility, momentum)
+- Regime-aware strategy filtering
+- Technical indicators with configurable parameters
+
+### Data Management
+- Hybrid data fetcher (Binance Public Data + API)
+- Efficient bulk downloads (80%+ bandwidth savings)
+- PostgreSQL storage with time-series optimization
+
+---
+
+## Quick Start
 
 ```bash
 # 1. Setup
@@ -55,80 +78,80 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env with your PostgreSQL credentials
+# Edit .env with your credentials
 
 # 2. Database
 createdb trading_bot
 
-# 3. Run (starts both backend + frontend)
+# 3. Frontend dependencies (first time)
+cd frontend && npm install && cd ..
+
+# 4. Run
 ./start-dev.sh
 ```
 
-**Open:** http://localhost:3000
+**Frontend:** http://localhost:3000
 **API Docs:** http://localhost:8000/docs
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Back-testing-research-tool/
-├── api/                    # FastAPI backend (port 8000)
-│   └── main.py
-├── frontend/              # Next.js UI (port 3000)
-│   ├── app/
-│   └── components/
+├── api/                    # FastAPI backend
+│   └── main.py             # All API endpoints
+├── agent/                  # AI Research Agent
+│   ├── core.py             # Claude agent implementation
+│   ├── tools.py            # Agent tool definitions
+│   └── mcp_server.py       # MCP server for Claude Code
+├── frontend/               # Next.js UI
+│   └── app/
+│       ├── chat/           # AI chat interface
+│       ├── strategies/     # Strategy management
+│       ├── backtest/       # Backtest configuration
+│       └── results/        # Results & reports
 ├── core/
-│   ├── data/              # Active: Data layer
-│   │   ├── bulk_fetcher.py
-│   │   ├── storage.py
-│   │   └── fetcher.py
-│   ├── backtest/          # Reference: Legacy patterns
-│   └── indicators/        # Reference: Legacy patterns
-├── config/                # Configuration
-└── start-dev.sh          # Dev startup script
+│   ├── data/               # Data fetching & storage
+│   ├── backtest/           # Backtest engine & strategies
+│   └── indicators/         # Technical indicators
+├── config/                 # Configuration
+└── Backtesting_Obsidian/   # Project documentation (Obsidian)
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 14 + TypeScript + shadcn/ui |
+| Frontend | Next.js 14 + TypeScript + shadcn/ui + Tailwind |
 | Charts | Plotly.js |
 | Backend | FastAPI + Uvicorn |
+| AI Agent | Anthropic Claude (claude-sonnet-4) |
 | Database | PostgreSQL |
 | Data Source | Binance Public Data |
 
 ---
 
-## 💡 Design Decisions
+## Environment Variables
 
-### Hybrid Data Fetcher
-**Problem:** Binance API has rate limits (1200 weight/min)
-**Solution:** Use public data for history (95%+), API for recent (5%)
+```env
+# Required
+POSTGRES_HOST=localhost
+POSTGRES_DB=trading_bot
+POSTGRES_USER=your_username
+POSTGRES_PASSWORD=your_password
+ANTHROPIC_API_KEY=your_anthropic_key
 
-**Result:**
-- 365 days of data: ~1 API request (vs ~526)
-- 80%+ cost savings
-- 10x faster downloads
-
-### Event-Driven Backtesting (Reference)
-**Problem:** Vectorized backtesting has look-ahead bias
-**Solution:** Process each bar sequentially (realistic)
-
-**Result:**
-- No future data leakage
-- Realistic execution simulation
-- 100% reproducible results
-
-### Reference Architecture
-Legacy code provides proven patterns without being actively maintained, keeping the active codebase lean.
+# Optional
+BINANCE_LIVE_API_KEY=        # For recent data
+BINANCE_LIVE_API_SECRET=
+```
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ```bash
 # Port in use
@@ -144,11 +167,7 @@ createdb trading_bot
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - [QUICKSTART.md](QUICKSTART.md) - Detailed setup guide
-- [docs/ACCEPTANCE_CRITERIA.md](docs/ACCEPTANCE_CRITERIA.md) - Design patterns & reference
-
----
-
-**Built with lessons learned from 9 months of development on CryptoAnalyzer.**
+- [Backtesting_Obsidian/](Backtesting_Obsidian/) - Full project documentation
