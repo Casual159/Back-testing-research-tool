@@ -7,11 +7,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Type
 import sys
 from pathlib import Path
 import pandas as pd
 import json
+import inspect
+import logging
+import traceback
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Add parent directory to path to import core modules
 sys.path.append(str(Path(__file__).parent.parent))
@@ -40,6 +47,116 @@ app.add_middleware(
 
 # Load config
 config = load_config()
+
+# =============================================================================
+# PARAMETER NORMALIZATION FOR STRATEGIES
+# =============================================================================
+
+# Mapping of common parameter aliases to canonical names
+PARAMETER_ALIASES = {
+    # RSI
+    'oversold_level': 'oversold',
+    'overbought_level': 'overbought',
+    'rsi_oversold': 'oversold',
+    'rsi_overbought': 'overbought',
+    # MA
+    'short_period': 'fast_period',
+    'long_period': 'slow_period',
+    # General
+    'std_dev': 'num_std',
+    'std': 'num_std',
+}
+
+
+def log_error_to_db(
+    source: str,
+    error_type: str,
+    error_message: str,
+    tool_name: str = None,
+    request_data: Dict[str, Any] = None,
+    stack_trace: str = None,
+    conversation_id: str = None
+) -> None:
+    """Log error to error_logs table for debugging."""
+    try:
+        with PostgresStorage(config['database']) as storage:
+            storage.cursor.execute("""
+                INSERT INTO error_logs (source, tool_name, error_type, error_message, stack_trace, request_data, conversation_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (
+                source,
+                tool_name,
+                error_type,
+                error_message,
+                stack_trace,
+                json.dumps(request_data) if request_data else None,
+                conversation_id
+            ))
+            storage.conn.commit()
+    except Exception as e:
+        logger.error(f"Failed to log error to DB: {e}")
+
+
+def raise_http_error(
+    status_code: int,
+    detail: str,
+    source: str = "api",
+    tool_name: str = None,
+    request_data: Dict[str, Any] = None
+) -> None:
+    """Log error to DB and raise HTTPException."""
+    log_error_to_db(
+        source=source,
+        tool_name=tool_name,
+        error_type=f"HTTPException_{status_code}",
+        error_message=detail,
+        request_data=request_data
+    )
+    raise HTTPException(status_code=status_code, detail=detail)
+
+
+def normalize_strategy_parameters(
+    params: Dict[str, Any],
+    strategy_class: Type
+) -> Dict[str, Any]:
+    """
+    Normalize and filter strategy parameters.
+
+    1. Apply parameter name aliases
+    2. Filter out parameters not accepted by the strategy class (with logging)
+
+    Returns filtered parameters that the strategy can accept.
+    """
+    if not params:
+        return {}
+
+    # Step 1: Apply aliases
+    normalized = {}
+    for key, value in params.items():
+        canonical_key = PARAMETER_ALIASES.get(key, key)
+        normalized[canonical_key] = value
+
+    # Step 2: Get accepted parameters from strategy __init__
+    sig = inspect.signature(strategy_class.__init__)
+    accepted_params = {
+        p.name for p in sig.parameters.values()
+        if p.name != 'self'
+    }
+
+    # Step 3: Filter and log what we're dropping
+    filtered = {}
+    dropped = []
+    for key, value in normalized.items():
+        if key in accepted_params:
+            filtered[key] = value
+        else:
+            dropped.append(key)
+
+    if dropped:
+        logger.info(f"[{strategy_class.__name__}] Filtered out unsupported params: {dropped}")
+
+    return filtered
+
 
 # Pydantic models for request/response
 class DataFetchRequest(BaseModel):
@@ -471,7 +588,12 @@ def get_strategy(name: str):
             row = storage.cursor.fetchone()
 
             if not row:
-                raise HTTPException(status_code=404, detail=f"Strategy '{name}' not found")
+                raise_http_error(
+                    status_code=404,
+                    detail=f"Strategy '{name}' not found",
+                    tool_name="get_strategy",
+                    request_data={"name": name}
+                )
 
             return {
                 "name": row[0],
@@ -525,7 +647,12 @@ def create_strategy(request: CreateStrategyRequest):
             check_query = "SELECT 1 FROM strategies WHERE name = %s"
             storage.cursor.execute(check_query, (request.name,))
             if storage.cursor.fetchone():
-                raise HTTPException(status_code=400, detail=f"Strategy '{request.name}' already exists")
+                raise_http_error(
+                    status_code=400,
+                    detail=f"Strategy '{request.name}' already exists",
+                    tool_name="create_strategy",
+                    request_data={"name": request.name}
+                )
 
             # Determine strategy type and class name
             if request.builtin_class:
@@ -600,7 +727,12 @@ def delete_strategy(name: str):
             storage.conn.commit()
 
             if not result:
-                raise HTTPException(status_code=404, detail=f"Strategy '{name}' not found")
+                raise_http_error(
+                    status_code=404,
+                    detail=f"Strategy '{name}' not found",
+                    tool_name="delete_strategy",
+                    request_data={"name": name}
+                )
 
             return {
                 "success": True,
@@ -697,9 +829,11 @@ def run_backtest(request: BacktestRequest):
             row = storage.cursor.fetchone()
 
             if not row:
-                raise HTTPException(
+                raise_http_error(
                     status_code=404,
-                    detail=f"Strategy '{request.strategy_name}' not found. Use list_strategies to see available strategies."
+                    detail=f"Strategy '{request.strategy_name}' not found. Use list_strategies to see available strategies.",
+                    tool_name="run_backtest",
+                    request_data=request.model_dump()
                 )
 
             strategy_name, class_name, parameters, regime_filter = row
@@ -713,9 +847,11 @@ def run_backtest(request: BacktestRequest):
             # Check data availability
             data_range = data_storage.get_available_data_range(request.symbol, request.timeframe)
             if data_range is None:
-                raise HTTPException(
+                raise_http_error(
                     status_code=404,
-                    detail=f"No data found for {request.symbol} {request.timeframe}. Fetch data first using /api/data/fetch."
+                    detail=f"No data found for {request.symbol} {request.timeframe}. Fetch data first using /api/data/fetch.",
+                    tool_name="run_backtest",
+                    request_data=request.model_dump()
                 )
 
             # Get candles
@@ -727,9 +863,11 @@ def run_backtest(request: BacktestRequest):
             )
 
             if df.empty:
-                raise HTTPException(
+                raise_http_error(
                     status_code=400,
-                    detail=f"No candles found for {request.symbol} {request.timeframe} in range {request.start_date} to {request.end_date}"
+                    detail=f"No candles found for {request.symbol} {request.timeframe} in range {request.start_date} to {request.end_date}",
+                    tool_name="run_backtest",
+                    request_data=request.model_dump()
                 )
 
         # 3. Merge parameters (database params + override params)
@@ -761,7 +899,9 @@ def run_backtest(request: BacktestRequest):
                 detail=f"Unknown strategy class: {class_name}. Available: {list(STRATEGY_CLASSES.keys())}"
             )
 
-        strategy = strategy_class(**final_params)
+        # Normalize and filter parameters to match strategy's __init__ signature
+        validated_params = normalize_strategy_parameters(final_params, strategy_class)
+        strategy = strategy_class(**validated_params)
 
         # Apply regime filter if provided
         if hasattr(strategy, 'regime_filter') and final_regime_filter:
@@ -889,8 +1029,19 @@ def run_backtest(request: BacktestRequest):
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        tb = traceback.format_exc()
+        logger.error(f"Backtest failed: {e}\n{tb}")
+
+        # Log to database for later analysis
+        log_error_to_db(
+            source='api',
+            tool_name='run_backtest',
+            error_type=type(e).__name__,
+            error_message=str(e),
+            stack_trace=tb,
+            request_data=request.model_dump()
+        )
+
         raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
 
 
@@ -1283,6 +1434,159 @@ def list_suggestions(status: Optional[str] = None, limit: int = 50):
             ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list suggestions: {str(e)}")
+
+
+# =============================================================================
+# ERROR LOGS ENDPOINTS
+# =============================================================================
+
+@app.get("/api/errors")
+def list_error_logs(limit: int = 50, source: Optional[str] = None, tool_name: Optional[str] = None):
+    """
+    List recent error logs for debugging.
+
+    Query params:
+    - limit: Max number of errors to return (default: 50)
+    - source: Filter by source ('api', 'mcp_tool', 'agent', 'backtest')
+    - tool_name: Filter by specific tool name
+    """
+    try:
+        with PostgresStorage(config['database']) as storage:
+            conditions = []
+            params = []
+
+            if source:
+                conditions.append("source = %s")
+                params.append(source)
+            if tool_name:
+                conditions.append("tool_name = %s")
+                params.append(tool_name)
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+            query = f"""
+                SELECT id, source, tool_name, error_type, error_message,
+                       request_data, created_at, resolved_at
+                FROM error_logs
+                {where_clause}
+                ORDER BY created_at DESC
+                LIMIT %s
+            """
+            params.append(limit)
+
+            storage.cursor.execute(query, params)
+            rows = storage.cursor.fetchall()
+
+            return [
+                {
+                    "id": str(row[0]),
+                    "source": row[1],
+                    "tool_name": row[2],
+                    "error_type": row[3],
+                    "error_message": row[4],
+                    "request_data": row[5],
+                    "created_at": row[6].isoformat() if row[6] else None,
+                    "resolved_at": row[7].isoformat() if row[7] else None
+                }
+                for row in rows
+            ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list errors: {str(e)}")
+
+
+class LogErrorRequest(BaseModel):
+    """Request model for logging errors from external sources like MCP server."""
+    source: str  # 'mcp_tool', 'api', 'agent', 'backtest'
+    tool_name: Optional[str] = None
+    error_type: str
+    error_message: str
+    stack_trace: Optional[str] = None
+    request_data: Optional[Dict[str, Any]] = None
+    conversation_id: Optional[str] = None
+
+
+@app.post("/api/errors")
+def log_error(request: LogErrorRequest):
+    """
+    Log an error from external sources (e.g., MCP server).
+
+    This endpoint allows the MCP server to log errors to the database
+    when it encounters connection issues or other errors.
+    """
+    try:
+        log_error_to_db(
+            source=request.source,
+            tool_name=request.tool_name,
+            error_type=request.error_type,
+            error_message=request.error_message,
+            stack_trace=request.stack_trace,
+            request_data=request.request_data,
+            conversation_id=request.conversation_id
+        )
+        return {"success": True, "message": "Error logged successfully"}
+    except Exception as e:
+        # Don't fail if logging fails - just return error
+        return {"success": False, "message": f"Failed to log error: {str(e)}"}
+
+
+@app.get("/api/errors/{error_id}")
+def get_error_log(error_id: str):
+    """Get full error details including stack trace."""
+    try:
+        with PostgresStorage(config['database']) as storage:
+            storage.cursor.execute("""
+                SELECT id, source, tool_name, error_type, error_message,
+                       stack_trace, request_data, conversation_id,
+                       created_at, resolved_at, resolution_notes
+                FROM error_logs
+                WHERE id = %s
+            """, (error_id,))
+
+            row = storage.cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Error log not found")
+
+            return {
+                "id": str(row[0]),
+                "source": row[1],
+                "tool_name": row[2],
+                "error_type": row[3],
+                "error_message": row[4],
+                "stack_trace": row[5],
+                "request_data": row[6],
+                "conversation_id": str(row[7]) if row[7] else None,
+                "created_at": row[8].isoformat() if row[8] else None,
+                "resolved_at": row[9].isoformat() if row[9] else None,
+                "resolution_notes": row[10]
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get error: {str(e)}")
+
+
+@app.patch("/api/errors/{error_id}/resolve")
+def resolve_error(error_id: str, resolution_notes: str = None):
+    """Mark an error as resolved with optional notes."""
+    try:
+        with PostgresStorage(config['database']) as storage:
+            storage.cursor.execute("""
+                UPDATE error_logs
+                SET resolved_at = NOW(), resolution_notes = %s
+                WHERE id = %s
+                RETURNING id
+            """, (resolution_notes, error_id))
+
+            result = storage.cursor.fetchone()
+            if not result:
+                raise HTTPException(status_code=404, detail="Error log not found")
+
+            storage.conn.commit()
+            return {"success": True, "resolved_id": str(result[0])}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to resolve error: {str(e)}")
 
 
 if __name__ == "__main__":

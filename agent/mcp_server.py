@@ -21,6 +21,37 @@ from mcp.types import Tool, TextContent
 
 API_BASE_URL = "http://localhost:8000"
 
+
+# =============================================================================
+# ERROR LOGGING
+# =============================================================================
+
+async def log_error_to_api(
+    tool_name: str,
+    error_type: str,
+    error_message: str,
+    request_data: dict = None
+) -> None:
+    """
+    Log error to database via API endpoint.
+    Fire-and-forget - errors in logging are silently ignored.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"{API_BASE_URL}/api/errors",
+                json={
+                    "source": "mcp_tool",
+                    "tool_name": tool_name,
+                    "error_type": error_type,
+                    "error_message": error_message,
+                    "request_data": request_data
+                }
+            )
+    except Exception:
+        pass  # Fire and forget - don't fail if logging fails
+
+
 # =============================================================================
 # MCP SERVER
 # =============================================================================
@@ -371,6 +402,33 @@ Useful to see what enhancements have been identified.""",
                 },
                 "required": []
             }
+        ),
+        Tool(
+            name="list_errors",
+            description="""List recent error logs from the backtesting system.
+
+Returns errors with:
+- Error type and message
+- Tool that caused the error
+- Request data that triggered it
+- Timestamp
+
+Use this to diagnose issues with backtests or strategy creation.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "number",
+                        "default": 20,
+                        "description": "Max errors to return"
+                    },
+                    "tool_name": {
+                        "type": "string",
+                        "description": "Filter by tool (e.g., 'run_backtest')"
+                    }
+                },
+                "required": []
+            }
         )
     ]
 
@@ -500,6 +558,15 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
                     params=params
                 )
 
+            elif tool_name == "list_errors":
+                params = {"limit": arguments.get("limit", 20)}
+                if "tool_name" in arguments:
+                    params["tool_name"] = arguments["tool_name"]
+                response = await client.get(
+                    f"{API_BASE_URL}/api/errors",
+                    params=params
+                )
+
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
 
@@ -518,11 +585,25 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
             return response.json()
 
         except httpx.ConnectError:
+            # Log connection error (can't use API, so just try - it will fail silently)
+            asyncio.create_task(log_error_to_api(
+                tool_name=tool_name,
+                error_type="ConnectError",
+                error_message="Cannot connect to API server. Make sure FastAPI is running on localhost:8000",
+                request_data=arguments
+            ))
             return {
                 "error": True,
                 "detail": "Cannot connect to API server. Make sure FastAPI is running on localhost:8000"
             }
         except httpx.TimeoutException:
+            # Log timeout error
+            asyncio.create_task(log_error_to_api(
+                tool_name=tool_name,
+                error_type="TimeoutException",
+                error_message="API request timed out",
+                request_data=arguments
+            ))
             return {
                 "error": True,
                 "detail": "API request timed out"
