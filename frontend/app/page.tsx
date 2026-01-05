@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Database, TrendingUp, Settings, BarChart3, MessageSquare } from "lucide-react";
+import { Database, TrendingUp, Settings, BarChart3, MessageSquare, FlaskConical } from "lucide-react";
 import { useChatContext } from "@/components/chat";
 import { useEffect, useState } from "react";
 
@@ -30,10 +30,28 @@ export default function HomePage() {
           </p>
         </div>
 
+        {/* Research Lab Banner */}
+        <Link href="/research">
+          <Card className="mb-8 cursor-pointer transition-all hover:shadow-lg bg-gradient-to-r from-purple-900/50 to-blue-900/50 border-purple-700">
+            <CardContent className="flex items-center gap-4 py-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-600">
+                <FlaskConical className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white">Research Lab</h3>
+                <p className="text-sm text-purple-200">
+                  Explore trading ideas, validate theses, and run batch experiments
+                </p>
+              </div>
+              <div className="text-purple-400 text-sm">Open Lab &rarr;</div>
+            </CardContent>
+          </Card>
+        </Link>
+
         {/* Research Agent Banner */}
         <Card
           onClick={openSidebar}
-          className="mb-8 cursor-pointer transition-all hover:shadow-lg bg-gradient-to-r from-blue-900/50 to-purple-900/50 border-blue-700"
+          className="mb-8 cursor-pointer transition-all hover:shadow-lg bg-gradient-to-r from-blue-900/50 to-cyan-900/50 border-blue-700"
         >
           <CardContent className="flex items-center gap-4 py-6">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600">
