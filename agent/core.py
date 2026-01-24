@@ -752,10 +752,18 @@ class BacktestingAgent(AgentProtocol):
 
         if tool_name == "run_backtest":
             return {
-                "total_return": result.get("total_return_pct"),
+                "strategy_name": result.get("strategy_name"),
+                "symbol": result.get("symbol"),
+                "report_id": result.get("report_id"),
+                "total_return_pct": result.get("total_return_pct"),
                 "sharpe_ratio": result.get("sharpe_ratio"),
                 "total_trades": result.get("total_trades"),
-                "win_rate": result.get("win_rate_pct")
+                "win_rate_pct": result.get("win_rate_pct"),
+                "metrics": {
+                    "total_return_pct": result.get("total_return_pct"),
+                    "sharpe_ratio": result.get("sharpe_ratio"),
+                    "total_trades": result.get("total_trades")
+                }
             }
         elif tool_name == "list_strategies":
             strategies = result if isinstance(result, list) else []

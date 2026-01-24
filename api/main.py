@@ -1110,6 +1110,91 @@ class AgentChatRequest(BaseModel):
     """Request model for agent chat"""
     message: str
     conversation_id: Optional[str] = None
+    project_id: Optional[str] = None  # For tracking research events
+
+
+def create_research_event_from_tool(project_id: str, tool_name: str, tool_result: dict):
+    """
+    Create a research event in the timeline based on a successful tool call.
+    Returns the created event or None if no event should be created.
+    """
+    if not project_id:
+        return None
+
+    # Map tool names to event types and titles
+    event_mappings = {
+        'create_strategy': {
+            'event_type': 'strategy_created',
+            'title_template': 'Created strategy: {name}',
+            'summary_template': '{description}' if '{description}' else None,
+            'reference_type': 'strategy'
+        },
+        'run_backtest': {
+            'event_type': 'backtest_run',
+            'title_template': 'Backtest: {strategy_name} on {symbol}',
+            'summary_template': 'Return: {total_return_pct:.1f}%, Sharpe: {sharpe_ratio:.2f}, Trades: {total_trades}',
+            'reference_type': 'backtest_report'
+        }
+    }
+
+    if tool_name not in event_mappings or not tool_result:
+        return None
+
+    # Check for errors
+    if tool_result.get('error'):
+        return None
+
+    mapping = event_mappings[tool_name]
+
+    try:
+        # Build title from template
+        title = mapping['title_template'].format(**tool_result)
+
+        # Build summary from template if data available
+        summary = None
+        if mapping.get('summary_template'):
+            try:
+                # For backtest, metrics might be nested
+                if tool_name == 'run_backtest' and 'metrics' in tool_result:
+                    metrics = tool_result['metrics']
+                    summary = f"Return: {metrics.get('total_return_pct', 0):.1f}%, Sharpe: {metrics.get('sharpe_ratio', 0):.2f}, Trades: {metrics.get('total_trades', 0)}"
+                else:
+                    summary = mapping['summary_template'].format(**tool_result)
+            except (KeyError, TypeError):
+                pass
+
+        # Get reference_id
+        reference_id = None
+        if tool_name == 'create_strategy':
+            reference_id = tool_result.get('name')
+        elif tool_name == 'run_backtest':
+            reference_id = tool_result.get('report_id')
+
+        # Create event in database
+        with PostgresStorage(config['database']) as storage:
+            from uuid import uuid4
+            event_id = str(uuid4())
+            query = """
+                INSERT INTO research_events (id, project_id, event_type, title, summary, reference_type, reference_id, data)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """
+            storage.cursor.execute(query, (
+                event_id,
+                project_id,
+                mapping['event_type'],
+                title[:200],  # Limit title length
+                summary[:500] if summary else None,  # Limit summary length
+                mapping['reference_type'],
+                reference_id,
+                json.dumps(tool_result, default=str)
+            ))
+            storage.conn.commit()
+            return event_id
+
+    except Exception as e:
+        print(f"Failed to create research event: {e}")
+        return None
 
 
 @app.post("/api/agent/chat")
@@ -1180,10 +1265,22 @@ async def agent_chat_stream(request: AgentChatRequest):
 
     agent = create_agent()
     conv_id = UUID(request.conversation_id) if request.conversation_id else None
+    project_id = request.project_id
 
     async def event_generator():
         try:
             async for event in agent.chat_stream(request.message, conv_id):
+                # Intercept tool_result events to create timeline events
+                if event.get('type') == 'tool_result':
+                    tool_name = event.get('tool')
+                    tool_result = event.get('result')
+                    is_success = event.get('success', False)
+                    print(f"[DEBUG] tool_result: tool={tool_name}, success={is_success}, project_id={project_id}")
+
+                    if project_id and is_success and tool_name and tool_result:
+                        event_id = create_research_event_from_tool(project_id, tool_name, tool_result)
+                        print(f"[DEBUG] Created research event: {event_id}")
+
                 # Format as SSE
                 yield f"data: {json.dumps(event, default=str)}\n\n"
         except Exception as e:
@@ -1587,6 +1684,412 @@ def resolve_error(error_id: str, resolution_notes: str = None):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to resolve error: {str(e)}")
+
+
+# =============================================================================
+# PROJECTS ENDPOINTS
+# =============================================================================
+
+class CreateProjectRequest(BaseModel):
+    """Request model for creating a project"""
+    name: str
+    description: Optional[str] = None
+    thesis: Optional[str] = None
+    user_preferences: Optional[Dict[str, Any]] = None
+
+
+class UpdateProjectRequest(BaseModel):
+    """Request model for updating a project"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    thesis: Optional[str] = None
+    status: Optional[str] = None  # active, paused, concluded
+    validation_result: Optional[str] = None  # validated, invalidated, inconclusive
+
+
+class CreateEventRequest(BaseModel):
+    """Request model for creating a research event"""
+    event_type: str  # strategy_created, backtest_run, conclusion, note, milestone
+    title: str
+    summary: Optional[str] = None
+    reference_type: Optional[str] = None  # conversation, backtest_report, strategy
+    reference_id: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+
+
+@app.get("/api/projects")
+def list_projects(status: Optional[str] = None, limit: int = 50):
+    """
+    List all projects.
+
+    Query params:
+    - status: Filter by status (active, paused, concluded)
+    - limit: Max number of projects to return
+    """
+    try:
+        with PostgresStorage(config['database']) as storage:
+            if status:
+                query = """
+                    SELECT id, name, description, thesis, status, validation_result,
+                           conversation_count, backtest_count, created_at, updated_at
+                    FROM projects
+                    WHERE status = %s
+                    ORDER BY updated_at DESC
+                    LIMIT %s
+                """
+                storage.cursor.execute(query, (status, limit))
+            else:
+                query = """
+                    SELECT id, name, description, thesis, status, validation_result,
+                           conversation_count, backtest_count, created_at, updated_at
+                    FROM projects
+                    ORDER BY updated_at DESC
+                    LIMIT %s
+                """
+                storage.cursor.execute(query, (limit,))
+
+            rows = storage.cursor.fetchall()
+
+            return [
+                {
+                    "id": str(row[0]),
+                    "name": row[1],
+                    "description": row[2],
+                    "thesis": row[3],
+                    "status": row[4],
+                    "validation_result": row[5],
+                    "conversation_count": row[6],
+                    "backtest_count": row[7],
+                    "created_at": row[8].isoformat() if row[8] else None,
+                    "updated_at": row[9].isoformat() if row[9] else None
+                }
+                for row in rows
+            ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list projects: {str(e)}")
+
+
+@app.post("/api/projects")
+def create_project(request: CreateProjectRequest):
+    """Create a new project."""
+    try:
+        with PostgresStorage(config['database']) as storage:
+            query = """
+                INSERT INTO projects (name, description, thesis, user_preferences)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, name, created_at
+            """
+            storage.cursor.execute(query, (
+                request.name,
+                request.description,
+                request.thesis,
+                json.dumps(request.user_preferences) if request.user_preferences else '{}'
+            ))
+
+            result = storage.cursor.fetchone()
+            storage.conn.commit()
+
+            return {
+                "success": True,
+                "project": {
+                    "id": str(result[0]),
+                    "name": result[1],
+                    "created_at": result[2].isoformat() if result[2] else None
+                }
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create project: {str(e)}")
+
+
+@app.get("/api/projects/{project_id}")
+def get_project(project_id: str):
+    """Get project details by ID."""
+    try:
+        from uuid import UUID
+        UUID(project_id)  # Validate UUID format
+
+        with PostgresStorage(config['database']) as storage:
+            query = """
+                SELECT id, name, description, thesis, status, validation_result,
+                       user_preferences, conversation_count, backtest_count,
+                       created_at, updated_at
+                FROM projects
+                WHERE id = %s
+            """
+            storage.cursor.execute(query, (project_id,))
+            row = storage.cursor.fetchone()
+
+            if not row:
+                raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+
+            return {
+                "id": str(row[0]),
+                "name": row[1],
+                "description": row[2],
+                "thesis": row[3],
+                "status": row[4],
+                "validation_result": row[5],
+                "user_preferences": row[6],
+                "conversation_count": row[7],
+                "backtest_count": row[8],
+                "created_at": row[9].isoformat() if row[9] else None,
+                "updated_at": row[10].isoformat() if row[10] else None
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get project: {str(e)}")
+
+
+@app.patch("/api/projects/{project_id}")
+def update_project(project_id: str, request: UpdateProjectRequest):
+    """Update project details."""
+    try:
+        from uuid import UUID
+        UUID(project_id)  # Validate UUID format
+
+        # Build dynamic update query
+        updates = []
+        params = []
+
+        if request.name is not None:
+            updates.append("name = %s")
+            params.append(request.name)
+        if request.description is not None:
+            updates.append("description = %s")
+            params.append(request.description)
+        if request.thesis is not None:
+            updates.append("thesis = %s")
+            params.append(request.thesis)
+        if request.status is not None:
+            updates.append("status = %s")
+            params.append(request.status)
+        if request.validation_result is not None:
+            updates.append("validation_result = %s")
+            params.append(request.validation_result)
+
+        if not updates:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        updates.append("updated_at = NOW()")
+        params.append(project_id)
+
+        with PostgresStorage(config['database']) as storage:
+            query = f"""
+                UPDATE projects
+                SET {', '.join(updates)}
+                WHERE id = %s
+                RETURNING id, name, updated_at
+            """
+            storage.cursor.execute(query, params)
+            result = storage.cursor.fetchone()
+
+            if not result:
+                raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+
+            storage.conn.commit()
+
+            return {
+                "success": True,
+                "project": {
+                    "id": str(result[0]),
+                    "name": result[1],
+                    "updated_at": result[2].isoformat() if result[2] else None
+                }
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update project: {str(e)}")
+
+
+@app.delete("/api/projects/{project_id}")
+def delete_project(project_id: str):
+    """Delete a project and all its events."""
+    try:
+        from uuid import UUID
+        UUID(project_id)  # Validate UUID format
+
+        with PostgresStorage(config['database']) as storage:
+            # Events are deleted via CASCADE
+            query = "DELETE FROM projects WHERE id = %s RETURNING id, name"
+            storage.cursor.execute(query, (project_id,))
+            result = storage.cursor.fetchone()
+
+            if not result:
+                raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+
+            storage.conn.commit()
+
+            return {
+                "success": True,
+                "message": f"Project '{result[1]}' deleted"
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete project: {str(e)}")
+
+
+# =============================================================================
+# RESEARCH EVENTS ENDPOINTS
+# =============================================================================
+
+@app.get("/api/projects/{project_id}/events")
+def list_project_events(
+    project_id: str,
+    event_type: Optional[str] = None,
+    limit: int = 100
+):
+    """
+    List research events for a project (timeline data).
+
+    Query params:
+    - event_type: Filter by type (strategy_created, backtest_run, conclusion, note, milestone)
+    - limit: Max number of events to return
+    """
+    try:
+        from uuid import UUID
+        UUID(project_id)  # Validate UUID format
+
+        with PostgresStorage(config['database']) as storage:
+            if event_type:
+                query = """
+                    SELECT id, event_type, title, summary, reference_type, reference_id,
+                           data, created_at
+                    FROM research_events
+                    WHERE project_id = %s AND event_type = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                """
+                storage.cursor.execute(query, (project_id, event_type, limit))
+            else:
+                query = """
+                    SELECT id, event_type, title, summary, reference_type, reference_id,
+                           data, created_at
+                    FROM research_events
+                    WHERE project_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                """
+                storage.cursor.execute(query, (project_id, limit))
+
+            rows = storage.cursor.fetchall()
+
+            return [
+                {
+                    "id": str(row[0]),
+                    "event_type": row[1],
+                    "title": row[2],
+                    "summary": row[3],
+                    "reference_type": row[4],
+                    "reference_id": str(row[5]) if row[5] else None,
+                    "data": row[6],
+                    "created_at": row[7].isoformat() if row[7] else None
+                }
+                for row in rows
+            ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list events: {str(e)}")
+
+
+@app.post("/api/projects/{project_id}/events")
+def create_project_event(project_id: str, request: CreateEventRequest):
+    """Create a new research event for a project."""
+    try:
+        from uuid import UUID
+        UUID(project_id)  # Validate UUID format
+
+        with PostgresStorage(config['database']) as storage:
+            # Check project exists
+            storage.cursor.execute("SELECT 1 FROM projects WHERE id = %s", (project_id,))
+            if not storage.cursor.fetchone():
+                raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+
+            query = """
+                INSERT INTO research_events
+                (project_id, event_type, title, summary, reference_type, reference_id, data)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, created_at
+            """
+            storage.cursor.execute(query, (
+                project_id,
+                request.event_type,
+                request.title,
+                request.summary,
+                request.reference_type,
+                request.reference_id,
+                json.dumps(request.data) if request.data else '{}'
+            ))
+
+            result = storage.cursor.fetchone()
+            storage.conn.commit()
+
+            return {
+                "success": True,
+                "event": {
+                    "id": str(result[0]),
+                    "created_at": result[1].isoformat() if result[1] else None
+                }
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create event: {str(e)}")
+
+
+# =============================================================================
+# ONBOARDING PREFERENCES ENDPOINT
+# =============================================================================
+
+class OnboardingPreferencesRequest(BaseModel):
+    """Request model for saving onboarding preferences"""
+    experience_level: str  # beginner, intermediate, advanced, professional
+    goals: List[str]  # List of selected goals
+    first_project_name: Optional[str] = None
+    first_project_thesis: Optional[str] = None
+
+
+@app.post("/api/onboarding/preferences")
+def save_onboarding_preferences(request: OnboardingPreferencesRequest):
+    """
+    Save onboarding preferences and optionally create first project.
+
+    Returns project ID if first project was created.
+    """
+    try:
+        preferences = {
+            "experience_level": request.experience_level,
+            "goals": request.goals,
+            "onboarding_completed_at": datetime.now().isoformat()
+        }
+
+        project_id = None
+
+        # Create first project if name provided
+        if request.first_project_name:
+            with PostgresStorage(config['database']) as storage:
+                query = """
+                    INSERT INTO projects (name, thesis, user_preferences)
+                    VALUES (%s, %s, %s)
+                    RETURNING id
+                """
+                storage.cursor.execute(query, (
+                    request.first_project_name,
+                    request.first_project_thesis,
+                    json.dumps(preferences)
+                ))
+                result = storage.cursor.fetchone()
+                storage.conn.commit()
+                project_id = str(result[0])
+
+        return {
+            "success": True,
+            "preferences": preferences,
+            "project_id": project_id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save preferences: {str(e)}")
 
 
 if __name__ == "__main__":
