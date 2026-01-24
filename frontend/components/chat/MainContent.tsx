@@ -2,19 +2,23 @@
 
 import { useChatContext } from './ChatProvider';
 import { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 interface MainContentProps {
   children: ReactNode;
+  leftMargin?: string;
 }
 
-export function MainContent({ children }: MainContentProps) {
+export function MainContent({ children, leftMargin = '' }: MainContentProps) {
   const { isOpen } = useChatContext();
 
   return (
     <div
-      className={`min-h-screen transition-all duration-300 ease-in-out ${
+      className={cn(
+        'min-h-screen transition-all duration-300 ease-in-out',
+        leftMargin,
         isOpen ? 'sm:mr-[420px]' : ''
-      }`}
+      )}
     >
       {children}
     </div>

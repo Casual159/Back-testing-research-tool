@@ -52,12 +52,12 @@ export function ChatSidebar() {
 
       {/* Sidebar */}
       <div
-        className={`fixed right-0 top-0 h-full w-full sm:w-[420px] bg-neutral-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`fixed right-0 top-0 h-full w-full sm:w-[420px] bg-neutral-900 border-l border-neutral-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        {/* Header */}
-        <div className="border-b border-neutral-700/50 px-4 py-3 flex items-center justify-between shrink-0">
+        {/* Header - h-14 to match sidebar header */}
+        <div className="h-14 border-b border-neutral-800 px-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={closeSidebar}
@@ -93,7 +93,7 @@ export function ChatSidebar() {
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-6 py-8">
-              <div className="w-12 h-12 rounded-lg bg-neutral-700 flex items-center justify-center mb-4">
+              <div className="w-12 h-12 rounded-lg bg-neutral-800 flex items-center justify-center mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-neutral-400">
                   <line x1="18" y1="20" x2="18" y2="10" />
                   <line x1="12" y1="20" x2="12" y2="4" />
@@ -107,13 +107,13 @@ export function ChatSidebar() {
               <div className="grid gap-2 w-full text-sm">
                 <button
                   onClick={() => sendMessage("What strategies are available?")}
-                  className="px-4 py-2.5 rounded-lg bg-neutral-700/50 hover:bg-neutral-700 text-left text-neutral-400 hover:text-neutral-300 transition-colors"
+                  className="px-4 py-2.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-left text-neutral-400 hover:text-neutral-300 transition-colors"
                 >
                   What strategies are available?
                 </button>
                 <button
                   onClick={() => sendMessage("What's the current market regime for BTCUSDT?")}
-                  className="px-4 py-2.5 rounded-lg bg-neutral-700/50 hover:bg-neutral-700 text-left text-neutral-400 hover:text-neutral-300 transition-colors"
+                  className="px-4 py-2.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-left text-neutral-400 hover:text-neutral-300 transition-colors"
                 >
                   Current market regime?
                 </button>
@@ -147,7 +147,7 @@ export function ChatSidebar() {
         </div>
 
         {/* Input area */}
-        <div className="shrink-0 border-t border-neutral-700/50">
+        <div className="shrink-0 border-t border-neutral-800">
           <ChatInput
             onSend={sendMessage}
             disabled={isLoading}

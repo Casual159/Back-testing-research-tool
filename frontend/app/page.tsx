@@ -1,202 +1,161 @@
 'use client';
 
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Database, TrendingUp, Settings, BarChart3, MessageSquare, FlaskConical } from "lucide-react";
+import { Database, TrendingUp, Layers, BarChart3, MessageSquare, FolderKanban, ArrowRight } from "lucide-react";
 import { useChatContext } from "@/components/chat";
-import { useEffect, useState } from "react";
+import { useProject } from "@/lib/contexts";
+import { cn } from "@/lib/utils";
+
+interface QuickLinkProps {
+  href: string;
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  color: string;
+}
+
+function QuickLink({ href, icon: Icon, title, description, color }: QuickLinkProps) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-start gap-4 p-4 rounded-xl bg-neutral-800/50 border border-neutral-700 hover:border-neutral-600 hover:bg-neutral-800 transition-all"
+    >
+      <div className={cn('p-3 rounded-lg', color)}>
+        <Icon className="w-5 h-5 text-white" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold text-white group-hover:text-purple-400 transition-colors">
+          {title}
+        </h3>
+        <p className="text-sm text-neutral-400 mt-0.5">
+          {description}
+        </p>
+      </div>
+      <ArrowRight className="w-5 h-5 text-neutral-600 group-hover:text-neutral-400 transition-colors mt-1" />
+    </Link>
+  );
+}
 
 export default function HomePage() {
   const { openSidebar } = useChatContext();
-  const [strategyCount, setStrategyCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    fetch('http://localhost:8000/api/strategies')
-      .then(res => res.json())
-      .then(data => setStrategyCount(Array.isArray(data) ? data.length : 0))
-      .catch(() => setStrategyCount(null));
-  }, []);
+  const { currentProject, projects } = useProject();
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-800">
-      <div className="container mx-auto px-4 py-16">
-        {/* Header */}
-        <div className="mb-12 text-center">
-          <h1 className="mb-4 text-5xl font-bold tracking-tight">
-            Backtesting Research Tool
-          </h1>
-          <p className="text-xl text-neutral-600 dark:text-neutral-400">
-            AI-Enhanced Cryptocurrency Trading Strategy Research Platform
-          </p>
-        </div>
+    <div className="max-w-4xl mx-auto space-y-8">
+      {/* Welcome Section */}
+      <div className="text-center py-8">
+        <h1 className="text-3xl font-bold text-white mb-2">
+          Welcome to Research Lab
+        </h1>
+        <p className="text-neutral-400">
+          AI-powered trading strategy research and backtesting
+        </p>
+      </div>
 
-        {/* Research Lab Banner */}
-        <Link href="/research">
-          <Card className="mb-8 cursor-pointer transition-all hover:shadow-lg bg-gradient-to-r from-purple-900/50 to-blue-900/50 border-purple-700">
-            <CardContent className="flex items-center gap-4 py-6">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-600">
-                <FlaskConical className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-white">Research Lab</h3>
-                <p className="text-sm text-purple-200">
-                  Explore trading ideas, validate theses, and run batch experiments
-                </p>
-              </div>
-              <div className="text-purple-400 text-sm">Open Lab &rarr;</div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* Research Agent Banner */}
-        <Card
-          onClick={openSidebar}
-          className="mb-8 cursor-pointer transition-all hover:shadow-lg bg-gradient-to-r from-blue-900/50 to-cyan-900/50 border-blue-700"
+      {/* Current Project Card */}
+      {currentProject ? (
+        <Link
+          href={`/projects/${currentProject.id}`}
+          className="block p-6 rounded-xl bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-700/50 hover:border-purple-600 transition-all"
         >
-          <CardContent className="flex items-center gap-4 py-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600">
-              <MessageSquare className="h-6 w-6 text-white" />
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-purple-400 mb-1">Current Project</div>
+              <h2 className="text-xl font-semibold text-white">{currentProject.name}</h2>
+              {currentProject.thesis && (
+                <p className="text-neutral-400 mt-1 line-clamp-1">{currentProject.thesis}</p>
+              )}
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white">Research Agent</h3>
-              <p className="text-sm text-blue-200">
-                Chat with AI to design strategies, run backtests, and analyze results
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <div className="text-2xl font-bold text-white">{currentProject.backtest_count}</div>
+                <div className="text-xs text-neutral-500">backtests</div>
+              </div>
+              <ArrowRight className="w-6 h-6 text-purple-400" />
+            </div>
+          </div>
+        </Link>
+      ) : projects.length === 0 ? (
+        <Link
+          href="/projects/new"
+          className="block p-6 rounded-xl bg-neutral-800/50 border-2 border-dashed border-neutral-600 hover:border-purple-500 hover:bg-neutral-800 transition-all text-center"
+        >
+          <FolderKanban className="w-10 h-10 text-neutral-500 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-white mb-1">Create Your First Project</h3>
+          <p className="text-neutral-400 text-sm">
+            Start organizing your research by creating a project
+          </p>
+        </Link>
+      ) : (
+        <Link
+          href="/projects"
+          className="block p-6 rounded-xl bg-neutral-800/50 border border-neutral-700 hover:border-purple-500 transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Select a Project</h3>
+              <p className="text-neutral-400 text-sm">
+                You have {projects.length} project{projects.length !== 1 ? 's' : ''}
               </p>
             </div>
-            <div className="text-blue-400 text-sm">Open Chat &rarr;</div>
-          </CardContent>
-        </Card>
+            <ArrowRight className="w-5 h-5 text-neutral-400" />
+          </div>
+        </Link>
+      )}
 
-        {/* Main Cards Grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 mb-12">
-          {/* Data Management Card */}
-          <Link href="/data">
-            <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-105">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Database className="h-6 w-6 text-blue-600" />
-                  <CardTitle>Data Management</CardTitle>
-                </div>
-                <CardDescription>
-                  Fetch and manage historical data from Binance
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Download OHLCV data, view database statistics, and manage your data storage.
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* Strategies Card */}
-          <Link href="/strategies">
-            <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-105">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Settings className="h-6 w-6 text-orange-600" />
-                  <CardTitle>Strategies</CardTitle>
-                </div>
-                <CardDescription>
-                  Browse and configure trading strategies
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Explore built-in strategies: RSI, MACD, Bollinger Bands, and more.
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* Backtesting Card */}
-          <Link href="/backtest">
-            <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-105">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
-                  <CardTitle>Run Backtest</CardTitle>
-                </div>
-                <CardDescription>
-                  Test your trading strategies on historical data
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Execute backtests with various strategies and analyze performance metrics.
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* Results Card */}
-          <Link href="/results">
-            <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-105">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-6 w-6 text-purple-600" />
-                  <CardTitle>Results</CardTitle>
-                </div>
-                <CardDescription>
-                  View backtest results and performance metrics
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Analyze returns, Sharpe ratio, drawdowns, and detailed trade history.
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
+      {/* Chat CTA */}
+      <button
+        onClick={openSidebar}
+        className="w-full p-6 rounded-xl bg-gradient-to-r from-blue-900/30 to-cyan-900/30 border border-blue-700/50 hover:border-blue-600 transition-all text-left"
+      >
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-lg bg-blue-600">
+            <MessageSquare className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-white">Start Researching</h3>
+            <p className="text-blue-300/70 text-sm">
+              Chat with AI to design strategies, run backtests, and analyze results
+            </p>
+          </div>
+          <div className="text-blue-400 text-sm font-medium">
+            Open Chat &rarr;
+          </div>
         </div>
+      </button>
 
-        {/* Quick Stats Section */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Quick Stats</CardTitle>
-            <CardDescription>Overview of your backtesting environment</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-lg border p-4">
-                <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                  Available Strategies
-                </div>
-                <div className="mt-2 text-3xl font-bold">
-                  {strategyCount !== null ? strategyCount : '...'}
-                </div>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Built-in + custom strategies
-                </p>
-              </div>
-              <div className="rounded-lg border p-4">
-                <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                  Database Status
-                </div>
-                <div className="mt-2 text-3xl font-bold text-green-600">Active</div>
-                <p className="mt-1 text-xs text-neutral-500">
-                  PostgreSQL connected
-                </p>
-              </div>
-              <div className="rounded-lg border p-4">
-                <div className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                  API Status
-                </div>
-                <div className="mt-2 text-3xl font-bold text-blue-600">Ready</div>
-                <p className="mt-1 text-xs text-neutral-500">
-                  FastAPI backend running
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Footer */}
-        <div className="text-center text-sm text-neutral-500">
-          <p>Built with Next.js, FastAPI, and PostgreSQL</p>
-          <p className="mt-2">
-            Core backtesting engine powered by battle-tested Python components
-          </p>
+      {/* Quick Links Grid */}
+      <div>
+        <h2 className="text-lg font-semibold text-white mb-4">Quick Access</h2>
+        <div className="grid gap-3 md:grid-cols-2">
+          <QuickLink
+            href="/strategies"
+            icon={Layers}
+            title="Strategies"
+            description="Browse and create trading strategies"
+            color="bg-orange-600"
+          />
+          <QuickLink
+            href="/data"
+            icon={Database}
+            title="Data"
+            description="Manage historical market data"
+            color="bg-blue-600"
+          />
+          <QuickLink
+            href="/backtest"
+            icon={TrendingUp}
+            title="Backtest"
+            description="Run strategy backtests"
+            color="bg-green-600"
+          />
+          <QuickLink
+            href="/results"
+            icon={BarChart3}
+            title="Results"
+            description="View backtest reports"
+            color="bg-purple-600"
+          />
         </div>
       </div>
     </div>

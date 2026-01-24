@@ -259,7 +259,7 @@ function BacktestPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-800">
+    <div className="min-h-screen bg-neutral-900">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8 flex items-center gap-4">
@@ -718,7 +718,7 @@ function EquityCurveChart({
 export default function BacktestPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+      <div className="min-h-screen bg-neutral-900 flex items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
       </div>
     }>

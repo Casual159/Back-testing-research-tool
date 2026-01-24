@@ -83,7 +83,7 @@ export default function ChartPage() {
   }, [symbol, timeframe]);
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-800">
+    <div className="min-h-screen bg-neutral-900">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8 flex items-center gap-4">

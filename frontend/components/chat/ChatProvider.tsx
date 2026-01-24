@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
+import { useProject } from '@/lib/contexts';
 
 // =============================================================================
 // Types - Block-based message structure
@@ -102,6 +103,9 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const [totalCost, setTotalCost] = useState(0);
   const [totalTokens, setTotalTokens] = useState(0);
 
+  // Get current project for timeline events
+  const { currentProject, refreshEvents } = useProject();
+
   // Ref to track the current assistant message ID during streaming
   const streamingMessageIdRef = useRef<string | null>(null);
   // Counter for unique tool IDs
@@ -141,6 +145,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
         body: JSON.stringify({
           message: content,
           conversation_id: conversationId,
+          project_id: currentProject?.id || null,  // Include project for timeline events
         }),
       });
 
@@ -309,6 +314,11 @@ export function ChatProvider({ children }: ChatProviderProps) {
                         : m
                     )
                   );
+
+                  // Refresh timeline events (in case tools created new events)
+                  if (currentProject?.id) {
+                    refreshEvents();
+                  }
                   break;
 
                 case 'error':
@@ -354,7 +364,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
       setIsLoading(false);
       streamingMessageIdRef.current = null;
     }
-  }, [conversationId, isLoading]);
+  }, [conversationId, isLoading, currentProject?.id, refreshEvents]);
 
   const handleConfirm = useCallback(() => {
     sendMessage('Yes, proceed');

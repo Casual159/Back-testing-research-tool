@@ -67,7 +67,7 @@ export default function StrategyDetailPage({
   const isComposite = strategy?.strategy_type === "composite";
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-800">
+    <div className="min-h-screen bg-neutral-900">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="mb-8 flex items-center gap-4">

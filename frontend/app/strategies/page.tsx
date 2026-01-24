@@ -89,112 +89,101 @@ export default function StrategiesPage() {
   const builtinStrategies = strategies.filter((s) => s.strategy_type !== "composite");
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-800">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="outline" size="icon">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold">Strategy Portfolio</h1>
-              <p className="text-neutral-600 dark:text-neutral-400">
-                Manage and test your trading strategies
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={loadStrategies} disabled={loading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Strategy Portfolio</h1>
+          <p className="text-neutral-400">
+            Manage and test your trading strategies
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={loadStrategies} disabled={loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Link href="/strategies/create">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Strategy
             </Button>
-            <Link href="/strategies/create">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                New Strategy
-              </Button>
-            </Link>
+          </Link>
+        </div>
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-400">
+          {error}
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && strategies.length === 0 && !error && (
+        <div className="flex flex-col items-center justify-center min-h-[300px] bg-neutral-800/30 rounded-xl border-2 border-dashed border-neutral-700">
+          <Layers className="mx-auto h-12 w-12 text-neutral-600 mb-4" />
+          <h3 className="text-lg font-semibold text-white mb-2">No Strategies Found</h3>
+          <p className="text-neutral-400 mb-4">
+            Get started by creating your first trading strategy
+          </p>
+          <Link href="/strategies/create">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Strategy
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {/* Built-in Strategies Section */}
+      {!loading && builtinStrategies.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Zap className="h-5 w-5 text-blue-600" />
+            <h2 className="text-xl font-semibold text-white">Built-in Strategies</h2>
+            <span className="text-sm text-neutral-500">({builtinStrategies.length})</span>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {builtinStrategies.map((strategy) => (
+              <StrategyCard
+                key={strategy.name}
+                strategy={strategy}
+                onDelete={handleDeleteStrategy}
+                isDeleting={deletingStrategy === strategy.name}
+              />
+            ))}
           </div>
         </div>
+      )}
 
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-            {error}
+      {/* Composite Strategies Section */}
+      {!loading && compositeStrategies.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Layers className="h-5 w-5 text-purple-600" />
+            <h2 className="text-xl font-semibold text-white">Custom Strategies</h2>
+            <span className="text-sm text-neutral-500">({compositeStrategies.length})</span>
           </div>
-        )}
-
-        {/* Loading State */}
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {compositeStrategies.map((strategy) => (
+              <StrategyCard
+                key={strategy.name}
+                strategy={strategy}
+                onDelete={handleDeleteStrategy}
+                isDeleting={deletingStrategy === strategy.name}
+              />
+            ))}
           </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && strategies.length === 0 && !error && (
-          <Card className="text-center py-12">
-            <CardContent>
-              <Layers className="mx-auto h-12 w-12 text-neutral-400 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Strategies Found</h3>
-              <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-                Get started by creating your first trading strategy
-              </p>
-              <Link href="/strategies/create">
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Strategy
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Built-in Strategies Section */}
-        {!loading && builtinStrategies.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Zap className="h-5 w-5 text-blue-600" />
-              <h2 className="text-xl font-semibold">Built-in Strategies</h2>
-              <span className="text-sm text-neutral-500">({builtinStrategies.length})</span>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {builtinStrategies.map((strategy) => (
-                <StrategyCard
-                  key={strategy.name}
-                  strategy={strategy}
-                  onDelete={handleDeleteStrategy}
-                  isDeleting={deletingStrategy === strategy.name}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Composite Strategies Section */}
-        {!loading && compositeStrategies.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Layers className="h-5 w-5 text-purple-600" />
-              <h2 className="text-xl font-semibold">Custom Strategies</h2>
-              <span className="text-sm text-neutral-500">({compositeStrategies.length})</span>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {compositeStrategies.map((strategy) => (
-                <StrategyCard
-                  key={strategy.name}
-                  strategy={strategy}
-                  onDelete={handleDeleteStrategy}
-                  isDeleting={deletingStrategy === strategy.name}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
