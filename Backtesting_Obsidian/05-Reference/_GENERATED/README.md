@@ -1,7 +1,7 @@
 # Auto-Generated Documentation
 
-**Purpose:** This folder contains documentation automatically generated from code  
-**DO NOT EDIT MANUALLY** - Changes will be overwritten  
+**Purpose:** This folder contains documentation automatically generated from code
+**DO NOT EDIT MANUALLY** - Changes will be overwritten
 **Last Generated:** Run scripts to update
 
 ---
@@ -167,5 +167,5 @@ All scripts are located in: `scripts/` directory
 
 ---
 
-**Last Updated:** 2024-12-05  
+**Last Updated:** 2024-12-05
 **Maintained By:** Auto-generation scripts

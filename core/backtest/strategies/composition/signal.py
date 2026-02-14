@@ -6,12 +6,14 @@ and a condition to evaluate.
 
 Supports both single-timeframe and multi-timeframe data.
 """
-from typing import Dict, Any, Optional, Union
-import pandas as pd
+
+from typing import Any, Dict, Optional, Union
+
 import numpy as np
+import pandas as pd
+from indicators.technical import TechnicalIndicators
 
 from .condition import Condition
-from indicators.technical import TechnicalIndicators
 
 
 class IndicatorSignal:
@@ -44,7 +46,7 @@ class IndicatorSignal:
         parameters: Dict[str, Any],
         condition: Condition,
         timeframe: str = "1h",
-        indicator_component: Optional[str] = None
+        indicator_component: Optional[str] = None,
     ):
         """
         Initialize indicator signal
@@ -65,11 +67,11 @@ class IndicatorSignal:
         self.indicator_component = indicator_component
 
         # Validate indicator
-        valid_indicators = ['RSI', 'MACD', 'SMA', 'EMA', 'BB', 'ATR', 'VWAP']
+        valid_indicators = ["RSI", "MACD", "SMA", "EMA", "BB", "ATR", "VWAP"]
         if self.indicator not in valid_indicators:
             raise ValueError(f"Unknown indicator: {indicator}. Valid: {valid_indicators}")
 
-    def calculate_indicator(self, data: Union[pd.DataFrame, 'MultiTimeframeData']) -> pd.Series:
+    def calculate_indicator(self, data: Union[pd.DataFrame, "MultiTimeframeData"]) -> pd.Series:
         """
         Calculate indicator values for given data
 
@@ -128,72 +130,74 @@ class IndicatorSignal:
         Returns:
             Series of indicator values
         """
-        close = data['close']
+        close = data["close"]
 
-        if self.indicator == 'RSI':
-            period = self.parameters.get('period', 14)
+        if self.indicator == "RSI":
+            period = self.parameters.get("period", 14)
             return TechnicalIndicators.rsi(close, period=period)
 
-        elif self.indicator == 'MACD':
-            fast = self.parameters.get('fast', 12)
-            slow = self.parameters.get('slow', 26)
-            signal = self.parameters.get('signal', 9)
+        elif self.indicator == "MACD":
+            fast = self.parameters.get("fast", 12)
+            slow = self.parameters.get("slow", 26)
+            signal = self.parameters.get("signal", 9)
             macd_line, signal_line, histogram = TechnicalIndicators.macd(
                 close, fast_period=fast, slow_period=slow, signal_period=signal
             )
 
             # Return requested component
-            component = self.indicator_component or 'macd'
-            if component == 'macd':
+            component = self.indicator_component or "macd"
+            if component == "macd":
                 return macd_line
-            elif component == 'signal':
+            elif component == "signal":
                 return signal_line
-            elif component == 'histogram':
+            elif component == "histogram":
                 return histogram
             else:
-                raise ValueError(f"MACD component '{component}' not found. Available: macd, signal, histogram")
+                raise ValueError(
+                    f"MACD component '{component}' not found. Available: macd, signal, histogram"
+                )
 
-        elif self.indicator == 'SMA':
-            period = self.parameters.get('period', 20)
+        elif self.indicator == "SMA":
+            period = self.parameters.get("period", 20)
             return TechnicalIndicators.sma(close, period=period)
 
-        elif self.indicator == 'EMA':
-            period = self.parameters.get('period', 20)
+        elif self.indicator == "EMA":
+            period = self.parameters.get("period", 20)
             return TechnicalIndicators.ema(close, period=period)
 
-        elif self.indicator == 'BB':
-            period = self.parameters.get('period', 20)
-            num_std = self.parameters.get('num_std', 2.0)
-            upper, middle, lower = TechnicalIndicators.bollinger_bands(close, period=period, std_dev=num_std)
+        elif self.indicator == "BB":
+            period = self.parameters.get("period", 20)
+            num_std = self.parameters.get("num_std", 2.0)
+            upper, middle, lower = TechnicalIndicators.bollinger_bands(
+                close, period=period, std_dev=num_std
+            )
 
             # Return requested component
-            component = self.indicator_component or 'middle'
-            if component == 'upper':
+            component = self.indicator_component or "middle"
+            if component == "upper":
                 return upper
-            elif component == 'middle':
+            elif component == "middle":
                 return middle
-            elif component == 'lower':
+            elif component == "lower":
                 return lower
             else:
-                raise ValueError(f"BB component '{component}' not found. Available: upper, middle, lower")
+                raise ValueError(
+                    f"BB component '{component}' not found. Available: upper, middle, lower"
+                )
 
-        elif self.indicator == 'ATR':
-            period = self.parameters.get('period', 14)
-            return TechnicalIndicators.atr(data['high'], data['low'], data['close'], period=period)
+        elif self.indicator == "ATR":
+            period = self.parameters.get("period", 14)
+            return TechnicalIndicators.atr(data["high"], data["low"], data["close"], period=period)
 
-        elif self.indicator == 'VWAP':
+        elif self.indicator == "VWAP":
             # VWAP = (Typical Price * Volume) / Cumulative Volume
-            typical_price = (data['high'] + data['low'] + data['close']) / 3
-            return (typical_price * data['volume']).cumsum() / data['volume'].cumsum()
+            typical_price = (data["high"] + data["low"] + data["close"]) / 3
+            return (typical_price * data["volume"]).cumsum() / data["volume"].cumsum()
 
         else:
             raise ValueError(f"Unsupported indicator: {self.indicator}")
 
-    def evaluate(
-        self,
-        data: pd.DataFrame,
-        index: Optional[int] = None
-    ) -> bool:
+    def evaluate(self, data: pd.DataFrame, index: Optional[int] = None) -> bool:
         """
         Evaluate signal at specific point in time
 
@@ -245,32 +249,32 @@ class IndicatorSignal:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
         return {
-            'name': self.name,
-            'indicator': self.indicator,
-            'parameters': self.parameters,
-            'condition': {
-                'operator': self.condition.operator.value,
-                'threshold': self.condition.threshold,
-                'threshold2': self.condition.threshold2
+            "name": self.name,
+            "indicator": self.indicator,
+            "parameters": self.parameters,
+            "condition": {
+                "operator": self.condition.operator.value,
+                "threshold": self.condition.threshold,
+                "threshold2": self.condition.threshold2,
             },
-            'timeframe': self.timeframe,
-            'indicator_component': self.indicator_component
+            "timeframe": self.timeframe,
+            "indicator_component": self.indicator_component,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'IndicatorSignal':
+    def from_dict(cls, data: Dict[str, Any]) -> "IndicatorSignal":
         """Create from dictionary"""
         condition = Condition(
-            operator=data['condition']['operator'],
-            threshold=data['condition']['threshold'],
-            threshold2=data['condition'].get('threshold2')
+            operator=data["condition"]["operator"],
+            threshold=data["condition"]["threshold"],
+            threshold2=data["condition"].get("threshold2"),
         )
 
         return cls(
-            name=data['name'],
-            indicator=data['indicator'],
-            parameters=data['parameters'],
+            name=data["name"],
+            indicator=data["indicator"],
+            parameters=data["parameters"],
             condition=condition,
-            timeframe=data.get('timeframe', '1h'),
-            indicator_component=data.get('indicator_component')
+            timeframe=data.get("timeframe", "1h"),
+            indicator_component=data.get("indicator_component"),
         )

@@ -1,7 +1,7 @@
 # AI Context: Components Overview
 
-**Last Updated:** 2024-12-05  
-**Purpose:** Quick component lookup for AI sessions  
+**Last Updated:** 2024-12-05
+**Purpose:** Quick component lookup for AI sessions
 **Read Time:** 3 minutes
 
 ---
@@ -274,12 +274,12 @@ class RSIIndicator:
     def __init__(self, period: int = 14):
         self.period = period
         self.history = []
-    
+
     def update(self, candle: dict) -> None:
         """Update with new candle"""
         self.history.append(candle['close'])
         # Calculate RSI
-    
+
     def get_value(self) -> Optional[float]:
         """Get current RSI value"""
         if len(self.history) < self.period:
@@ -435,11 +435,11 @@ PostgreSQL Database
 
 ---
 
-**Main Entry:** [[Project Root]]  
-**Architecture Context:** [[01-Architecture/_AI_CONTEXT]]  
+**Main Entry:** [[Project Root]]
+**Architecture Context:** [[01-Architecture/_AI_CONTEXT]]
 **Task Workflows:** [[04-Workflows/_AI_CONTEXT]]
 
 ---
 
-**Last Updated:** 2024-12-05  
+**Last Updated:** 2024-12-05
 **Maintained By:** AI + Human collaboration

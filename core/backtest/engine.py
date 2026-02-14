@@ -6,12 +6,15 @@ executes orders, and tracks portfolio performance.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 import pandas as pd
-from .events import MarketEvent, SignalEvent, OrderEvent, FillEvent
-from .portfolio import Portfolio
+
 from core.indicators.regime import MarketRegimeClassifier
 from core.indicators.technical import add_all_indicators
+
+from .events import FillEvent, MarketEvent, OrderEvent, SignalEvent
+from .portfolio import Portfolio
 
 
 class BacktestEngine:
@@ -42,7 +45,7 @@ class BacktestEngine:
         commission_rate: float = 0.001,
         slippage_rate: float = 0.0005,
         position_size_pct: float = 1.0,
-        enable_regime_detection: bool = True
+        enable_regime_detection: bool = True,
     ):
         """
         Initialize backtesting engine.
@@ -65,7 +68,7 @@ class BacktestEngine:
         self.enable_regime_detection = enable_regime_detection
 
         self.portfolio = Portfolio(initial_capital)
-        self.symbol = 'BTC/USDT'  # Default symbol
+        self.symbol = "BTC/USDT"  # Default symbol
 
         # Regime classifier
         self.regime_classifier = None
@@ -91,11 +94,13 @@ class BacktestEngine:
         """
         print(f"Starting backtest with {len(self.data)} bars...")
         print(f"Initial capital: ${self.initial_capital:,.2f}")
-        print(f"Commission: {self.commission_rate*100:.2f}%, Slippage: {self.slippage_rate*100:.2f}%")
+        print(
+            f"Commission: {self.commission_rate*100:.2f}%, Slippage: {self.slippage_rate*100:.2f}%"
+        )
         print("-" * 60)
 
         # Initialize strategy if it has an initialize method (for CompositeStrategy)
-        if hasattr(self.strategy, 'initialize'):
+        if hasattr(self.strategy, "initialize"):
             print("Initializing strategy...")
             self.strategy.initialize(self.data)
             print("Strategy initialized!")
@@ -116,7 +121,7 @@ class BacktestEngine:
                 self._process_signal(signal_event, bar)
 
             # 4. Record portfolio value
-            current_price = bar['close']
+            current_price = bar["close"]
             portfolio_value = self.portfolio.current_value({self.symbol: current_price})
             self.portfolio.record_equity(timestamp, portfolio_value)
 
@@ -130,14 +135,15 @@ class BacktestEngine:
 
         # Calculate metrics
         from .metrics import MetricsCalculator
+
         metrics_calc = MetricsCalculator(self.portfolio)
         metrics = metrics_calc.calculate_all()
 
         return {
-            'portfolio': self.portfolio,
-            'metrics': metrics,
-            'equity_curve': self.portfolio.equity_curve,
-            'trades': self.portfolio.trades
+            "portfolio": self.portfolio,
+            "metrics": metrics,
+            "equity_curve": self.portfolio.equity_curve,
+            "trades": self.portfolio.trades,
         }
 
     def _prepare_regime_data(self):
@@ -170,11 +176,11 @@ class BacktestEngine:
             MarketEvent instance with regime metadata (if enabled)
         """
         ohlcv = {
-            'open': float(bar['open']),
-            'high': float(bar['high']),
-            'low': float(bar['low']),
-            'close': float(bar['close']),
-            'volume': float(bar['volume'])
+            "open": float(bar["open"]),
+            "high": float(bar["high"]),
+            "low": float(bar["low"]),
+            "close": float(bar["close"]),
+            "volume": float(bar["volume"]),
         }
 
         metadata = {}
@@ -184,13 +190,13 @@ class BacktestEngine:
             try:
                 # Get regime data for this timestamp from preprocessed DataFrame
                 regime_row = self.data_with_indicators.loc[timestamp]
-                metadata['regime'] = {
-                    'simplified': regime_row.get('simplified_regime'),
-                    'full_regime': regime_row.get('full_regime'),
-                    'trend_state': regime_row.get('trend_state'),
-                    'volatility_state': regime_row.get('volatility_state'),
-                    'momentum_state': regime_row.get('momentum_state'),
-                    'confidence': regime_row.get('regime_confidence', 0.0)
+                metadata["regime"] = {
+                    "simplified": regime_row.get("simplified_regime"),
+                    "full_regime": regime_row.get("full_regime"),
+                    "trend_state": regime_row.get("trend_state"),
+                    "volatility_state": regime_row.get("volatility_state"),
+                    "momentum_state": regime_row.get("momentum_state"),
+                    "confidence": regime_row.get("regime_confidence", 0.0),
                 }
             except (KeyError, AttributeError):
                 # Regime data not available for this bar
@@ -214,7 +220,7 @@ class BacktestEngine:
         # Calculate signals
         signal = self.strategy.calculate_signals(market_event)
 
-        if signal and signal.signal_type != 'HOLD':
+        if signal and signal.signal_type != "HOLD":
             self.signals_generated += 1
 
         return signal
@@ -227,9 +233,9 @@ class BacktestEngine:
             signal: SignalEvent from strategy
             bar: Current price bar
         """
-        current_price = bar['close']
+        current_price = bar["close"]
 
-        if signal.signal_type == 'BUY':
+        if signal.signal_type == "BUY":
             # Check if we already have a position
             if not self.portfolio.has_position(self.symbol):
                 # Calculate position size
@@ -239,7 +245,7 @@ class BacktestEngine:
                     self.portfolio.update_from_fill(fill, current_price)
                     self.orders_executed += 1
 
-        elif signal.signal_type == 'SELL':
+        elif signal.signal_type == "SELL":
             # Check if we have a position to sell
             if self.portfolio.has_position(self.symbol):
                 order = self._create_sell_order(signal, current_price)
@@ -270,9 +276,9 @@ class BacktestEngine:
             return OrderEvent(
                 timestamp=signal.timestamp,
                 symbol=signal.symbol,
-                order_type='MARKET',
+                order_type="MARKET",
                 quantity=quantity,
-                direction='BUY'
+                direction="BUY",
             )
         return None
 
@@ -292,9 +298,9 @@ class BacktestEngine:
             return OrderEvent(
                 timestamp=signal.timestamp,
                 symbol=signal.symbol,
-                order_type='MARKET',
+                order_type="MARKET",
                 quantity=position.quantity,
-                direction='SELL'
+                direction="SELL",
             )
         return None
 
@@ -310,7 +316,7 @@ class BacktestEngine:
             FillEvent with execution details
         """
         # Apply slippage
-        if order.direction == 'BUY':
+        if order.direction == "BUY":
             # Buy at higher price (unfavorable slippage)
             fill_price = market_price * (1 + self.slippage_rate)
         else:
@@ -328,12 +334,16 @@ class BacktestEngine:
             direction=order.direction,
             fill_price=fill_price,
             commission=commission,
-            slippage=self.slippage_rate
+            slippage=self.slippage_rate,
         )
 
     def get_summary(self) -> str:
         """Get backtest summary as formatted string."""
-        final_value = self.portfolio.equity_curve[-1][1] if self.portfolio.equity_curve else self.initial_capital
+        final_value = (
+            self.portfolio.equity_curve[-1][1]
+            if self.portfolio.equity_curve
+            else self.initial_capital
+        )
         total_return = self.portfolio.total_return()
 
         summary = f"""

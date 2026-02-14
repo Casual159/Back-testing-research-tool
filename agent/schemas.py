@@ -11,13 +11,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-
 # =============================================================================
 # ENUMS
 # =============================================================================
 
+
 class AgentPhase(str, Enum):
     """Agent workflow phases."""
+
     STRATEGY_DESIGN = "STRATEGY_DESIGN"
     STRATEGY_VALIDATION = "STRATEGY_VALIDATION"
     DATA_SELECTION = "DATA_SELECTION"
@@ -30,6 +31,7 @@ class AgentPhase(str, Enum):
 
 class SuggestionCategory(str, Enum):
     """Categories for agent suggestions."""
+
     INDICATOR = "indicator"
     METRIC = "metric"
     VISUALIZATION = "visualization"
@@ -40,6 +42,7 @@ class SuggestionCategory(str, Enum):
 
 class SuggestionPriority(str, Enum):
     """Priority levels for suggestions."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -49,8 +52,10 @@ class SuggestionPriority(str, Enum):
 # MESSAGE MODELS
 # =============================================================================
 
+
 class ToolCall(BaseModel):
     """Record of a tool call made by the agent."""
+
     tool_name: str
     arguments: dict[str, Any]
     result: Any
@@ -59,6 +64,7 @@ class ToolCall(BaseModel):
 
 class Message(BaseModel):
     """A single message in the conversation."""
+
     role: str  # "user" | "assistant" | "system"
     content: str
     tool_calls: list[ToolCall] = Field(default_factory=list)
@@ -69,14 +75,17 @@ class Message(BaseModel):
 # REQUEST/RESPONSE MODELS
 # =============================================================================
 
+
 class AgentChatRequest(BaseModel):
     """Request to chat with the agent."""
+
     message: str
     conversation_id: Optional[UUID] = None
 
 
 class AgentChatResponse(BaseModel):
     """Response from the agent."""
+
     # Main response
     message: str
     conversation_id: UUID
@@ -99,8 +108,10 @@ class AgentChatResponse(BaseModel):
 # CONVERSATION CONTEXT
 # =============================================================================
 
+
 class ConversationContext(BaseModel):
     """Working memory for the agent during a conversation."""
+
     # Proposed/selected items
     proposed_strategy: Optional[dict[str, Any]] = None
     selected_strategy_name: Optional[str] = None
@@ -116,6 +127,7 @@ class ConversationContext(BaseModel):
 
 class Conversation(BaseModel):
     """Full conversation state."""
+
     id: UUID
     messages: list[Message] = Field(default_factory=list)
     phase: AgentPhase = AgentPhase.CONVERSATION
@@ -135,8 +147,10 @@ class Conversation(BaseModel):
 # REPORT MODELS
 # =============================================================================
 
+
 class ReportSummary(BaseModel):
     """Summary of a backtest report (for listing)."""
+
     id: UUID
     strategy_name: str
     symbol: str
@@ -151,6 +165,7 @@ class ReportSummary(BaseModel):
 
 class BacktestReport(BaseModel):
     """Full backtest report."""
+
     id: UUID
 
     # Strategy
@@ -205,8 +220,10 @@ class BacktestReport(BaseModel):
 # SUGGESTION MODEL
 # =============================================================================
 
+
 class AgentSuggestion(BaseModel):
     """A feature suggestion from the agent."""
+
     id: UUID
     conversation_id: Optional[UUID] = None
     report_id: Optional[UUID] = None

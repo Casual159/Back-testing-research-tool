@@ -12,7 +12,7 @@ from .fetcher import BinanceDataFetcher
 from .storage import PostgresStorage
 
 __all__ = [
-    'BinanceBulkFetcher',
-    'BinanceDataFetcher',
-    'PostgresStorage',
+    "BinanceBulkFetcher",
+    "BinanceDataFetcher",
+    "PostgresStorage",
 ]

@@ -6,6 +6,7 @@ Tracks positions, cash, trades, and calculates portfolio value over time.
 
 from datetime import datetime
 from typing import Dict, List, Tuple
+
 from .events import FillEvent
 
 
@@ -36,7 +37,7 @@ class Trade:
         exit_price: float,
         quantity: float,
         entry_commission: float,
-        exit_commission: float
+        exit_commission: float,
     ):
         self.entry_time = entry_time
         self.exit_time = exit_time
@@ -49,7 +50,7 @@ class Trade:
         self.exit_commission = exit_commission
 
         # Calculate P&L
-        if direction == 'LONG':
+        if direction == "LONG":
             gross_pnl = (exit_price - entry_price) * quantity
         else:  # SHORT
             gross_pnl = (entry_price - exit_price) * quantity
@@ -63,6 +64,7 @@ class Trade:
         except AttributeError:
             # Handle case where times might be integers or other types
             from datetime import datetime
+
             if isinstance(entry_time, (int, float)):
                 entry_time = datetime.fromtimestamp(entry_time)
             if isinstance(exit_time, (int, float)):
@@ -74,8 +76,10 @@ class Trade:
         return self.pnl > 0
 
     def __repr__(self):
-        return (f"Trade({self.direction} {self.symbol}, "
-                f"PnL={self.pnl:.2f}, Return={self.return_pct:.2f}%)")
+        return (
+            f"Trade({self.direction} {self.symbol}, "
+            f"PnL={self.pnl:.2f}, Return={self.return_pct:.2f}%)"
+        )
 
 
 class Position:
@@ -96,7 +100,7 @@ class Position:
         quantity: float,
         entry_price: float,
         entry_time: datetime,
-        entry_commission: float
+        entry_commission: float,
     ):
         self.symbol = symbol
         self.quantity = quantity
@@ -163,7 +167,7 @@ class Portfolio:
         # Store fill for trade history
         self._fills.append(fill)
 
-        if fill.direction == 'BUY':
+        if fill.direction == "BUY":
             # Opening or adding to long position
             if symbol in self.positions:
                 # Average up the position
@@ -180,13 +184,13 @@ class Portfolio:
                     quantity=fill.quantity,
                     entry_price=fill.fill_price,
                     entry_time=fill.timestamp,
-                    entry_commission=fill.commission
+                    entry_commission=fill.commission,
                 )
 
             # Deduct cost from cash
             self.current_cash -= fill.cost
 
-        elif fill.direction == 'SELL':
+        elif fill.direction == "SELL":
             # Closing or reducing long position
             if symbol in self.positions:
                 pos = self.positions[symbol]
@@ -198,12 +202,12 @@ class Portfolio:
                         entry_time=pos.entry_time,
                         exit_time=fill.timestamp,
                         symbol=symbol,
-                        direction='LONG',
+                        direction="LONG",
                         entry_price=pos.entry_price,
                         exit_price=fill.fill_price,
                         quantity=pos.quantity,
                         entry_commission=pos.entry_commission,
-                        exit_commission=fill.commission
+                        exit_commission=fill.commission,
                     )
                     self.trades.append(trade)
 
@@ -227,8 +231,7 @@ class Portfolio:
             Total portfolio value (cash + positions)
         """
         position_value = sum(
-            pos.quantity * current_prices.get(pos.symbol, 0)
-            for pos in self.positions.values()
+            pos.quantity * current_prices.get(pos.symbol, 0) for pos in self.positions.values()
         )
         return self.current_cash + position_value
 
@@ -276,5 +279,7 @@ class Portfolio:
         return (len(self.winning_trades()) / len(self.trades)) * 100
 
     def __repr__(self):
-        return (f"Portfolio(cash={self.current_cash:.2f}, "
-                f"positions={len(self.positions)}, trades={len(self.trades)})")
+        return (
+            f"Portfolio(cash={self.current_cash:.2f}, "
+            f"positions={len(self.positions)}, trades={len(self.trades)})"
+        )

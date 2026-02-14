@@ -13,7 +13,7 @@ from urllib.parse import quote
 import httpx
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.types import TextContent, Tool
 
 # =============================================================================
 # CONFIGURATION
@@ -26,11 +26,9 @@ API_BASE_URL = "http://localhost:8000"
 # ERROR LOGGING
 # =============================================================================
 
+
 async def log_error_to_api(
-    tool_name: str,
-    error_type: str,
-    error_message: str,
-    request_data: dict = None
+    tool_name: str, error_type: str, error_message: str, request_data: dict = None
 ) -> None:
     """
     Log error to database via API endpoint.
@@ -45,8 +43,8 @@ async def log_error_to_api(
                     "tool_name": tool_name,
                     "error_type": error_type,
                     "error_message": error_message,
-                    "request_data": request_data
-                }
+                    "request_data": request_data,
+                },
             )
     except Exception:
         pass  # Fire and forget - don't fail if logging fails
@@ -74,11 +72,7 @@ Built-in strategies:
 - RSI Reversal: Mean-reversion (best for RANGE)
 - Bollinger Bands: Volatility-based (best for RANGE)
 - MACD Cross: Momentum (best for TREND_UP/DOWN)""",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="get_strategy",
@@ -90,11 +84,11 @@ Returns full strategy config including parameters, regime filters, and logic."""
                 "properties": {
                     "name": {
                         "type": "string",
-                        "description": "Strategy name (e.g., 'RSI Reversal')"
+                        "description": "Strategy name (e.g., 'RSI Reversal')",
                     }
                 },
-                "required": ["name"]
-            }
+                "required": ["name"],
+            },
         ),
         Tool(
             name="check_data",
@@ -108,25 +102,19 @@ If data missing, use fetch_data tool to download it.""",
                     "symbol": {
                         "type": "string",
                         "description": "Trading pair (e.g., 'BTCUSDT')",
-                        "default": "BTCUSDT"
+                        "default": "BTCUSDT",
                     },
                     "timeframe": {
                         "type": "string",
                         "enum": ["1m", "5m", "15m", "1h", "4h", "1d"],
                         "description": "Candle timeframe",
-                        "default": "1h"
+                        "default": "1h",
                     },
-                    "start_date": {
-                        "type": "string",
-                        "description": "Start date (YYYY-MM-DD)"
-                    },
-                    "end_date": {
-                        "type": "string",
-                        "description": "End date (YYYY-MM-DD)"
-                    }
+                    "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+                    "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)"},
                 },
-                "required": ["symbol", "timeframe"]
-            }
+                "required": ["symbol", "timeframe"],
+            },
         ),
         Tool(
             name="fetch_data",
@@ -142,24 +130,24 @@ This may take a few seconds depending on date range.""",
                 "properties": {
                     "symbol": {
                         "type": "string",
-                        "description": "Trading pair (e.g., 'BTCUSDT', 'BNBUSDC')"
+                        "description": "Trading pair (e.g., 'BTCUSDT', 'BNBUSDC')",
                     },
                     "timeframe": {
                         "type": "string",
                         "enum": ["1m", "5m", "15m", "1h", "4h", "1d"],
-                        "default": "1h"
+                        "default": "1h",
                     },
                     "start_date": {
                         "type": "string",
-                        "description": "Start date (YYYY-MM-DD). Default: 6 months ago"
+                        "description": "Start date (YYYY-MM-DD). Default: 6 months ago",
                     },
                     "end_date": {
                         "type": "string",
-                        "description": "End date (YYYY-MM-DD). Default: today"
-                    }
+                        "description": "End date (YYYY-MM-DD). Default: today",
+                    },
                 },
-                "required": ["symbol"]
-            }
+                "required": ["symbol"],
+            },
         ),
         Tool(
             name="run_backtest",
@@ -179,43 +167,21 @@ INTERPRETING RESULTS:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "strategy_name": {
-                        "type": "string",
-                        "description": "Name of strategy to test"
-                    },
-                    "symbol": {
-                        "type": "string",
-                        "default": "BTCUSDT"
-                    },
-                    "timeframe": {
-                        "type": "string",
-                        "enum": ["1h", "4h", "1d"],
-                        "default": "1h"
-                    },
-                    "start_date": {
-                        "type": "string",
-                        "description": "Start date (YYYY-MM-DD)"
-                    },
-                    "end_date": {
-                        "type": "string",
-                        "description": "End date (YYYY-MM-DD)"
-                    },
-                    "initial_capital": {
-                        "type": "number",
-                        "default": 10000
-                    },
+                    "strategy_name": {"type": "string", "description": "Name of strategy to test"},
+                    "symbol": {"type": "string", "default": "BTCUSDT"},
+                    "timeframe": {"type": "string", "enum": ["1h", "4h", "1d"], "default": "1h"},
+                    "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+                    "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)"},
+                    "initial_capital": {"type": "number", "default": 10000},
                     "regime_filter": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Only trade in these regimes: TREND_UP, TREND_DOWN, RANGE, CHOPPY, NEUTRAL"
+                        "description": "Only trade in these regimes: TREND_UP, TREND_DOWN, RANGE, CHOPPY, NEUTRAL",
                     },
-                    "parameters": {
-                        "type": "object",
-                        "description": "Override strategy parameters"
-                    }
+                    "parameters": {"type": "object", "description": "Override strategy parameters"},
                 },
-                "required": ["strategy_name", "start_date"]
-            }
+                "required": ["strategy_name", "start_date"],
+            },
         ),
         Tool(
             name="create_strategy",
@@ -235,37 +201,34 @@ REGIME RECOMMENDATIONS:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "Unique strategy name"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
+                    "name": {"type": "string", "description": "Unique strategy name"},
+                    "description": {"type": "string"},
                     "builtin_class": {
                         "type": "string",
-                        "enum": ["MovingAverageCrossover", "RSIReversal", "BollingerBands", "MACDCross"],
-                        "description": "Base strategy class for builtin variant"
+                        "enum": [
+                            "MovingAverageCrossover",
+                            "RSIReversal",
+                            "BollingerBands",
+                            "MACDCross",
+                        ],
+                        "description": "Base strategy class for builtin variant",
                     },
                     "parameters": {
                         "type": "object",
-                        "description": "Strategy parameters (e.g., {fast_period: 10, slow_period: 30})"
+                        "description": "Strategy parameters (e.g., {fast_period: 10, slow_period: 30})",
                     },
                     "entry_logic": {
                         "type": "object",
-                        "description": "LogicTree for composite strategy entry"
+                        "description": "LogicTree for composite strategy entry",
                     },
                     "exit_logic": {
                         "type": "object",
-                        "description": "LogicTree for composite strategy exit"
+                        "description": "LogicTree for composite strategy exit",
                     },
-                    "regime_filter": {
-                        "type": "array",
-                        "items": {"type": "string"}
-                    }
+                    "regime_filter": {"type": "array", "items": {"type": "string"}},
                 },
-                "required": ["name"]
-            }
+                "required": ["name"],
+            },
         ),
         Tool(
             name="get_market_regime",
@@ -280,17 +243,11 @@ Use this to decide which strategy type to use.""",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "symbol": {
-                        "type": "string",
-                        "default": "BTCUSDT"
-                    },
-                    "timeframe": {
-                        "type": "string",
-                        "default": "1h"
-                    }
+                    "symbol": {"type": "string", "default": "BTCUSDT"},
+                    "timeframe": {"type": "string", "default": "1h"},
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         Tool(
             name="get_data_stats",
@@ -301,11 +258,7 @@ Returns list of symbol/timeframe combinations with:
 - First and last candle timestamps
 
 Use this to see what data is available for backtesting.""",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            inputSchema={"type": "object", "properties": {}, "required": []},
         ),
         Tool(
             name="agent_chat",
@@ -328,17 +281,14 @@ Use conversation_id to continue an existing conversation.""",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "message": {
-                        "type": "string",
-                        "description": "Your message to the agent"
-                    },
+                    "message": {"type": "string", "description": "Your message to the agent"},
                     "conversation_id": {
                         "type": "string",
-                        "description": "Optional conversation ID to continue existing chat"
-                    }
+                        "description": "Optional conversation ID to continue existing chat",
+                    },
                 },
-                "required": ["message"]
-            }
+                "required": ["message"],
+            },
         ),
         Tool(
             name="list_reports",
@@ -356,11 +306,11 @@ Use get_report with report_id for full details.""",
                     "limit": {
                         "type": "number",
                         "description": "Maximum number of reports to return",
-                        "default": 20
+                        "default": 20,
                     }
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         Tool(
             name="get_report",
@@ -374,13 +324,10 @@ Returns complete report including:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "report_id": {
-                        "type": "string",
-                        "description": "UUID of the report"
-                    }
+                    "report_id": {"type": "string", "description": "UUID of the report"}
                 },
-                "required": ["report_id"]
-            }
+                "required": ["report_id"],
+            },
         ),
         Tool(
             name="list_suggestions",
@@ -397,11 +344,11 @@ Useful to see what enhancements have been identified.""",
                     "status": {
                         "type": "string",
                         "enum": ["pending", "planned", "in_progress", "done", "rejected"],
-                        "description": "Filter by status"
+                        "description": "Filter by status",
                     }
                 },
-                "required": []
-            }
+                "required": [],
+            },
         ),
         Tool(
             name="list_errors",
@@ -420,16 +367,16 @@ Use this to diagnose issues with backtests or strategy creation.""",
                     "limit": {
                         "type": "number",
                         "default": 20,
-                        "description": "Max errors to return"
+                        "description": "Max errors to return",
                     },
                     "tool_name": {
                         "type": "string",
-                        "description": "Filter by tool (e.g., 'run_backtest')"
-                    }
+                        "description": "Filter by tool (e.g., 'run_backtest')",
+                    },
                 },
-                "required": []
-            }
-        )
+                "required": [],
+            },
+        ),
     ]
 
 
@@ -438,20 +385,15 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Execute a backtesting tool"""
     try:
         result = await execute_tool(name, arguments)
-        return [TextContent(
-            type="text",
-            text=json.dumps(result, indent=2, default=str)
-        )]
+        return [TextContent(type="text", text=json.dumps(result, indent=2, default=str))]
     except Exception as e:
-        return [TextContent(
-            type="text",
-            text=json.dumps({"error": str(e)}, indent=2)
-        )]
+        return [TextContent(type="text", text=json.dumps({"error": str(e)}, indent=2))]
 
 
 # =============================================================================
 # TOOL EXECUTION
 # =============================================================================
+
 
 async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Execute a tool by calling the corresponding API endpoint."""
@@ -464,7 +406,7 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
             elif tool_name == "get_strategy":
                 name = arguments["name"]
                 # URL encode the name to handle special characters like spaces and slashes
-                encoded_name = quote(name, safe='')
+                encoded_name = quote(name, safe="")
                 response = await client.get(f"{API_BASE_URL}/api/strategies/{encoded_name}")
 
             elif tool_name == "check_data":
@@ -476,35 +418,26 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
                 if "end_date" in arguments:
                     params["end_date"] = arguments["end_date"]
                 response = await client.get(
-                    f"{API_BASE_URL}/api/data/check/{symbol}/{timeframe}",
-                    params=params
+                    f"{API_BASE_URL}/api/data/check/{symbol}/{timeframe}", params=params
                 )
 
             elif tool_name == "run_backtest":
-                response = await client.post(
-                    f"{API_BASE_URL}/api/backtest",
-                    json=arguments
-                )
+                response = await client.post(f"{API_BASE_URL}/api/backtest", json=arguments)
 
             elif tool_name == "create_strategy":
-                response = await client.post(
-                    f"{API_BASE_URL}/api/strategies",
-                    json=arguments
-                )
+                response = await client.post(f"{API_BASE_URL}/api/strategies", json=arguments)
 
             elif tool_name == "get_market_regime":
                 symbol = arguments.get("symbol", "BTCUSDT")
                 timeframe = arguments.get("timeframe", "1h")
-                response = await client.get(
-                    f"{API_BASE_URL}/api/data/regime/{symbol}/{timeframe}"
-                )
+                response = await client.get(f"{API_BASE_URL}/api/data/regime/{symbol}/{timeframe}")
                 # Return only last 10 regime entries for brevity
                 data = response.json()
                 if isinstance(data, list) and len(data) > 10:
                     return {
                         "latest_regimes": data[-10:],
                         "total_entries": len(data),
-                        "current_regime": data[-1] if data else None
+                        "current_regime": data[-1] if data else None,
                     }
                 return data
 
@@ -513,6 +446,7 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
 
             elif tool_name == "fetch_data":
                 from datetime import datetime, timedelta
+
                 today = datetime.now()
                 six_months_ago = today - timedelta(days=180)
 
@@ -520,12 +454,12 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
                     "symbol": arguments["symbol"],
                     "timeframe": arguments.get("timeframe", "1h"),
                     "start_date": arguments.get("start_date", six_months_ago.strftime("%Y-%m-%d")),
-                    "end_date": arguments.get("end_date", today.strftime("%Y-%m-%d"))
+                    "end_date": arguments.get("end_date", today.strftime("%Y-%m-%d")),
                 }
                 response = await client.post(
                     f"{API_BASE_URL}/api/data/fetch",
                     json=fetch_request,
-                    timeout=300.0  # Data fetch can take longer
+                    timeout=300.0,  # Data fetch can take longer
                 )
 
             elif tool_name == "agent_chat":
@@ -533,17 +467,14 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
                     f"{API_BASE_URL}/api/agent/chat",
                     json={
                         "message": arguments["message"],
-                        "conversation_id": arguments.get("conversation_id")
+                        "conversation_id": arguments.get("conversation_id"),
                     },
-                    timeout=180.0  # Agent may take longer
+                    timeout=180.0,  # Agent may take longer
                 )
 
             elif tool_name == "list_reports":
                 limit = arguments.get("limit", 20)
-                response = await client.get(
-                    f"{API_BASE_URL}/api/reports",
-                    params={"limit": limit}
-                )
+                response = await client.get(f"{API_BASE_URL}/api/reports", params={"limit": limit})
 
             elif tool_name == "get_report":
                 report_id = arguments["report_id"]
@@ -553,19 +484,13 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
                 params = {}
                 if "status" in arguments:
                     params["status"] = arguments["status"]
-                response = await client.get(
-                    f"{API_BASE_URL}/api/suggestions",
-                    params=params
-                )
+                response = await client.get(f"{API_BASE_URL}/api/suggestions", params=params)
 
             elif tool_name == "list_errors":
                 params = {"limit": arguments.get("limit", 20)}
                 if "tool_name" in arguments:
                     params["tool_name"] = arguments["tool_name"]
-                response = await client.get(
-                    f"{API_BASE_URL}/api/errors",
-                    params=params
-                )
+                response = await client.get(f"{API_BASE_URL}/api/errors", params=params)
 
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
@@ -576,52 +501,46 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
                     error_detail = response.json().get("detail", error_detail)
                 except:
                     error_detail = response.text
-                return {
-                    "error": True,
-                    "status_code": response.status_code,
-                    "detail": error_detail
-                }
+                return {"error": True, "status_code": response.status_code, "detail": error_detail}
 
             return response.json()
 
         except httpx.ConnectError:
             # Log connection error (can't use API, so just try - it will fail silently)
-            asyncio.create_task(log_error_to_api(
-                tool_name=tool_name,
-                error_type="ConnectError",
-                error_message="Cannot connect to API server. Make sure FastAPI is running on localhost:8000",
-                request_data=arguments
-            ))
+            asyncio.create_task(
+                log_error_to_api(
+                    tool_name=tool_name,
+                    error_type="ConnectError",
+                    error_message="Cannot connect to API server. Make sure FastAPI is running on localhost:8000",
+                    request_data=arguments,
+                )
+            )
             return {
                 "error": True,
-                "detail": "Cannot connect to API server. Make sure FastAPI is running on localhost:8000"
+                "detail": "Cannot connect to API server. Make sure FastAPI is running on localhost:8000",
             }
         except httpx.TimeoutException:
             # Log timeout error
-            asyncio.create_task(log_error_to_api(
-                tool_name=tool_name,
-                error_type="TimeoutException",
-                error_message="API request timed out",
-                request_data=arguments
-            ))
-            return {
-                "error": True,
-                "detail": "API request timed out"
-            }
+            asyncio.create_task(
+                log_error_to_api(
+                    tool_name=tool_name,
+                    error_type="TimeoutException",
+                    error_message="API request timed out",
+                    request_data=arguments,
+                )
+            )
+            return {"error": True, "detail": "API request timed out"}
 
 
 # =============================================================================
 # MAIN
 # =============================================================================
 
+
 async def main():
     """Run the MCP server"""
     async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            server.create_initialization_options()
-        )
+        await server.run(read_stream, write_stream, server.create_initialization_options())
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 Binance data fetcher module
 Handles downloading historical OHLCV data from Binance API
 """
+
 import logging
 import time
 from datetime import datetime, timedelta
@@ -15,8 +16,7 @@ from config import DataConfig
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -26,29 +26,24 @@ class BinanceDataFetcher:
 
     # Binance timeframe mapping
     TIMEFRAME_MAP = {
-        '1m': Client.KLINE_INTERVAL_1MINUTE,
-        '3m': Client.KLINE_INTERVAL_3MINUTE,
-        '5m': Client.KLINE_INTERVAL_5MINUTE,
-        '15m': Client.KLINE_INTERVAL_15MINUTE,
-        '30m': Client.KLINE_INTERVAL_30MINUTE,
-        '1h': Client.KLINE_INTERVAL_1HOUR,
-        '2h': Client.KLINE_INTERVAL_2HOUR,
-        '4h': Client.KLINE_INTERVAL_4HOUR,
-        '6h': Client.KLINE_INTERVAL_6HOUR,
-        '8h': Client.KLINE_INTERVAL_8HOUR,
-        '12h': Client.KLINE_INTERVAL_12HOUR,
-        '1d': Client.KLINE_INTERVAL_1DAY,
-        '3d': Client.KLINE_INTERVAL_3DAY,
-        '1w': Client.KLINE_INTERVAL_1WEEK,
-        '1M': Client.KLINE_INTERVAL_1MONTH,
+        "1m": Client.KLINE_INTERVAL_1MINUTE,
+        "3m": Client.KLINE_INTERVAL_3MINUTE,
+        "5m": Client.KLINE_INTERVAL_5MINUTE,
+        "15m": Client.KLINE_INTERVAL_15MINUTE,
+        "30m": Client.KLINE_INTERVAL_30MINUTE,
+        "1h": Client.KLINE_INTERVAL_1HOUR,
+        "2h": Client.KLINE_INTERVAL_2HOUR,
+        "4h": Client.KLINE_INTERVAL_4HOUR,
+        "6h": Client.KLINE_INTERVAL_6HOUR,
+        "8h": Client.KLINE_INTERVAL_8HOUR,
+        "12h": Client.KLINE_INTERVAL_12HOUR,
+        "1d": Client.KLINE_INTERVAL_1DAY,
+        "3d": Client.KLINE_INTERVAL_3DAY,
+        "1w": Client.KLINE_INTERVAL_1WEEK,
+        "1M": Client.KLINE_INTERVAL_1MONTH,
     }
 
-    def __init__(
-        self,
-        api_key: str,
-        api_secret: str,
-        testnet: bool = True
-    ):
+    def __init__(self, api_key: str, api_secret: str, testnet: bool = True):
         """
         Initialize Binance client
 
@@ -60,13 +55,9 @@ class BinanceDataFetcher:
         self.testnet = testnet
 
         if testnet:
-            self.client = Client(
-                api_key,
-                api_secret,
-                testnet=True
-            )
+            self.client = Client(api_key, api_secret, testnet=True)
             # Set testnet URL
-            self.client.API_URL = 'https://testnet.binance.vision/api'
+            self.client.API_URL = "https://testnet.binance.vision/api"
             logger.info("Initialized Binance client (TESTNET)")
         else:
             self.client = Client(api_key, api_secret)
@@ -77,11 +68,7 @@ class BinanceDataFetcher:
         self.max_candles = DataConfig.MAX_CANDLES_PER_REQUEST
 
     def fetch_historical(
-        self,
-        symbol: str,
-        timeframe: str,
-        start_date: datetime,
-        end_date: Optional[datetime] = None
+        self, symbol: str, timeframe: str, start_date: datetime, end_date: Optional[datetime] = None
     ) -> pd.DataFrame:
         """
         Fetch historical OHLCV data from Binance
@@ -109,9 +96,7 @@ class BinanceDataFetcher:
         end_ms = int(end_date.timestamp() * 1000)
 
         # Calculate expected number of candles for progress bar
-        expected_candles = self._calculate_expected_candles(
-            start_date, end_date, timeframe
-        )
+        expected_candles = self._calculate_expected_candles(start_date, end_date, timeframe)
 
         all_candles = []
         current_start = start_ms
@@ -120,12 +105,7 @@ class BinanceDataFetcher:
         with tqdm(total=expected_candles, desc=f"{symbol} {timeframe}") as pbar:
             while current_start < end_ms:
                 # Fetch batch with retry logic
-                candles = self._fetch_batch_with_retry(
-                    symbol,
-                    timeframe,
-                    current_start,
-                    end_ms
-                )
+                candles = self._fetch_batch_with_retry(symbol, timeframe, current_start, end_ms)
 
                 if not candles:
                     break
@@ -147,11 +127,7 @@ class BinanceDataFetcher:
         return df
 
     def _fetch_batch_with_retry(
-        self,
-        symbol: str,
-        timeframe: str,
-        start_ms: int,
-        end_ms: int
+        self, symbol: str, timeframe: str, start_ms: int, end_ms: int
     ) -> list:
         """
         Fetch a single batch of candles with retry logic
@@ -174,18 +150,16 @@ class BinanceDataFetcher:
                     interval=interval,
                     startTime=start_ms,
                     endTime=end_ms,
-                    limit=self.max_candles
+                    limit=self.max_candles,
                 )
                 return candles
 
             except Exception as e:
-                logger.warning(
-                    f"Attempt {attempt + 1}/{self.max_retries} failed: {e}"
-                )
+                logger.warning(f"Attempt {attempt + 1}/{self.max_retries} failed: {e}")
 
                 if attempt < self.max_retries - 1:
                     # Exponential backoff
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     logger.info(f"Retrying in {wait_time} seconds...")
                     time.sleep(wait_time)
                 else:
@@ -225,33 +199,42 @@ class BinanceDataFetcher:
         if not candles:
             return pd.DataFrame()
 
-        df = pd.DataFrame(candles, columns=[
-            'open_time', 'open', 'high', 'low', 'close', 'volume',
-            'close_time', 'quote_volume', 'trades', 'taker_buy_base',
-            'taker_buy_quote', 'ignore'
-        ])
+        df = pd.DataFrame(
+            candles,
+            columns=[
+                "open_time",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "close_time",
+                "quote_volume",
+                "trades",
+                "taker_buy_base",
+                "taker_buy_quote",
+                "ignore",
+            ],
+        )
 
         # Convert timestamps to datetime
-        df['open_time'] = pd.to_datetime(df['open_time'], unit='ms')
-        df['close_time'] = pd.to_datetime(df['close_time'], unit='ms')
+        df["open_time"] = pd.to_datetime(df["open_time"], unit="ms")
+        df["close_time"] = pd.to_datetime(df["close_time"], unit="ms")
 
         # Convert price/volume to float
-        for col in ['open', 'high', 'low', 'close', 'volume', 'quote_volume']:
+        for col in ["open", "high", "low", "close", "volume", "quote_volume"]:
             df[col] = df[col].astype(float)
 
         # Convert trades to int
-        df['trades'] = df['trades'].astype(int)
+        df["trades"] = df["trades"].astype(int)
 
         # Drop unnecessary columns
-        df = df.drop(['taker_buy_base', 'taker_buy_quote', 'ignore'], axis=1)
+        df = df.drop(["taker_buy_base", "taker_buy_quote", "ignore"], axis=1)
 
         return df
 
     def _calculate_expected_candles(
-        self,
-        start_date: datetime,
-        end_date: datetime,
-        timeframe: str
+        self, start_date: datetime, end_date: datetime, timeframe: str
     ) -> int:
         """
         Calculate expected number of candles
@@ -269,21 +252,21 @@ class BinanceDataFetcher:
 
         # Timeframe to minutes mapping
         timeframe_minutes = {
-            '1m': 1,
-            '3m': 3,
-            '5m': 5,
-            '15m': 15,
-            '30m': 30,
-            '1h': 60,
-            '2h': 120,
-            '4h': 240,
-            '6h': 360,
-            '8h': 480,
-            '12h': 720,
-            '1d': 1440,
-            '3d': 4320,
-            '1w': 10080,
-            '1M': 43200,  # Approximate
+            "1m": 1,
+            "3m": 3,
+            "5m": 5,
+            "15m": 15,
+            "30m": 30,
+            "1h": 60,
+            "2h": 120,
+            "4h": 240,
+            "6h": 360,
+            "8h": 480,
+            "12h": 720,
+            "1d": 1440,
+            "3d": 4320,
+            "1w": 10080,
+            "1M": 43200,  # Approximate
         }
 
         if timeframe not in timeframe_minutes:
@@ -299,7 +282,7 @@ class BinanceDataFetcher:
             Server datetime
         """
         server_time = self.client.get_server_time()
-        return datetime.fromtimestamp(server_time['serverTime'] / 1000)
+        return datetime.fromtimestamp(server_time["serverTime"] / 1000)
 
     def test_connection(self) -> bool:
         """

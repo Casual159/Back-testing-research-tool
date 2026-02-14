@@ -2,6 +2,7 @@
 PostgreSQL storage module for OHLCV candle data
 Handles database connection, schema creation, and data operations
 """
+
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
@@ -12,8 +13,7 @@ from psycopg2.extras import execute_values
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -41,11 +41,11 @@ class PostgresStorage:
         """
         try:
             self.conn = psycopg2.connect(
-                host=self.config['host'],
-                port=self.config['port'],
-                database=self.config['database'],
-                user=self.config['user'],
-                password=self.config['password']
+                host=self.config["host"],
+                port=self.config["port"],
+                database=self.config["database"],
+                user=self.config["user"],
+                password=self.config["password"],
             )
             self.cursor = self.conn.cursor()
             logger.info(f"Connected to PostgreSQL at {self.config['host']}:{self.config['port']}")
@@ -124,15 +124,17 @@ class PostgresStorage:
             (
                 symbol,
                 timeframe,
-                row['open_time'],
-                float(row['open']),
-                float(row['high']),
-                float(row['low']),
-                float(row['close']),
-                float(row['volume']),
-                row['close_time'],
-                float(row.get('quote_volume', 0)),
-                int(row.get('count', row.get('trades', 0)))  # 'count' from bulk_fetcher, 'trades' from API fetcher
+                row["open_time"],
+                float(row["open"]),
+                float(row["high"]),
+                float(row["low"]),
+                float(row["close"]),
+                float(row["volume"]),
+                row["close_time"],
+                float(row.get("quote_volume", 0)),
+                int(
+                    row.get("count", row.get("trades", 0))
+                ),  # 'count' from bulk_fetcher, 'trades' from API fetcher
             )
             for _, row in df.iterrows()
         ]
@@ -157,11 +159,7 @@ class PostgresStorage:
             raise
 
     def query_candles(
-        self,
-        symbol: str,
-        timeframe: str,
-        start: datetime,
-        end: datetime
+        self, symbol: str, timeframe: str, start: datetime, end: datetime
     ) -> pd.DataFrame:
         """
         Query candles from database
@@ -190,11 +188,7 @@ class PostgresStorage:
         """
 
         try:
-            df = pd.read_sql_query(
-                query,
-                self.conn,
-                params=(symbol, timeframe, start, end)
-            )
+            df = pd.read_sql_query(query, self.conn, params=(symbol, timeframe, start, end))
             logger.info(f"Queried {len(df)} candles for {symbol} {timeframe}")
             return df
         except Exception as e:
@@ -202,9 +196,7 @@ class PostgresStorage:
             raise
 
     def get_available_data_range(
-        self,
-        symbol: str,
-        timeframe: str
+        self, symbol: str, timeframe: str
     ) -> Optional[Tuple[datetime, datetime]]:
         """
         Get the date range of available data for a symbol/timeframe
@@ -241,7 +233,7 @@ class PostgresStorage:
         symbol: str,
         timeframe: str,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        end_time: Optional[datetime] = None,
     ) -> pd.DataFrame:
         """
         Get candles for a symbol/timeframe with optional date range
@@ -341,16 +333,16 @@ class PostgresStorage:
             df = pd.read_sql_query(query, self.conn)
 
             # Print formatted stats
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
             print("=" + " DATABASE STATISTICS")
-            print("="*80)
+            print("=" * 80)
 
             for _, row in df.iterrows():
                 print(f"\n{row['symbol']} - {row['timeframe']}")
                 print(f"  Candles: {row['candle_count']:,}")
                 print(f"  Range: {row['first_candle']} -> {row['last_candle']}")
 
-            print("\n" + "="*80)
+            print("\n" + "=" * 80)
 
             return df
         except Exception as e:
@@ -366,7 +358,7 @@ class PostgresStorage:
         symbol: str,
         timeframe: str,
         regimes_df: pd.DataFrame,
-        classifier_version: str = 'v1.0'
+        classifier_version: str = "v1.0",
     ) -> int:
         """
         Insert regime data for a symbol/timeframe.
@@ -390,20 +382,22 @@ class PostgresStorage:
         data = []
         for _, row in df_reset.iterrows():
             # Get timestamp - could be 'open_time' or 'index' depending on reset_index
-            timestamp = row.get('open_time') or row.get('index')
+            timestamp = row.get("open_time") or row.get("index")
 
-            data.append((
-                symbol,
-                timeframe,
-                timestamp,
-                row.get('trend_state'),
-                row.get('volatility_state'),
-                row.get('momentum_state'),
-                row.get('full_regime'),
-                row.get('simplified_regime'),
-                row.get('regime_confidence'),
-                classifier_version
-            ))
+            data.append(
+                (
+                    symbol,
+                    timeframe,
+                    timestamp,
+                    row.get("trend_state"),
+                    row.get("volatility_state"),
+                    row.get("momentum_state"),
+                    row.get("full_regime"),
+                    row.get("simplified_regime"),
+                    row.get("regime_confidence"),
+                    classifier_version,
+                )
+            )
 
         # Insert with ON CONFLICT to handle duplicates
         insert_query = """
@@ -441,7 +435,7 @@ class PostgresStorage:
         symbol: str,
         timeframe: str,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        end_time: Optional[datetime] = None,
     ) -> pd.DataFrame:
         """
         Get regime data for a symbol/timeframe.
@@ -485,7 +479,7 @@ class PostgresStorage:
         query += " ORDER BY open_time"
 
         try:
-            df = pd.read_sql_query(query, self.conn, params=params, index_col='open_time')
+            df = pd.read_sql_query(query, self.conn, params=params, index_col="open_time")
             logger.info(f"Retrieved {len(df)} regime records for {symbol} {timeframe}")
             return df
         except Exception as e:

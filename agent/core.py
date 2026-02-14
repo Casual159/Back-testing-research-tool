@@ -45,11 +45,7 @@ TOOLS = [
     {
         "name": "list_strategies",
         "description": "List all available trading strategies with their descriptions and parameters.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
+        "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "get_strategy",
@@ -59,11 +55,11 @@ TOOLS = [
             "properties": {
                 "name": {
                     "type": "string",
-                    "description": "Strategy name (e.g., 'RSI Reversal', 'MA Crossover')"
+                    "description": "Strategy name (e.g., 'RSI Reversal', 'MA Crossover')",
                 }
             },
-            "required": ["name"]
-        }
+            "required": ["name"],
+        },
     },
     {
         "name": "check_data",
@@ -74,25 +70,19 @@ TOOLS = [
                 "symbol": {
                     "type": "string",
                     "description": "Trading pair (e.g., 'BTCUSDT')",
-                    "default": "BTCUSDT"
+                    "default": "BTCUSDT",
                 },
                 "timeframe": {
                     "type": "string",
                     "enum": ["1m", "5m", "15m", "1h", "4h", "1d"],
                     "description": "Candle timeframe",
-                    "default": "1h"
+                    "default": "1h",
                 },
-                "start_date": {
-                    "type": "string",
-                    "description": "Start date (YYYY-MM-DD)"
-                },
-                "end_date": {
-                    "type": "string",
-                    "description": "End date (YYYY-MM-DD)"
-                }
+                "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+                "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)"},
             },
-            "required": []
-        }
+            "required": [],
+        },
     },
     {
         "name": "get_market_regime",
@@ -100,26 +90,16 @@ TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "symbol": {
-                    "type": "string",
-                    "default": "BTCUSDT"
-                },
-                "timeframe": {
-                    "type": "string",
-                    "default": "1h"
-                }
+                "symbol": {"type": "string", "default": "BTCUSDT"},
+                "timeframe": {"type": "string", "default": "1h"},
             },
-            "required": []
-        }
+            "required": [],
+        },
     },
     {
         "name": "get_data_stats",
         "description": "Get statistics about all available historical data in the database.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
+        "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "fetch_data",
@@ -136,25 +116,25 @@ This operation may take a few seconds depending on the date range.""",
             "properties": {
                 "symbol": {
                     "type": "string",
-                    "description": "Trading pair (e.g., 'BTCUSDT', 'ETHUSDT', 'BNBUSDC')"
+                    "description": "Trading pair (e.g., 'BTCUSDT', 'ETHUSDT', 'BNBUSDC')",
                 },
                 "timeframe": {
                     "type": "string",
                     "enum": ["1m", "5m", "15m", "1h", "4h", "1d"],
                     "description": "Candle timeframe",
-                    "default": "1h"
+                    "default": "1h",
                 },
                 "start_date": {
                     "type": "string",
-                    "description": "Start date (YYYY-MM-DD). Default: 6 months ago"
+                    "description": "Start date (YYYY-MM-DD). Default: 6 months ago",
                 },
                 "end_date": {
                     "type": "string",
-                    "description": "End date (YYYY-MM-DD). Default: today"
-                }
+                    "description": "End date (YYYY-MM-DD). Default: today",
+                },
             },
-            "required": ["symbol"]
-        }
+            "required": ["symbol"],
+        },
     },
     {
         "name": "create_strategy",
@@ -166,31 +146,30 @@ For custom strategies, define entry_logic and exit_logic as condition trees.""",
         "input_schema": {
             "type": "object",
             "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "Unique strategy name"
-                },
-                "description": {
-                    "type": "string",
-                    "description": "Human-readable description"
-                },
+                "name": {"type": "string", "description": "Unique strategy name"},
+                "description": {"type": "string", "description": "Human-readable description"},
                 "builtin_class": {
                     "type": "string",
-                    "enum": ["MovingAverageCrossover", "RSIReversal", "BollingerBands", "MACDCross"],
-                    "description": "Base strategy class to use"
+                    "enum": [
+                        "MovingAverageCrossover",
+                        "RSIReversal",
+                        "BollingerBands",
+                        "MACDCross",
+                    ],
+                    "description": "Base strategy class to use",
                 },
                 "parameters": {
                     "type": "object",
-                    "description": "Strategy parameters (e.g., {fast_period: 10, slow_period: 30})"
+                    "description": "Strategy parameters (e.g., {fast_period: 10, slow_period: 30})",
                 },
                 "regime_filter": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Only trade in these regimes: TREND_UP, TREND_DOWN, RANGE, CHOPPY, NEUTRAL"
-                }
+                    "description": "Only trade in these regimes: TREND_UP, TREND_DOWN, RANGE, CHOPPY, NEUTRAL",
+                },
             },
-            "required": ["name"]
-        }
+            "required": ["name"],
+        },
     },
     {
         "name": "run_backtest",
@@ -200,43 +179,21 @@ IMPORTANT: Check data availability first with check_data tool.""",
         "input_schema": {
             "type": "object",
             "properties": {
-                "strategy_name": {
-                    "type": "string",
-                    "description": "Name of the strategy to test"
-                },
-                "symbol": {
-                    "type": "string",
-                    "default": "BTCUSDT"
-                },
-                "timeframe": {
-                    "type": "string",
-                    "enum": ["1h", "4h", "1d"],
-                    "default": "1h"
-                },
-                "start_date": {
-                    "type": "string",
-                    "description": "Start date (YYYY-MM-DD)"
-                },
-                "end_date": {
-                    "type": "string",
-                    "description": "End date (YYYY-MM-DD)"
-                },
-                "initial_capital": {
-                    "type": "number",
-                    "default": 10000
-                },
+                "strategy_name": {"type": "string", "description": "Name of the strategy to test"},
+                "symbol": {"type": "string", "default": "BTCUSDT"},
+                "timeframe": {"type": "string", "enum": ["1h", "4h", "1d"], "default": "1h"},
+                "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+                "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)"},
+                "initial_capital": {"type": "number", "default": 10000},
                 "regime_filter": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Only trade in specific regimes"
+                    "description": "Only trade in specific regimes",
                 },
-                "parameters": {
-                    "type": "object",
-                    "description": "Override strategy parameters"
-                }
+                "parameters": {"type": "object", "description": "Override strategy parameters"},
             },
-            "required": ["strategy_name", "start_date"]
-        }
+            "required": ["strategy_name", "start_date"],
+        },
     },
     {
         "name": "save_report",
@@ -244,27 +201,24 @@ IMPORTANT: Check data availability first with check_data tool.""",
         "input_schema": {
             "type": "object",
             "properties": {
-                "backtest_results": {
-                    "type": "object",
-                    "description": "Results from run_backtest"
-                },
+                "backtest_results": {"type": "object", "description": "Results from run_backtest"},
                 "ai_summary": {
                     "type": "string",
-                    "description": "Your interpretation of the results"
+                    "description": "Your interpretation of the results",
                 },
                 "ai_recommendations": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "List of recommendations"
+                    "description": "List of recommendations",
                 },
                 "ai_concerns": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "List of concerns or warnings"
-                }
+                    "description": "List of concerns or warnings",
+                },
             },
-            "required": ["backtest_results"]
-        }
+            "required": ["backtest_results"],
+        },
     },
     {
         "name": "suggest_enhancement",
@@ -275,23 +229,17 @@ IMPORTANT: Check data availability first with check_data tool.""",
                 "category": {
                     "type": "string",
                     "enum": ["indicator", "metric", "visualization", "strategy", "data", "other"],
-                    "description": "Type of enhancement"
+                    "description": "Type of enhancement",
                 },
-                "title": {
-                    "type": "string",
-                    "description": "Short title for the suggestion"
-                },
+                "title": {"type": "string", "description": "Short title for the suggestion"},
                 "description": {
                     "type": "string",
-                    "description": "Detailed description of what's needed"
+                    "description": "Detailed description of what's needed",
                 },
-                "rationale": {
-                    "type": "string",
-                    "description": "Why this would be useful"
-                }
+                "rationale": {"type": "string", "description": "Why this would be useful"},
             },
-            "required": ["category", "title", "description"]
-        }
+            "required": ["category", "title", "description"],
+        },
     },
     {
         "name": "list_reports",
@@ -312,11 +260,11 @@ Use this to browse previous backtest results and find interesting reports to ana
                 "limit": {
                     "type": "integer",
                     "description": "Maximum number of reports to return (default: 20)",
-                    "default": 20
+                    "default": 20,
                 }
             },
-            "required": []
-        }
+            "required": [],
+        },
     },
     {
         "name": "get_report",
@@ -333,14 +281,11 @@ Use the report ID from list_reports to fetch specific reports.""",
         "input_schema": {
             "type": "object",
             "properties": {
-                "report_id": {
-                    "type": "string",
-                    "description": "UUID of the report to retrieve"
-                }
+                "report_id": {"type": "string", "description": "UUID of the report to retrieve"}
             },
-            "required": ["report_id"]
-        }
-    }
+            "required": ["report_id"],
+        },
+    },
 ]
 
 
@@ -348,7 +293,10 @@ Use the report ID from list_reports to fetch specific reports.""",
 # TOOL EXECUTION
 # =============================================================================
 
-async def execute_tool(tool_name: str, arguments: dict[str, Any], conversation_id: Optional[UUID] = None) -> dict[str, Any]:
+
+async def execute_tool(
+    tool_name: str, arguments: dict[str, Any], conversation_id: Optional[UUID] = None
+) -> dict[str, Any]:
     """Execute a tool by calling the API."""
     from urllib.parse import quote
 
@@ -358,7 +306,7 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any], conversation_i
                 response = await client.get(f"{API_BASE_URL}/api/strategies")
 
             elif tool_name == "get_strategy":
-                name = quote(arguments["name"], safe='')
+                name = quote(arguments["name"], safe="")
                 response = await client.get(f"{API_BASE_URL}/api/strategies/{name}")
 
             elif tool_name == "check_data":
@@ -370,22 +318,19 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any], conversation_i
                 if "end_date" in arguments:
                     params["end_date"] = arguments["end_date"]
                 response = await client.get(
-                    f"{API_BASE_URL}/api/data/check/{symbol}/{timeframe}",
-                    params=params
+                    f"{API_BASE_URL}/api/data/check/{symbol}/{timeframe}", params=params
                 )
 
             elif tool_name == "get_market_regime":
                 symbol = arguments.get("symbol", "BTCUSDT")
                 timeframe = arguments.get("timeframe", "1h")
-                response = await client.get(
-                    f"{API_BASE_URL}/api/data/regime/{symbol}/{timeframe}"
-                )
+                response = await client.get(f"{API_BASE_URL}/api/data/regime/{symbol}/{timeframe}")
                 data = response.json()
                 if isinstance(data, list) and len(data) > 5:
                     return {
                         "current_regime": data[-1] if data else None,
                         "recent_regimes": data[-5:],
-                        "total_entries": len(data)
+                        "total_entries": len(data),
                     }
                 return data
 
@@ -395,6 +340,7 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any], conversation_i
             elif tool_name == "fetch_data":
                 # Calculate default dates if not provided
                 from datetime import timedelta
+
                 today = datetime.now()
                 six_months_ago = today - timedelta(days=180)
 
@@ -402,25 +348,19 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any], conversation_i
                     "symbol": arguments["symbol"],
                     "timeframe": arguments.get("timeframe", "1h"),
                     "start_date": arguments.get("start_date", six_months_ago.strftime("%Y-%m-%d")),
-                    "end_date": arguments.get("end_date", today.strftime("%Y-%m-%d"))
+                    "end_date": arguments.get("end_date", today.strftime("%Y-%m-%d")),
                 }
                 response = await client.post(
                     f"{API_BASE_URL}/api/data/fetch",
                     json=fetch_request,
-                    timeout=300.0  # Data fetch can take longer
+                    timeout=300.0,  # Data fetch can take longer
                 )
 
             elif tool_name == "create_strategy":
-                response = await client.post(
-                    f"{API_BASE_URL}/api/strategies",
-                    json=arguments
-                )
+                response = await client.post(f"{API_BASE_URL}/api/strategies", json=arguments)
 
             elif tool_name == "run_backtest":
-                response = await client.post(
-                    f"{API_BASE_URL}/api/backtest",
-                    json=arguments
-                )
+                response = await client.post(f"{API_BASE_URL}/api/backtest", json=arguments)
 
             elif tool_name == "save_report":
                 # Save to reports table
@@ -428,8 +368,8 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any], conversation_i
                     f"{API_BASE_URL}/api/reports",
                     json={
                         **arguments,
-                        "conversation_id": str(conversation_id) if conversation_id else None
-                    }
+                        "conversation_id": str(conversation_id) if conversation_id else None,
+                    },
                 )
 
             elif tool_name == "suggest_enhancement":
@@ -438,16 +378,13 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any], conversation_i
                     f"{API_BASE_URL}/api/suggestions",
                     json={
                         **arguments,
-                        "conversation_id": str(conversation_id) if conversation_id else None
-                    }
+                        "conversation_id": str(conversation_id) if conversation_id else None,
+                    },
                 )
 
             elif tool_name == "list_reports":
                 limit = arguments.get("limit", 20)
-                response = await client.get(
-                    f"{API_BASE_URL}/api/reports",
-                    params={"limit": limit}
-                )
+                response = await client.get(f"{API_BASE_URL}/api/reports", params={"limit": limit})
 
             elif tool_name == "get_report":
                 report_id = arguments["report_id"]
@@ -462,29 +399,23 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any], conversation_i
                     error_detail = response.json().get("detail", error_detail)
                 except Exception:
                     error_detail = response.text
-                return {
-                    "error": True,
-                    "status_code": response.status_code,
-                    "detail": error_detail
-                }
+                return {"error": True, "status_code": response.status_code, "detail": error_detail}
 
             return response.json()
 
         except httpx.ConnectError:
             return {
                 "error": True,
-                "detail": "Cannot connect to API server. Make sure FastAPI is running on localhost:8000"
+                "detail": "Cannot connect to API server. Make sure FastAPI is running on localhost:8000",
             }
         except httpx.TimeoutException:
-            return {
-                "error": True,
-                "detail": "API request timed out"
-            }
+            return {"error": True, "detail": "API request timed out"}
 
 
 # =============================================================================
 # CONVERSATION STORAGE (SINGLETON)
 # =============================================================================
+
 
 class ConversationStorage:
     """
@@ -493,6 +424,7 @@ class ConversationStorage:
     This ensures conversations persist across API requests.
     For production, replace with database-backed storage.
     """
+
     _instance: Optional["ConversationStorage"] = None
     _conversations: dict[UUID, Conversation] = {}
 
@@ -509,11 +441,7 @@ class ConversationStorage:
         self._conversations[conversation.id] = conversation
 
     async def list(self, limit: int = 50) -> list[Conversation]:
-        convs = sorted(
-            self._conversations.values(),
-            key=lambda c: c.updated_at,
-            reverse=True
-        )
+        convs = sorted(self._conversations.values(), key=lambda c: c.updated_at, reverse=True)
         return convs[:limit]
 
     async def create(self) -> Conversation:
@@ -530,6 +458,7 @@ class ConversationStorage:
 # AGENT IMPLEMENTATION
 # =============================================================================
 
+
 class BacktestingAgent(AgentProtocol):
     """Anthropic Claude implementation of the backtesting agent."""
 
@@ -545,11 +474,7 @@ class BacktestingAgent(AgentProtocol):
         self.storage = ConversationStorage()
         self.model = "claude-sonnet-4-20250514"
 
-    async def chat_stream(
-        self,
-        message: str,
-        conversation_id: Optional[UUID] = None
-    ):
+    async def chat_stream(self, message: str, conversation_id: Optional[UUID] = None):
         """
         Process a user message with streaming response.
 
@@ -598,13 +523,13 @@ class BacktestingAgent(AgentProtocol):
                     max_tokens=4096,
                     system=get_system_prompt(),
                     tools=TOOLS,
-                    messages=claude_messages
+                    messages=claude_messages,
                 ) as stream:
                     # Stream text deltas as they arrive
                     async for event in stream:
                         # Handle text deltas
                         if event.type == "content_block_delta":
-                            if hasattr(event.delta, 'text'):
+                            if hasattr(event.delta, "text"):
                                 current_text += event.delta.text
                                 yield {"type": "text_delta", "delta": event.delta.text}
 
@@ -625,12 +550,14 @@ class BacktestingAgent(AgentProtocol):
                         assistant_content.append({"type": "text", "text": block.text})
                     elif block.type == "tool_use":
                         has_tool_use = True
-                        assistant_content.append({
-                            "type": "tool_use",
-                            "id": block.id,
-                            "name": block.name,
-                            "input": block.input
-                        })
+                        assistant_content.append(
+                            {
+                                "type": "tool_use",
+                                "id": block.id,
+                                "name": block.name,
+                                "input": block.input,
+                            }
+                        )
 
                 # Add assistant message to conversation
                 claude_messages.append({"role": "assistant", "content": assistant_content})
@@ -644,11 +571,7 @@ class BacktestingAgent(AgentProtocol):
                 for block in response.content:
                     if block.type == "tool_use":
                         # Emit tool start
-                        yield {
-                            "type": "tool_start",
-                            "tool": block.name,
-                            "args": block.input
-                        }
+                        yield {"type": "tool_start", "tool": block.name, "args": block.input}
 
                         # Special handling for fetch_data - stream progress
                         if block.name == "fetch_data":
@@ -660,7 +583,7 @@ class BacktestingAgent(AgentProtocol):
                                         "tool": block.name,
                                         "current": event["current"],
                                         "total": event["total"],
-                                        "pct": event["pct"]
+                                        "pct": event["pct"],
                                     }
                                 elif event["type"] == "done":
                                     result = event["result"]
@@ -671,11 +594,7 @@ class BacktestingAgent(AgentProtocol):
                                 result = {"error": True, "detail": "No result from fetch"}
                         else:
                             # Execute tool normally
-                            result = await execute_tool(
-                                block.name,
-                                block.input,
-                                conversation.id
-                            )
+                            result = await execute_tool(block.name, block.input, conversation.id)
 
                         # Check if error
                         is_error = isinstance(result, dict) and result.get("error")
@@ -685,23 +604,27 @@ class BacktestingAgent(AgentProtocol):
                             "type": "tool_result",
                             "tool": block.name,
                             "result": self._summarize_tool_result(block.name, result),
-                            "success": not is_error
+                            "success": not is_error,
                         }
 
                         # Truncate result for context efficiency
                         truncated_result = self._truncate_for_context(block.name, result)
 
-                        tool_calls.append(ToolCall(
-                            tool_name=block.name,
-                            arguments=block.input,
-                            result=truncated_result  # Store truncated version
-                        ))
+                        tool_calls.append(
+                            ToolCall(
+                                tool_name=block.name,
+                                arguments=block.input,
+                                result=truncated_result,  # Store truncated version
+                            )
+                        )
 
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": json.dumps(truncated_result, default=str)
-                        })
+                        tool_results.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": json.dumps(truncated_result, default=str),
+                            }
+                        )
 
                 # Add tool results
                 claude_messages.append({"role": "user", "content": tool_results})
@@ -709,16 +632,16 @@ class BacktestingAgent(AgentProtocol):
 
             # Save assistant message to conversation
             assistant_message = Message(
-                role="assistant",
-                content=full_text_response,
-                tool_calls=tool_calls
+                role="assistant", content=full_text_response, tool_calls=tool_calls
             )
             conversation.messages.append(assistant_message)
 
             # Update usage
             conversation.total_tokens += total_input_tokens + total_output_tokens
-            cost = (total_input_tokens * INPUT_COST_PER_1M / 1_000_000 +
-                    total_output_tokens * OUTPUT_COST_PER_1M / 1_000_000)
+            cost = (
+                total_input_tokens * INPUT_COST_PER_1M / 1_000_000
+                + total_output_tokens * OUTPUT_COST_PER_1M / 1_000_000
+            )
             conversation.total_cost_usd += cost
 
             # Detect phase
@@ -739,7 +662,7 @@ class BacktestingAgent(AgentProtocol):
                 "confirmation_prompt": confirmation_prompt,
                 "tokens_used": total_input_tokens + total_output_tokens,
                 "cost_usd": cost,
-                "data": self._extract_data(tool_calls)
+                "data": self._extract_data(tool_calls),
             }
 
         except Exception as e:
@@ -762,8 +685,8 @@ class BacktestingAgent(AgentProtocol):
                 "metrics": {
                     "total_return_pct": result.get("total_return_pct"),
                     "sharpe_ratio": result.get("sharpe_ratio"),
-                    "total_trades": result.get("total_trades")
-                }
+                    "total_trades": result.get("total_trades"),
+                },
             }
         elif tool_name == "list_strategies":
             strategies = result if isinstance(result, list) else []
@@ -772,15 +695,15 @@ class BacktestingAgent(AgentProtocol):
             return {
                 "available": result.get("available"),
                 "start": result.get("data_start"),
-                "end": result.get("data_end")
+                "end": result.get("data_end"),
             }
         elif tool_name == "fetch_data":
+            return {"success": result.get("success"), "candles": result.get("candles_fetched", 0)}
+        elif tool_name == "create_strategy":
             return {
                 "success": result.get("success"),
-                "candles": result.get("candles_fetched", 0)
+                "name": result.get("strategy", {}).get("name"),
             }
-        elif tool_name == "create_strategy":
-            return {"success": result.get("success"), "name": result.get("strategy", {}).get("name")}
         elif tool_name == "list_reports":
             reports = result if isinstance(result, list) else []
             return {"count": len(reports)}
@@ -789,7 +712,7 @@ class BacktestingAgent(AgentProtocol):
                 "strategy": result.get("strategy_name"),
                 "return": result.get("total_return_pct"),
                 "sharpe": result.get("sharpe_ratio"),
-                "trades": result.get("total_trades")
+                "trades": result.get("total_trades"),
             }
         else:
             # Generic summary - just indicate success
@@ -814,15 +737,13 @@ class BacktestingAgent(AgentProtocol):
             "symbol": arguments["symbol"],
             "timeframe": arguments.get("timeframe", "1h"),
             "start_date": arguments.get("start_date", six_months_ago.strftime("%Y-%m-%d")),
-            "end_date": arguments.get("end_date", today.strftime("%Y-%m-%d"))
+            "end_date": arguments.get("end_date", today.strftime("%Y-%m-%d")),
         }
 
         try:
             async with httpx.AsyncClient(timeout=300.0) as client:
                 async with client.stream(
-                    "POST",
-                    f"{API_BASE_URL}/api/data/fetch/stream",
-                    json=fetch_request
+                    "POST", f"{API_BASE_URL}/api/data/fetch/stream", json=fetch_request
                 ) as response:
                     if response.status_code >= 400:
                         yield {"type": "error", "message": f"HTTP {response.status_code}"}
@@ -839,7 +760,7 @@ class BacktestingAgent(AgentProtocol):
                                     "type": "progress",
                                     "current": data.get("current", 0),
                                     "total": data.get("total", 1),
-                                    "pct": data.get("pct", 0)
+                                    "pct": data.get("pct", 0),
                                 }
                             elif data.get("type") == "done":
                                 yield {
@@ -849,11 +770,14 @@ class BacktestingAgent(AgentProtocol):
                                         "candles_fetched": data.get("candles_fetched", 0),
                                         "candles_inserted": data.get("candles_inserted", 0),
                                         "symbol": fetch_request["symbol"],
-                                        "timeframe": fetch_request["timeframe"]
-                                    }
+                                        "timeframe": fetch_request["timeframe"],
+                                    },
                                 }
                             elif data.get("type") == "error":
-                                yield {"type": "error", "message": data.get("message", "Unknown error")}
+                                yield {
+                                    "type": "error",
+                                    "message": data.get("message", "Unknown error"),
+                                }
                         except json.JSONDecodeError:
                             continue
 
@@ -954,11 +878,7 @@ class BacktestingAgent(AgentProtocol):
         # For other tools, return as-is (they're usually small)
         return result
 
-    async def chat(
-        self,
-        message: str,
-        conversation_id: Optional[UUID] = None
-    ) -> AgentChatResponse:
+    async def chat(self, message: str, conversation_id: Optional[UUID] = None) -> AgentChatResponse:
         """Process a user message and return agent response (non-streaming)."""
 
         # Get or create conversation
@@ -992,7 +912,7 @@ class BacktestingAgent(AgentProtocol):
                 max_tokens=4096,
                 system=get_system_prompt(),
                 tools=TOOLS,
-                messages=claude_messages
+                messages=claude_messages,
             )
 
             # Track tokens
@@ -1010,12 +930,14 @@ class BacktestingAgent(AgentProtocol):
                     assistant_content.append({"type": "text", "text": block.text})
                 elif block.type == "tool_use":
                     has_tool_use = True
-                    assistant_content.append({
-                        "type": "tool_use",
-                        "id": block.id,
-                        "name": block.name,
-                        "input": block.input
-                    })
+                    assistant_content.append(
+                        {
+                            "type": "tool_use",
+                            "id": block.id,
+                            "name": block.name,
+                            "input": block.input,
+                        }
+                    )
 
             # Add assistant message
             claude_messages.append({"role": "assistant", "content": assistant_content})
@@ -1028,26 +950,24 @@ class BacktestingAgent(AgentProtocol):
             tool_results = []
             for block in response.content:
                 if block.type == "tool_use":
-                    result = await execute_tool(
-                        block.name,
-                        block.input,
-                        conversation.id
-                    )
+                    result = await execute_tool(block.name, block.input, conversation.id)
 
                     # Truncate result for context efficiency
                     truncated_result = self._truncate_for_context(block.name, result)
 
-                    tool_calls.append(ToolCall(
-                        tool_name=block.name,
-                        arguments=block.input,
-                        result=truncated_result
-                    ))
+                    tool_calls.append(
+                        ToolCall(
+                            tool_name=block.name, arguments=block.input, result=truncated_result
+                        )
+                    )
 
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": json.dumps(truncated_result, default=str)
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": json.dumps(truncated_result, default=str),
+                        }
+                    )
 
             # Add tool results
             claude_messages.append({"role": "user", "content": tool_results})
@@ -1055,17 +975,15 @@ class BacktestingAgent(AgentProtocol):
             conversation.tool_calls_count += len(tool_results)
 
         # Save assistant message to conversation
-        assistant_message = Message(
-            role="assistant",
-            content=text_response,
-            tool_calls=tool_calls
-        )
+        assistant_message = Message(role="assistant", content=text_response, tool_calls=tool_calls)
         conversation.messages.append(assistant_message)
 
         # Update usage
         conversation.total_tokens += total_input_tokens + total_output_tokens
-        cost = (total_input_tokens * INPUT_COST_PER_1M / 1_000_000 +
-                total_output_tokens * OUTPUT_COST_PER_1M / 1_000_000)
+        cost = (
+            total_input_tokens * INPUT_COST_PER_1M / 1_000_000
+            + total_output_tokens * OUTPUT_COST_PER_1M / 1_000_000
+        )
         conversation.total_cost_usd += cost
 
         # Detect phase and confirmations
@@ -1086,7 +1004,7 @@ class BacktestingAgent(AgentProtocol):
             data=self._extract_data(tool_calls),
             tool_calls=tool_calls,
             tokens_used=total_input_tokens + total_output_tokens,
-            cost_usd=cost
+            cost_usd=cost,
         )
 
     def _build_claude_messages(self, conversation: Conversation) -> list[dict]:
@@ -1099,23 +1017,20 @@ class BacktestingAgent(AgentProtocol):
 
         messages = []
         for msg in conversation.messages:
-            messages.append({
-                "role": msg.role,
-                "content": msg.content
-            })
+            messages.append({"role": msg.role, "content": msg.content})
 
         # If too many messages, keep only recent ones
         # Note: messages alternate user/assistant, so we count pairs
         if len(messages) > MAX_HISTORY_TURNS * 2:
             # Keep system context: first user message + last N turns
             first_msg = messages[0] if messages else None
-            recent_messages = messages[-(MAX_HISTORY_TURNS * 2):]
+            recent_messages = messages[-(MAX_HISTORY_TURNS * 2) :]
 
             if first_msg and first_msg not in recent_messages:
                 # Add summary of earlier context
                 summary = {
                     "role": "user",
-                    "content": "[Earlier conversation truncated for context efficiency. The conversation started with the first user message shown above.]"
+                    "content": "[Earlier conversation truncated for context efficiency. The conversation started with the first user message shown above.]",
                 }
                 messages = [first_msg, summary] + recent_messages
             else:
@@ -1124,9 +1039,7 @@ class BacktestingAgent(AgentProtocol):
         return messages
 
     def _detect_phase(
-        self,
-        response: str,
-        tool_calls: list[ToolCall]
+        self, response: str, tool_calls: list[ToolCall]
     ) -> tuple[AgentPhase, bool, Optional[str]]:
         """Detect current phase and if we're awaiting confirmation."""
 
@@ -1216,6 +1129,7 @@ class BacktestingAgent(AgentProtocol):
 # =============================================================================
 # FACTORY
 # =============================================================================
+
 
 def create_agent(api_key: Optional[str] = None) -> BacktestingAgent:
     """Create a backtesting agent instance."""

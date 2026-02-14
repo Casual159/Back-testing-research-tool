@@ -1,11 +1,11 @@
 # 🎯 Backtesting Research Tool - Project Root
 
-> **Welcome!** This is the main navigation hub for the entire project documentation.  
-> **For AI:** Start with [[_AI_QUICK_START]] for 60-second onboarding.  
+> **Welcome!** This is the main navigation hub for the entire project documentation.
+> **For AI:** Start with [[_AI_QUICK_START]] for 60-second onboarding.
 > **For Humans:** Read sections below for visual overview.
 
-**Last Updated:** 2024-12-05  
-**Project Status:** Active Development  
+**Last Updated:** 2024-12-05
+**Project Status:** Active Development
 **Repository:** [GitHub](https://github.com/Casual159/Back-testing-research-tool)
 
 ---

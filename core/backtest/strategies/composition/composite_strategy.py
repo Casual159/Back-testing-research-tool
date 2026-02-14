@@ -6,19 +6,21 @@ with AND/OR logic for entry and exit conditions.
 
 Supports regime filtering to only trade in specific market conditions.
 """
-from typing import Dict, Any, Optional
+
+from typing import Any, Dict, Optional
+
 import pandas as pd
 
-from ..base import Strategy
 from ...events import MarketEvent, SignalEvent
+from ..base import Strategy
 from .logic_tree import LogicTree
 from .signal import IndicatorSignal
 
 # Valid regime values for validation
-VALID_SIMPLIFIED_REGIMES = ['TREND_UP', 'TREND_DOWN', 'RANGE', 'CHOPPY', 'NEUTRAL']
-VALID_TREND_STATES = ['uptrend', 'downtrend', 'neutral']
-VALID_VOLATILITY_STATES = ['low', 'high']
-VALID_MOMENTUM_STATES = ['bullish', 'bearish', 'weak']
+VALID_SIMPLIFIED_REGIMES = ["TREND_UP", "TREND_DOWN", "RANGE", "CHOPPY", "NEUTRAL"]
+VALID_TREND_STATES = ["uptrend", "downtrend", "neutral"]
+VALID_VOLATILITY_STATES = ["low", "high"]
+VALID_MOMENTUM_STATES = ["bullish", "bearish", "weak"]
 
 
 class CompositeStrategy(Strategy):
@@ -64,7 +66,7 @@ class CompositeStrategy(Strategy):
         exit_logic: LogicTree,
         description: str = "",
         regime_filter: Optional[list[str]] = None,
-        sub_regime_filter: Optional[Dict[str, list[str]]] = None
+        sub_regime_filter: Optional[Dict[str, list[str]]] = None,
     ):
         """
         Initialize composite strategy
@@ -110,15 +112,14 @@ class CompositeStrategy(Strategy):
             for regime in self.regime_filter:
                 if regime not in VALID_SIMPLIFIED_REGIMES:
                     raise ValueError(
-                        f"Invalid regime '{regime}'. "
-                        f"Valid values: {VALID_SIMPLIFIED_REGIMES}"
+                        f"Invalid regime '{regime}'. " f"Valid values: {VALID_SIMPLIFIED_REGIMES}"
                     )
 
         if self.sub_regime_filter:
             valid_components = {
-                'trend': VALID_TREND_STATES,
-                'volatility': VALID_VOLATILITY_STATES,
-                'momentum': VALID_MOMENTUM_STATES
+                "trend": VALID_TREND_STATES,
+                "volatility": VALID_VOLATILITY_STATES,
+                "momentum": VALID_MOMENTUM_STATES,
             }
             for component, values in self.sub_regime_filter.items():
                 if component not in valid_components:
@@ -167,7 +168,7 @@ class CompositeStrategy(Strategy):
             return True
 
         # Get regime data from market event
-        regime_data = market_event.metadata.get('regime', {})
+        regime_data = market_event.metadata.get("regime", {})
 
         # If no regime data available, allow trading (conservative approach)
         if not regime_data:
@@ -175,7 +176,7 @@ class CompositeStrategy(Strategy):
 
         # Check simplified regime filter
         if self.regime_filter:
-            simplified = regime_data.get('simplified')
+            simplified = regime_data.get("simplified")
             if simplified and simplified not in self.regime_filter:
                 return False
 
@@ -183,7 +184,7 @@ class CompositeStrategy(Strategy):
         if self.sub_regime_filter:
             for component, allowed_values in self.sub_regime_filter.items():
                 # Map component name to regime_data key
-                state_key = f'{component}_state'
+                state_key = f"{component}_state"
                 current_value = regime_data.get(state_key)
 
                 if current_value and current_value not in allowed_values:
@@ -233,32 +234,32 @@ class CompositeStrategy(Strategy):
             if self._entry_signals.iloc[idx]:
                 self._in_position = True
                 # Include regime info in signal metadata
-                regime_data = market_event.metadata.get('regime', {})
+                regime_data = market_event.metadata.get("regime", {})
                 return SignalEvent(
                     timestamp=timestamp,
                     symbol=market_event.symbol,
-                    signal_type='BUY',
+                    signal_type="BUY",
                     strength=1.0,
                     metadata={
-                        'regime': regime_data.get('simplified'),
-                        'regime_confidence': regime_data.get('confidence')
-                    }
+                        "regime": regime_data.get("simplified"),
+                        "regime_confidence": regime_data.get("confidence"),
+                    },
                 )
 
         # Check exit signal (if in position) - always allow exits
         else:
             if self._exit_signals.iloc[idx]:
                 self._in_position = False
-                regime_data = market_event.metadata.get('regime', {})
+                regime_data = market_event.metadata.get("regime", {})
                 return SignalEvent(
                     timestamp=timestamp,
                     symbol=market_event.symbol,
-                    signal_type='SELL',
+                    signal_type="SELL",
                     strength=1.0,
                     metadata={
-                        'regime': regime_data.get('simplified'),
-                        'regime_confidence': regime_data.get('confidence')
-                    }
+                        "regime": regime_data.get("simplified"),
+                        "regime_confidence": regime_data.get("confidence"),
+                    },
                 )
 
         return None
@@ -266,9 +267,9 @@ class CompositeStrategy(Strategy):
     def get_regime_stats(self) -> Dict[str, Any]:
         """Get statistics about regime filtering"""
         return {
-            'regime_filter': self.regime_filter,
-            'sub_regime_filter': self.sub_regime_filter,
-            'signals_skipped_by_regime': self._regime_skipped_count
+            "regime_filter": self.regime_filter,
+            "sub_regime_filter": self.sub_regime_filter,
+            "signals_skipped_by_regime": self._regime_skipped_count,
         }
 
     def get_name(self) -> str:
@@ -292,23 +293,23 @@ class CompositeStrategy(Strategy):
             Dictionary representation
         """
         result = {
-            'type': 'CompositeStrategy',
-            'name': self.name,
-            'description': self.description,
-            'entry_logic': self.entry_logic.to_dict(),
-            'exit_logic': self.exit_logic.to_dict()
+            "type": "CompositeStrategy",
+            "name": self.name,
+            "description": self.description,
+            "entry_logic": self.entry_logic.to_dict(),
+            "exit_logic": self.exit_logic.to_dict(),
         }
 
         # Include regime filters if set
         if self.regime_filter:
-            result['regime_filter'] = self.regime_filter
+            result["regime_filter"] = self.regime_filter
         if self.sub_regime_filter:
-            result['sub_regime_filter'] = self.sub_regime_filter
+            result["sub_regime_filter"] = self.sub_regime_filter
 
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'CompositeStrategy':
+    def from_dict(cls, data: Dict[str, Any]) -> "CompositeStrategy":
         """
         Create from dictionary
 
@@ -318,16 +319,16 @@ class CompositeStrategy(Strategy):
         Returns:
             CompositeStrategy instance
         """
-        entry_logic = LogicTree.from_dict(data['entry_logic'])
-        exit_logic = LogicTree.from_dict(data['exit_logic'])
+        entry_logic = LogicTree.from_dict(data["entry_logic"])
+        exit_logic = LogicTree.from_dict(data["exit_logic"])
 
         return cls(
-            name=data['name'],
+            name=data["name"],
             entry_logic=entry_logic,
             exit_logic=exit_logic,
-            description=data.get('description', ''),
-            regime_filter=data.get('regime_filter'),
-            sub_regime_filter=data.get('sub_regime_filter')
+            description=data.get("description", ""),
+            regime_filter=data.get("regime_filter"),
+            sub_regime_filter=data.get("sub_regime_filter"),
         )
 
     def get_entry_summary(self) -> str:

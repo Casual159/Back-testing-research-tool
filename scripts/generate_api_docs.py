@@ -6,16 +6,17 @@ Outputs OpenAPI schema as JSON to Backtesting_Obsidian/05-Reference/_GENERATED/
 """
 import json
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 try:
-    from api.main import app
     from fastapi.openapi.utils import get_openapi
+
+    from api.main import app
 except ImportError as e:
     print(f"Error importing FastAPI app: {e}")
     print("Make sure FastAPI is installed: pip install fastapi")
@@ -24,7 +25,7 @@ except ImportError as e:
 
 def generate_api_docs():
     """Generate OpenAPI schema from FastAPI app"""
-    
+
     # Get OpenAPI schema
     schema = get_openapi(
         title=app.title or "Backtesting API",
@@ -33,28 +34,28 @@ def generate_api_docs():
         description=app.description or "API for Backtesting Research Tool",
         routes=app.routes,
     )
-    
+
     # Add generation metadata
     schema["info"]["x-generated-at"] = datetime.now().isoformat()
     schema["info"]["x-generator"] = "scripts/generate_api_docs.py"
-    
+
     # Output path
     output_dir = project_root / "Backtesting_Obsidian" / "05-Reference" / "_GENERATED"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / "api_endpoints.json"
-    
+
     # Write JSON
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(schema, f, indent=2, ensure_ascii=False)
-    
+
     # Count endpoints
     endpoint_count = len(schema.get("paths", {}))
-    
+
     print(f"✓ Generated API documentation")
     print(f"  - Endpoints: {endpoint_count}")
     print(f"  - Output: {output_file}")
     print(f"  - Generated: {schema['info']['x-generated-at']}")
-    
+
     return output_file
 
 
@@ -65,5 +66,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"✗ Error generating API docs: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

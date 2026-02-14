@@ -4,8 +4,10 @@ Logic Tree for combining signals with AND/OR logic
 Supports building complex logic trees like:
     (Signal1 AND Signal2) OR (Signal3 AND Signal4)
 """
-from typing import List, Union, Dict, Any
+
 from enum import Enum
+from typing import Any, Dict, List, Union
+
 import pandas as pd
 
 from .signal import IndicatorSignal
@@ -13,6 +15,7 @@ from .signal import IndicatorSignal
 
 class LogicOperator(Enum):
     """Logic operators"""
+
     AND = "AND"
     OR = "OR"
 
@@ -30,7 +33,7 @@ class LogicNode:
         self,
         operator: Union[LogicOperator, str, None] = None,
         signal: IndicatorSignal = None,
-        children: List['LogicNode'] = None
+        children: List["LogicNode"] = None,
     ):
         """
         Initialize logic node
@@ -64,7 +67,7 @@ class LogicNode:
 
             self.children = children or []
 
-    def add_child(self, child: 'LogicNode'):
+    def add_child(self, child: "LogicNode"):
         """Add child node (for branch nodes)"""
         if self.is_leaf:
             raise ValueError("Cannot add children to leaf node")
@@ -151,26 +154,23 @@ class LogicNode:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         if self.is_leaf:
-            return {
-                'type': 'leaf',
-                'signal': self.signal.to_dict()
-            }
+            return {"type": "leaf", "signal": self.signal.to_dict()}
         return {
-            'type': 'branch',
-            'operator': self.operator.value,
-            'children': [child.to_dict() for child in self.children]
+            "type": "branch",
+            "operator": self.operator.value,
+            "children": [child.to_dict() for child in self.children],
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'LogicNode':
+    def from_dict(cls, data: Dict[str, Any]) -> "LogicNode":
         """Create from dictionary"""
-        if data['type'] == 'leaf':
-            signal = IndicatorSignal.from_dict(data['signal'])
+        if data["type"] == "leaf":
+            signal = IndicatorSignal.from_dict(data["signal"])
             return cls(signal=signal)
 
         # Branch
-        operator = LogicOperator[data['operator']]
-        children = [cls.from_dict(child) for child in data['children']]
+        operator = LogicOperator[data["operator"]]
+        children = [cls.from_dict(child) for child in data["children"]]
         return cls(operator=operator, children=children)
 
 
@@ -213,7 +213,7 @@ class LogicTree:
         self.root = root
 
     @classmethod
-    def AND(cls, signals: List[IndicatorSignal]) -> 'LogicTree':
+    def AND(cls, signals: List[IndicatorSignal]) -> "LogicTree":
         """
         Create simple AND tree
 
@@ -230,7 +230,7 @@ class LogicTree:
         return cls(root)
 
     @classmethod
-    def OR(cls, signals: List[IndicatorSignal]) -> 'LogicTree':
+    def OR(cls, signals: List[IndicatorSignal]) -> "LogicTree":
         """
         Create simple OR tree
 
@@ -280,7 +280,7 @@ class LogicTree:
         return self.root.to_dict()
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'LogicTree':
+    def from_dict(cls, data: Dict[str, Any]) -> "LogicTree":
         """Create from dictionary"""
         root = LogicNode.from_dict(data)
         return cls(root)

@@ -2,8 +2,8 @@
 
 > **TL;DR for Humans:** Downloads cryptocurrency market data from Binance using a hybrid approach (bulk downloads for historical data + API for recent data) and stores everything in PostgreSQL. Fast, cheap, and reliable.
 
-**Status:** ✅ Production Ready  
-**Last Updated:** 2024-12-05  
+**Status:** ✅ Production Ready
+**Last Updated:** 2024-12-05
 **Maintained By:** Core Team
 
 ---
@@ -79,7 +79,7 @@ historical_df = bulk_fetcher.fetch_historical(
 
 # Recent data (API - rate limited)
 recent_df = api_fetcher.fetch_historical(
-    symbol="BTCUSDT", 
+    symbol="BTCUSDT",
     timeframe="1h",
     start_date=end_date - timedelta(days=2),
     end_date=end_date
@@ -133,7 +133,7 @@ sequenceDiagram
 
 ### Component 1: BinanceBulkFetcher
 
-**File:** `core/data/bulk_fetcher.py:20-300`  
+**File:** `core/data/bulk_fetcher.py:20-300`
 **Purpose:** Download historical data from Binance Public Data (data.binance.vision)
 
 #### Class Signature
@@ -142,11 +142,11 @@ sequenceDiagram
 class BinanceBulkFetcher:
     """
     Fetches historical klines data from Binance Public Data repository
-    
+
     Primary source for historical data (no API limits, fast downloads)
     Data availability: From inception (~2017) to ~2 days ago
     """
-    
+
     BASE_URL = "https://data.binance.vision/data/spot"
     PUBLIC_DATA_LAG_DAYS = 2  # Public data has ~2 day lag
 ```
@@ -165,13 +165,13 @@ def fetch_historical(
 ) -> pd.DataFrame:
     """
     Fetch historical klines data from public data repository
-    
+
     Returns:
         DataFrame with columns:
         - open_time (datetime)
         - open, high, low, close (float)
         - volume, quote_volume (float)
-    
+
     Raises:
         ValueError: If timeframe not supported
         requests.HTTPError: If download fails
@@ -230,7 +230,7 @@ def get_public_data_cutoff() -> datetime:
 
 ### Component 2: BinanceDataFetcher
 
-**File:** `core/data/fetcher.py:24-250`  
+**File:** `core/data/fetcher.py:24-250`
 **Purpose:** Fetch recent data via Binance REST API (for last 2 days)
 
 #### Class Signature
@@ -238,7 +238,7 @@ def get_public_data_cutoff() -> datetime:
 ```python
 class BinanceDataFetcher:
     """Fetches historical OHLCV data from Binance"""
-    
+
     TIMEFRAME_MAP = {
         '1m': Client.KLINE_INTERVAL_1MINUTE,
         '1h': Client.KLINE_INTERVAL_1HOUR,
@@ -258,7 +258,7 @@ def __init__(
 ):
     """
     Initialize Binance client
-    
+
     Note: Testnet uses https://testnet.binance.vision/api
           Production uses https://api.binance.com/api
     """
@@ -279,12 +279,12 @@ def fetch_historical(
 ) -> pd.DataFrame:
     """
     Fetch historical data using Binance API
-    
+
     Handles:
     - Rate limiting (150ms delay between requests)
     - Pagination (automatic for >1000 candles)
     - Retries on failure (max 3 retries)
-    
+
     Returns: Same schema as BinanceBulkFetcher
     """
 ```
@@ -329,7 +329,7 @@ for retry in range(self.max_retries):
 
 ### Component 3: PostgresStorage
 
-**File:** `core/data/storage.py:21-300`  
+**File:** `core/data/storage.py:21-300`
 **Purpose:** Persist candle data to PostgreSQL with automatic deduplication
 
 #### Class Signature
@@ -337,7 +337,7 @@ for retry in range(self.max_retries):
 ```python
 class PostgresStorage:
     """PostgreSQL storage for OHLCV candle data"""
-    
+
     def __init__(self, config: Dict[str, any]):
         """
         Args:
@@ -369,10 +369,10 @@ CREATE TABLE IF NOT EXISTS candles (
     PRIMARY KEY (symbol, timeframe, open_time)
 );
 
-CREATE INDEX IF NOT EXISTS idx_candles_symbol_timeframe 
+CREATE INDEX IF NOT EXISTS idx_candles_symbol_timeframe
 ON candles(symbol, timeframe);
 
-CREATE INDEX IF NOT EXISTS idx_candles_open_time 
+CREATE INDEX IF NOT EXISTS idx_candles_open_time
 ON candles(open_time DESC);
 ```
 
@@ -391,14 +391,14 @@ def save_candles(
 ) -> int:
     """
     Save candles to database with automatic deduplication
-    
+
     Uses: INSERT ... ON CONFLICT (symbol, timeframe, open_time) DO NOTHING
-    
+
     Args:
         df: DataFrame with OHLCV data
         symbol: Trading pair
         timeframe: Timeframe
-    
+
     Returns:
         Number of new candles inserted (duplicates are skipped)
     """
@@ -447,14 +447,14 @@ def get_candles(
 ) -> pd.DataFrame:
     """
     Query candles from database
-    
+
     Args:
         symbol: Trading pair
         timeframe: Timeframe
         limit: Max number of candles (most recent first)
         start_time: Filter >= this time
         end_time: Filter <= this time
-    
+
     Returns:
         DataFrame sorted by open_time ASC
     """
@@ -464,7 +464,7 @@ def get_candles(
 
 ```python
 query = """
-    SELECT 
+    SELECT
         open_time, open, high, low, close, volume, quote_volume
     FROM candles
     WHERE symbol = %s AND timeframe = %s
@@ -638,8 +638,8 @@ print("✓ Rate limiting enforced")
 
 ---
 
-**Last Updated:** 2024-12-05  
-**Status:** ✅ Production Ready  
+**Last Updated:** 2024-12-05
+**Status:** ✅ Production Ready
 **Maintained By:** Core Team
 
 ---

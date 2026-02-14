@@ -8,9 +8,9 @@ Events represent different stages in the backtest lifecycle:
 - FillEvent: Completed trade execution
 """
 
-from datetime import datetime
-from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 
 @dataclass
@@ -24,6 +24,7 @@ class MarketEvent:
         ohlcv: Dict with 'open', 'high', 'low', 'close', 'volume'
         metadata: Optional dict for additional data (e.g., regime classification)
     """
+
     timestamp: datetime
     symbol: str
     ohlcv: Dict[str, float]
@@ -31,23 +32,23 @@ class MarketEvent:
 
     @property
     def open(self) -> float:
-        return self.ohlcv['open']
+        return self.ohlcv["open"]
 
     @property
     def high(self) -> float:
-        return self.ohlcv['high']
+        return self.ohlcv["high"]
 
     @property
     def low(self) -> float:
-        return self.ohlcv['low']
+        return self.ohlcv["low"]
 
     @property
     def close(self) -> float:
-        return self.ohlcv['close']
+        return self.ohlcv["close"]
 
     @property
     def volume(self) -> float:
-        return self.ohlcv['volume']
+        return self.ohlcv["volume"]
 
 
 @dataclass
@@ -62,6 +63,7 @@ class SignalEvent:
         strength: Signal strength (0.0 to 1.0, optional)
         metadata: Optional dict for strategy-specific data
     """
+
     timestamp: datetime
     symbol: str
     signal_type: str  # 'BUY', 'SELL', 'HOLD'
@@ -82,6 +84,7 @@ class OrderEvent:
         direction: 'BUY' or 'SELL'
         price: Limit price (None for market orders)
     """
+
     timestamp: datetime
     symbol: str
     order_type: str  # 'MARKET', 'LIMIT'
@@ -104,6 +107,7 @@ class FillEvent:
         commission: Trading fee paid
         slippage: Slippage rate applied
     """
+
     timestamp: datetime
     symbol: str
     quantity: float

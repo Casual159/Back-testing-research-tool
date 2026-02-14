@@ -16,11 +16,7 @@ class AgentProtocol(ABC):
     """Abstract protocol for backtesting agents."""
 
     @abstractmethod
-    async def chat(
-        self,
-        message: str,
-        conversation_id: Optional[UUID] = None
-    ) -> AgentChatResponse:
+    async def chat(self, message: str, conversation_id: Optional[UUID] = None) -> AgentChatResponse:
         """
         Process a user message and return agent response.
 

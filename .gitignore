@@ -64,6 +64,6 @@ reports/
 *.temp
 .cache/
 
-# Obsidian workspace state
-Backtesting_Obsidian/.obsidian/workspace.json
-Backtesting_Obsidian/.obsidian/graph.json
+# Obsidian workspace (personal settings - ignore)
+# Keep markdown docs (tracked in git)
+Backtesting_Obsidian/.obsidian/

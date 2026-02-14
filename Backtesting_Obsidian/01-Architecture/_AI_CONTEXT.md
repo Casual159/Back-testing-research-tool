@@ -1,7 +1,7 @@
 # AI Context: Architecture
 
-**Last Updated:** 2024-12-05  
-**Purpose:** Quick architectural reference for AI sessions  
+**Last Updated:** 2024-12-05
+**Purpose:** Quick architectural reference for AI sessions
 **Read Time:** 2 minutes
 
 ---
@@ -168,7 +168,7 @@ ON CONFLICT (symbol, timeframe, open_time) DO NOTHING
    └─→ data = storage.get_candles("BTCUSDT", "1h", limit=720)
 
 5. Core queries PostgreSQL
-   └─→ SELECT * FROM candles 
+   └─→ SELECT * FROM candles
        WHERE symbol='BTCUSDT' AND timeframe='1h'
        ORDER BY open_time DESC LIMIT 720
 
@@ -268,12 +268,12 @@ Database = Memory (persistent storage)
 
 ## ⚡ Quick Reference Links
 
-**Main Entry:** [[Project Root]]  
-**Component Deep Dives:** [[02-Components/_AI_CONTEXT]]  
-**Common Tasks:** [[04-Workflows/_AI_CONTEXT]]  
+**Main Entry:** [[Project Root]]
+**Component Deep Dives:** [[02-Components/_AI_CONTEXT]]
+**Common Tasks:** [[04-Workflows/_AI_CONTEXT]]
 **Auto-Generated Schemas:** [[05-Reference/_GENERATED/README]]
 
 ---
 
-**Last Updated:** 2024-12-05  
+**Last Updated:** 2024-12-05
 **Maintained By:** AI + Human collaboration

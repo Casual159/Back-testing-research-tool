@@ -4,11 +4,12 @@ Strategy Storage - CRUD operations for trading strategies
 Handles database operations for strategies table.
 Supports both built-in and composite strategies.
 """
+
 import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StrategyRecord:
     """Database record for a strategy"""
+
     id: int
     name: str
     description: str
@@ -51,11 +53,11 @@ class StrategyStorage:
         """Establish database connection"""
         try:
             self.conn = psycopg2.connect(
-                host=self.config['host'],
-                port=self.config['port'],
-                database=self.config['database'],
-                user=self.config['user'],
-                password=self.config.get('password', '')
+                host=self.config["host"],
+                port=self.config["port"],
+                database=self.config["database"],
+                user=self.config["user"],
+                password=self.config.get("password", ""),
             )
             logger.info("StrategyStorage connected to database")
             return True
@@ -77,19 +79,19 @@ class StrategyStorage:
     def _row_to_record(self, row: Dict) -> StrategyRecord:
         """Convert database row to StrategyRecord"""
         return StrategyRecord(
-            id=row['id'],
-            name=row['name'],
-            description=row['description'] or '',
-            strategy_type=row['strategy_type'],
-            builtin_class=row['builtin_class'],
-            entry_logic=row['entry_logic'],
-            exit_logic=row['exit_logic'],
-            parameters=row['parameters'] or {},
-            regime_filter=row['regime_filter'],
-            sub_regime_filter=row['sub_regime_filter'],
-            is_active=row['is_active'],
-            created_at=row['created_at'],
-            updated_at=row['updated_at']
+            id=row["id"],
+            name=row["name"],
+            description=row["description"] or "",
+            strategy_type=row["strategy_type"],
+            builtin_class=row["builtin_class"],
+            entry_logic=row["entry_logic"],
+            exit_logic=row["exit_logic"],
+            parameters=row["parameters"] or {},
+            regime_filter=row["regime_filter"],
+            sub_regime_filter=row["sub_regime_filter"],
+            is_active=row["is_active"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )
 
     # =========================================================================
@@ -182,7 +184,7 @@ class StrategyStorage:
         parameters: Optional[Dict] = None,
         regime_filter: Optional[List[str]] = None,
         sub_regime_filter: Optional[Dict] = None,
-        builtin_class: Optional[str] = None
+        builtin_class: Optional[str] = None,
     ) -> StrategyRecord:
         """
         Create a new strategy
@@ -223,22 +225,25 @@ class StrategyStorage:
         """
 
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(query, (
-                name,
-                description,
-                strategy_type,
-                builtin_class,
-                json.dumps(entry_logic) if entry_logic else None,
-                json.dumps(exit_logic) if exit_logic else None,
-                json.dumps(parameters or {}),
-                regime_filter,
-                json.dumps(sub_regime_filter) if sub_regime_filter else None
-            ))
+            cur.execute(
+                query,
+                (
+                    name,
+                    description,
+                    strategy_type,
+                    builtin_class,
+                    json.dumps(entry_logic) if entry_logic else None,
+                    json.dumps(exit_logic) if exit_logic else None,
+                    json.dumps(parameters or {}),
+                    regime_filter,
+                    json.dumps(sub_regime_filter) if sub_regime_filter else None,
+                ),
+            )
             result = cur.fetchone()
             self.conn.commit()
 
         return StrategyRecord(
-            id=result['id'],
+            id=result["id"],
             name=name,
             description=description,
             strategy_type=strategy_type,
@@ -249,19 +254,15 @@ class StrategyStorage:
             regime_filter=regime_filter,
             sub_regime_filter=sub_regime_filter,
             is_active=True,
-            created_at=result['created_at'],
-            updated_at=result['updated_at']
+            created_at=result["created_at"],
+            updated_at=result["updated_at"],
         )
 
     # =========================================================================
     # UPDATE Operations
     # =========================================================================
 
-    def update_strategy(
-        self,
-        name: str,
-        updates: Dict[str, Any]
-    ) -> Optional[StrategyRecord]:
+    def update_strategy(self, name: str, updates: Dict[str, Any]) -> Optional[StrategyRecord]:
         """
         Update an existing strategy
 
@@ -281,8 +282,12 @@ class StrategyStorage:
 
         # Build update query dynamically
         allowed_fields = [
-            'description', 'parameters', 'regime_filter',
-            'sub_regime_filter', 'entry_logic', 'exit_logic'
+            "description",
+            "parameters",
+            "regime_filter",
+            "sub_regime_filter",
+            "entry_logic",
+            "exit_logic",
         ]
 
         set_clauses = []
@@ -292,7 +297,7 @@ class StrategyStorage:
             if field_name in allowed_fields:
                 set_clauses.append(f"{field_name} = %s")
                 # JSON encode dict/list values
-                if isinstance(value, (dict, list)) and field_name != 'regime_filter':
+                if isinstance(value, (dict, list)) and field_name != "regime_filter":
                     values.append(json.dumps(value))
                 else:
                     values.append(value)
@@ -364,9 +369,9 @@ class StrategyStorage:
         if override_params:
             params.update(override_params)
 
-        if record.strategy_type == 'builtin':
+        if record.strategy_type == "builtin":
             return self._instantiate_builtin(record, params)
-        elif record.strategy_type == 'composite':
+        elif record.strategy_type == "composite":
             return self._instantiate_composite(record, params)
         else:
             raise ValueError(f"Unknown strategy type: {record.strategy_type}")
@@ -374,15 +379,17 @@ class StrategyStorage:
     def _instantiate_builtin(self, record: StrategyRecord, params: Dict):
         """Create builtin strategy instance"""
         from core.backtest.strategies import (
-            MovingAverageCrossover, RSIReversal,
-            BollingerBands, MACDCross
+            BollingerBands,
+            MACDCross,
+            MovingAverageCrossover,
+            RSIReversal,
         )
 
         class_map = {
-            'MovingAverageCrossover': MovingAverageCrossover,
-            'RSIReversal': RSIReversal,
-            'BollingerBands': BollingerBands,
-            'MACDCross': MACDCross,
+            "MovingAverageCrossover": MovingAverageCrossover,
+            "RSIReversal": RSIReversal,
+            "BollingerBands": BollingerBands,
+            "MACDCross": MACDCross,
         }
 
         cls = class_map.get(record.builtin_class)
@@ -393,9 +400,7 @@ class StrategyStorage:
 
     def _instantiate_composite(self, record: StrategyRecord, params: Dict):
         """Create composite strategy from JSON logic"""
-        from core.backtest.strategies.composition import (
-            CompositeStrategy, LogicTree
-        )
+        from core.backtest.strategies.composition import CompositeStrategy, LogicTree
 
         if not record.entry_logic or not record.exit_logic:
             raise ValueError("Composite strategy requires entry_logic and exit_logic")
@@ -409,7 +414,7 @@ class StrategyStorage:
             exit_logic=exit_logic,
             description=record.description,
             regime_filter=record.regime_filter,
-            sub_regime_filter=record.sub_regime_filter
+            sub_regime_filter=record.sub_regime_filter,
         )
 
     # =========================================================================
@@ -428,7 +433,7 @@ class StrategyStorage:
         equity_curve: List,
         trades: List,
         config: Optional[Dict] = None,
-        regime_stats: Optional[Dict] = None
+        regime_stats: Optional[Dict] = None,
     ) -> int:
         """
         Save backtest results to database
@@ -460,37 +465,38 @@ class StrategyStorage:
         """
 
         with self.conn.cursor() as cur:
-            cur.execute(query, (
-                strategy_id,
-                strategy_name,
-                symbol,
-                timeframe,
-                start_date,
-                end_date,
-                initial_capital,
-                config.get('commission_rate'),
-                config.get('slippage_rate'),
-                config.get('position_size_pct'),
-                metrics.get('total_return'),
-                metrics.get('sharpe_ratio'),
-                metrics.get('max_drawdown'),
-                metrics.get('win_rate'),
-                metrics.get('total_trades'),
-                metrics.get('profit_factor'),
-                metrics.get('avg_trade_duration_hours'),
-                json.dumps(equity_curve),
-                json.dumps(trades),
-                json.dumps(regime_stats) if regime_stats else None
-            ))
+            cur.execute(
+                query,
+                (
+                    strategy_id,
+                    strategy_name,
+                    symbol,
+                    timeframe,
+                    start_date,
+                    end_date,
+                    initial_capital,
+                    config.get("commission_rate"),
+                    config.get("slippage_rate"),
+                    config.get("position_size_pct"),
+                    metrics.get("total_return"),
+                    metrics.get("sharpe_ratio"),
+                    metrics.get("max_drawdown"),
+                    metrics.get("win_rate"),
+                    metrics.get("total_trades"),
+                    metrics.get("profit_factor"),
+                    metrics.get("avg_trade_duration_hours"),
+                    json.dumps(equity_curve),
+                    json.dumps(trades),
+                    json.dumps(regime_stats) if regime_stats else None,
+                ),
+            )
             result = cur.fetchone()
             self.conn.commit()
 
         return result[0]
 
     def get_backtest_results(
-        self,
-        strategy_name: Optional[str] = None,
-        limit: int = 20
+        self, strategy_name: Optional[str] = None, limit: int = 20
     ) -> List[Dict]:
         """Get recent backtest results"""
         self._ensure_connected()

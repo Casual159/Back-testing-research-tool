@@ -4,7 +4,9 @@ Quick script to test PostgreSQL connection and create database
 """
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
 from config.config import Config
+
 
 def test_connection():
     """Test PostgreSQL connection and create database if needed"""
@@ -15,9 +17,9 @@ def test_connection():
         conn = psycopg2.connect(
             host=Config.POSTGRES_HOST,
             port=Config.POSTGRES_PORT,
-            database='postgres',  # Connect to default postgres database first
+            database="postgres",  # Connect to default postgres database first
             user=Config.POSTGRES_USER,
-            password=Config.POSTGRES_PASSWORD if Config.POSTGRES_PASSWORD else None
+            password=Config.POSTGRES_PASSWORD if Config.POSTGRES_PASSWORD else None,
         )
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
@@ -45,22 +47,23 @@ def test_connection():
             port=Config.POSTGRES_PORT,
             database=Config.POSTGRES_DB,
             user=Config.POSTGRES_USER,
-            password=Config.POSTGRES_PASSWORD if Config.POSTGRES_PASSWORD else None
+            password=Config.POSTGRES_PASSWORD if Config.POSTGRES_PASSWORD else None,
         )
 
         print("✅ Successfully connected to 'trading_bot' database!")
 
         # Test creating tables
         from core.data.storage import PostgresStorage
+
         storage = PostgresStorage(Config.get_postgres_config())
         storage.connect()
         storage.create_tables()
         print("✅ Tables created successfully!")
         storage.disconnect()
 
-        print("\n" + "="*50)
+        print("\n" + "=" * 50)
         print("🎉 PostgreSQL setup complete!")
-        print("="*50)
+        print("=" * 50)
         print(f"\nConnection details:")
         print(f"  Host: {Config.POSTGRES_HOST}")
         print(f"  Port: {Config.POSTGRES_PORT}")
@@ -80,6 +83,7 @@ def test_connection():
     except Exception as e:
         print(f"\n❌ Error: {e}")
         return False
+
 
 if __name__ == "__main__":
     test_connection()

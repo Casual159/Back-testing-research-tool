@@ -1,7 +1,7 @@
 # AI Context: Workflows
 
-**Last Updated:** 2024-12-05  
-**Purpose:** Task routing and workflow guidance for AI sessions  
+**Last Updated:** 2024-12-05
+**Purpose:** Task routing and workflow guidance for AI sessions
 **Read Time:** 2 minutes
 
 ---
@@ -288,7 +288,7 @@ print("Saved to database")
 | `generate_types.py` | Generate TypeScript types | `type_definitions.ts` | After Python model changes |
 | `generate_all_docs.sh` | Run all generators | All above | Before committing major changes |
 
-**Location:** `scripts/` directory  
+**Location:** `scripts/` directory
 **Output:** `Backtesting_Obsidian/05-Reference/_GENERATED/`
 
 **Usage:**
@@ -330,11 +330,11 @@ python scripts/generate_types.py
 
 ---
 
-**Main Entry:** [[Project Root]]  
-**Architecture:** [[01-Architecture/_AI_CONTEXT]]  
+**Main Entry:** [[Project Root]]
+**Architecture:** [[01-Architecture/_AI_CONTEXT]]
 **Components:** [[02-Components/_AI_CONTEXT]]
 
 ---
 
-**Last Updated:** 2024-12-05  
+**Last Updated:** 2024-12-05
 **Maintained By:** AI + Human collaboration

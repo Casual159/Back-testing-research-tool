@@ -10,6 +10,7 @@ Signal Line = EMA(9) of MACD
 """
 
 from typing import Optional
+
 from ..events import MarketEvent, SignalEvent
 from .base import Strategy
 
@@ -37,12 +38,7 @@ class MACDCross(Strategy):
         >>> # Standard MACD parameters (12, 26, 9)
     """
 
-    def __init__(
-        self,
-        fast_period: int = 12,
-        slow_period: int = 26,
-        signal_period: int = 9
-    ):
+    def __init__(self, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9):
         """
         Initialize MACD Cross strategy.
 
@@ -57,11 +53,9 @@ class MACDCross(Strategy):
         if fast_period >= slow_period:
             raise ValueError(f"fast_period ({fast_period}) must be < slow_period ({slow_period})")
 
-        super().__init__({
-            'fast_period': fast_period,
-            'slow_period': slow_period,
-            'signal_period': signal_period
-        })
+        super().__init__(
+            {"fast_period": fast_period, "slow_period": slow_period, "signal_period": signal_period}
+        )
 
         # Track previous values for crossover detection
         self.prev_macd = None
@@ -71,7 +65,7 @@ class MACDCross(Strategy):
 
     def _get_max_buffer_size(self) -> int:
         """Need enough bars for slow EMA + signal EMA."""
-        return self.parameters['slow_period'] + self.parameters['signal_period'] + 50
+        return self.parameters["slow_period"] + self.parameters["signal_period"] + 50
 
     def calculate_signals(self, market_event: MarketEvent) -> Optional[SignalEvent]:
         """
@@ -83,9 +77,9 @@ class MACDCross(Strategy):
         Returns:
             SignalEvent or None if insufficient data or no crossover
         """
-        fast_period = self.parameters['fast_period']
-        slow_period = self.parameters['slow_period']
-        signal_period = self.parameters['signal_period']
+        fast_period = self.parameters["fast_period"]
+        slow_period = self.parameters["slow_period"]
+        signal_period = self.parameters["signal_period"]
 
         # Need enough data for MACD calculation
         min_bars = slow_period + signal_period
@@ -111,14 +105,14 @@ class MACDCross(Strategy):
                 signal_event = SignalEvent(
                     timestamp=market_event.timestamp,
                     symbol=market_event.symbol,
-                    signal_type='BUY',
+                    signal_type="BUY",
                     strength=min(abs(histogram) / 10, 1.0),  # Strength based on histogram
                     metadata={
-                        'macd': macd,
-                        'signal_line': signal_line,
-                        'histogram': histogram,
-                        'crossover_type': 'bullish'
-                    }
+                        "macd": macd,
+                        "signal_line": signal_line,
+                        "histogram": histogram,
+                        "crossover_type": "bullish",
+                    },
                 )
 
             # Bearish crossover: MACD crosses below Signal
@@ -127,14 +121,14 @@ class MACDCross(Strategy):
                 signal_event = SignalEvent(
                     timestamp=market_event.timestamp,
                     symbol=market_event.symbol,
-                    signal_type='SELL',
+                    signal_type="SELL",
                     strength=min(abs(histogram) / 10, 1.0),
                     metadata={
-                        'macd': macd,
-                        'signal_line': signal_line,
-                        'histogram': histogram,
-                        'crossover_type': 'bearish'
-                    }
+                        "macd": macd,
+                        "signal_line": signal_line,
+                        "histogram": histogram,
+                        "crossover_type": "bearish",
+                    },
                 )
 
         # Update previous values
@@ -143,12 +137,7 @@ class MACDCross(Strategy):
 
         return signal_event
 
-    def _calculate_macd(
-        self,
-        fast_period: int,
-        slow_period: int,
-        signal_period: int
-    ) -> tuple:
+    def _calculate_macd(self, fast_period: int, slow_period: int, signal_period: int) -> tuple:
         """
         Calculate MACD and Signal Line.
 
@@ -204,13 +193,15 @@ class MACDCross(Strategy):
             return None
 
         return {
-            'macd': self.current_macd,
-            'signal': self.current_signal,
-            'histogram': self.current_macd - self.current_signal
+            "macd": self.current_macd,
+            "signal": self.current_signal,
+            "histogram": self.current_macd - self.current_signal,
         }
 
     def __repr__(self):
-        return (f"MACDCross("
-                f"fast={self.parameters['fast_period']}, "
-                f"slow={self.parameters['slow_period']}, "
-                f"signal={self.parameters['signal_period']})")
+        return (
+            f"MACDCross("
+            f"fast={self.parameters['fast_period']}, "
+            f"slow={self.parameters['slow_period']}, "
+            f"signal={self.parameters['signal_period']})"
+        )

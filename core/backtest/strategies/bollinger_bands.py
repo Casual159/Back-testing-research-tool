@@ -8,8 +8,9 @@ Mean-reversion strategy using volatility bands:
 Bollinger Bands = SMA ± (std_dev × num_std)
 """
 
-from typing import Optional
 import math
+from typing import Optional
+
 from ..events import MarketEvent, SignalEvent
 from .base import Strategy
 
@@ -37,12 +38,7 @@ class BollingerBands(Strategy):
         >>> # Standard BB(20, 2)
     """
 
-    def __init__(
-        self,
-        period: int = 20,
-        num_std: float = 2.0,
-        touch_threshold: float = 0.01
-    ):
+    def __init__(self, period: int = 20, num_std: float = 2.0, touch_threshold: float = 0.01):
         """
         Initialize Bollinger Bands strategy.
 
@@ -59,17 +55,13 @@ class BollingerBands(Strategy):
         if num_std <= 0:
             raise ValueError(f"num_std ({num_std}) must be > 0")
 
-        super().__init__({
-            'period': period,
-            'num_std': num_std,
-            'touch_threshold': touch_threshold
-        })
+        super().__init__({"period": period, "num_std": num_std, "touch_threshold": touch_threshold})
 
         self.current_bands = None
 
     def _get_max_buffer_size(self) -> int:
         """Need period + some extra for calculation."""
-        return self.parameters['period'] + 10
+        return self.parameters["period"] + 10
 
     def calculate_signals(self, market_event: MarketEvent) -> Optional[SignalEvent]:
         """
@@ -81,9 +73,9 @@ class BollingerBands(Strategy):
         Returns:
             SignalEvent or None if insufficient data or no signal
         """
-        period = self.parameters['period']
-        num_std = self.parameters['num_std']
-        touch_threshold = self.parameters['touch_threshold']
+        period = self.parameters["period"]
+        num_std = self.parameters["num_std"]
+        touch_threshold = self.parameters["touch_threshold"]
 
         # Check if we have enough data
         if not self.has_sufficient_data(period):
@@ -95,14 +87,10 @@ class BollingerBands(Strategy):
         if middle is None:
             return None
 
-        self.current_bands = {
-            'middle': middle,
-            'upper': upper,
-            'lower': lower
-        }
+        self.current_bands = {"middle": middle, "upper": upper, "lower": lower}
 
         # Get current price
-        current_price = market_event.ohlcv['close']
+        current_price = market_event.ohlcv["close"]
 
         # Calculate band width (for signal strength)
         band_width = upper - lower
@@ -118,16 +106,16 @@ class BollingerBands(Strategy):
             signal = SignalEvent(
                 timestamp=market_event.timestamp,
                 symbol=market_event.symbol,
-                signal_type='BUY',
+                signal_type="BUY",
                 strength=min(strength, 1.0),
                 metadata={
-                    'price': current_price,
-                    'lower_band': lower,
-                    'middle_band': middle,
-                    'upper_band': upper,
-                    'price_position': price_position,
-                    'condition': 'lower_band_touch'
-                }
+                    "price": current_price,
+                    "lower_band": lower,
+                    "middle_band": middle,
+                    "upper_band": upper,
+                    "price_position": price_position,
+                    "condition": "lower_band_touch",
+                },
             )
 
         # Check if price touches upper band (overbought)
@@ -138,16 +126,16 @@ class BollingerBands(Strategy):
             signal = SignalEvent(
                 timestamp=market_event.timestamp,
                 symbol=market_event.symbol,
-                signal_type='SELL',
+                signal_type="SELL",
                 strength=min(strength, 1.0),
                 metadata={
-                    'price': current_price,
-                    'lower_band': lower,
-                    'middle_band': middle,
-                    'upper_band': upper,
-                    'price_position': price_position,
-                    'condition': 'upper_band_touch'
-                }
+                    "price": current_price,
+                    "lower_band": lower,
+                    "middle_band": middle,
+                    "upper_band": upper,
+                    "price_position": price_position,
+                    "condition": "upper_band_touch",
+                },
             )
 
         return signal
@@ -192,6 +180,8 @@ class BollingerBands(Strategy):
         return self.current_bands
 
     def __repr__(self):
-        return (f"BollingerBands("
-                f"period={self.parameters['period']}, "
-                f"std={self.parameters['num_std']})")
+        return (
+            f"BollingerBands("
+            f"period={self.parameters['period']}, "
+            f"std={self.parameters['num_std']})"
+        )

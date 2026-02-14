@@ -2,9 +2,11 @@
 Technical indicators module
 Implements common trading indicators: RSI, MACD, MA, EMA, Bollinger Bands, ATR
 """
-import pandas as pd
+
+from typing import Optional, Tuple
+
 import numpy as np
-from typing import Tuple, Optional
+import pandas as pd
 
 
 class TechnicalIndicators:
@@ -69,10 +71,7 @@ class TechnicalIndicators:
 
     @staticmethod
     def macd(
-        data: pd.Series,
-        fast_period: int = 12,
-        slow_period: int = 26,
-        signal_period: int = 9
+        data: pd.Series, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9
     ) -> Tuple[pd.Series, pd.Series, pd.Series]:
         """
         Moving Average Convergence Divergence
@@ -101,9 +100,7 @@ class TechnicalIndicators:
 
     @staticmethod
     def bollinger_bands(
-        data: pd.Series,
-        period: int = 20,
-        std_dev: float = 2.0
+        data: pd.Series, period: int = 20, std_dev: float = 2.0
     ) -> Tuple[pd.Series, pd.Series, pd.Series]:
         """
         Bollinger Bands
@@ -129,12 +126,7 @@ class TechnicalIndicators:
         return upper_band, middle_band, lower_band
 
     @staticmethod
-    def atr(
-        high: pd.Series,
-        low: pd.Series,
-        close: pd.Series,
-        period: int = 14
-    ) -> pd.Series:
+    def atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
         """
         Average True Range
 
@@ -167,7 +159,7 @@ class TechnicalIndicators:
         close: pd.Series,
         period: int = 14,
         smooth_k: int = 3,
-        smooth_d: int = 3
+        smooth_d: int = 3,
     ) -> Tuple[pd.Series, pd.Series]:
         """
         Stochastic Oscillator
@@ -218,12 +210,7 @@ class TechnicalIndicators:
         return obv
 
     @staticmethod
-    def vwap(
-        high: pd.Series,
-        low: pd.Series,
-        close: pd.Series,
-        volume: pd.Series
-    ) -> pd.Series:
+    def vwap(high: pd.Series, low: pd.Series, close: pd.Series, volume: pd.Series) -> pd.Series:
         """
         Volume Weighted Average Price
 
@@ -245,12 +232,7 @@ class TechnicalIndicators:
         return vwap
 
     @staticmethod
-    def adx(
-        high: pd.Series,
-        low: pd.Series,
-        close: pd.Series,
-        period: int = 14
-    ) -> pd.Series:
+    def adx(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
         """
         Average Directional Index (ADX)
 
@@ -332,57 +314,52 @@ def add_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     result = df.copy()
 
     # Moving Averages
-    result['sma_20'] = TechnicalIndicators.sma(df['close'], 20)
-    result['sma_50'] = TechnicalIndicators.sma(df['close'], 50)
-    result['sma_200'] = TechnicalIndicators.sma(df['close'], 200)
+    result["sma_20"] = TechnicalIndicators.sma(df["close"], 20)
+    result["sma_50"] = TechnicalIndicators.sma(df["close"], 50)
+    result["sma_200"] = TechnicalIndicators.sma(df["close"], 200)
 
-    result['ema_12'] = TechnicalIndicators.ema(df['close'], 12)
-    result['ema_26'] = TechnicalIndicators.ema(df['close'], 26)
+    result["ema_12"] = TechnicalIndicators.ema(df["close"], 12)
+    result["ema_26"] = TechnicalIndicators.ema(df["close"], 26)
 
     # RSI
-    result['rsi'] = TechnicalIndicators.rsi(df['close'])
+    result["rsi"] = TechnicalIndicators.rsi(df["close"])
 
     # MACD
-    macd_line, signal_line, histogram = TechnicalIndicators.macd(df['close'])
-    result['macd'] = macd_line
-    result['macd_signal'] = signal_line
-    result['macd_histogram'] = histogram
+    macd_line, signal_line, histogram = TechnicalIndicators.macd(df["close"])
+    result["macd"] = macd_line
+    result["macd_signal"] = signal_line
+    result["macd_histogram"] = histogram
 
     # Bollinger Bands
-    upper, middle, lower = TechnicalIndicators.bollinger_bands(df['close'])
-    result['bb_upper'] = upper
-    result['bb_middle'] = middle
-    result['bb_lower'] = lower
+    upper, middle, lower = TechnicalIndicators.bollinger_bands(df["close"])
+    result["bb_upper"] = upper
+    result["bb_middle"] = middle
+    result["bb_lower"] = lower
 
     # ATR
-    result['atr'] = TechnicalIndicators.atr(df['high'], df['low'], df['close'])
+    result["atr"] = TechnicalIndicators.atr(df["high"], df["low"], df["close"])
 
     # Stochastic
-    k, d = TechnicalIndicators.stochastic(df['high'], df['low'], df['close'])
-    result['stoch_k'] = k
-    result['stoch_d'] = d
+    k, d = TechnicalIndicators.stochastic(df["high"], df["low"], df["close"])
+    result["stoch_k"] = k
+    result["stoch_d"] = d
 
     # OBV
-    result['obv'] = TechnicalIndicators.obv(df['close'], df['volume'])
+    result["obv"] = TechnicalIndicators.obv(df["close"], df["volume"])
 
     # VWAP
-    result['vwap'] = TechnicalIndicators.vwap(
-        df['high'], df['low'], df['close'], df['volume']
-    )
+    result["vwap"] = TechnicalIndicators.vwap(df["high"], df["low"], df["close"], df["volume"])
 
     # ADX
-    result['adx'] = TechnicalIndicators.adx(df['high'], df['low'], df['close'])
+    result["adx"] = TechnicalIndicators.adx(df["high"], df["low"], df["close"])
 
     # ROC
-    result['roc'] = TechnicalIndicators.roc(df['close'], 12)
+    result["roc"] = TechnicalIndicators.roc(df["close"], 12)
 
     return result
 
 
-def calculate_indicators(
-    df: pd.DataFrame,
-    indicators: Optional[list] = None
-) -> pd.DataFrame:
+def calculate_indicators(df: pd.DataFrame, indicators: Optional[list] = None) -> pd.DataFrame:
     """
     Calculate specific indicators
 
@@ -413,43 +390,43 @@ def calculate_indicators(
     result = df.copy()
 
     for indicator in indicators:
-        if indicator == 'sma_20':
-            result['sma_20'] = TechnicalIndicators.sma(df['close'], 20)
-        elif indicator == 'sma_50':
-            result['sma_50'] = TechnicalIndicators.sma(df['close'], 50)
-        elif indicator == 'sma_200':
-            result['sma_200'] = TechnicalIndicators.sma(df['close'], 200)
-        elif indicator == 'ema_12':
-            result['ema_12'] = TechnicalIndicators.ema(df['close'], 12)
-        elif indicator == 'ema_26':
-            result['ema_26'] = TechnicalIndicators.ema(df['close'], 26)
-        elif indicator == 'rsi':
-            result['rsi'] = TechnicalIndicators.rsi(df['close'])
-        elif indicator == 'macd':
-            macd_line, signal_line, histogram = TechnicalIndicators.macd(df['close'])
-            result['macd'] = macd_line
-            result['macd_signal'] = signal_line
-            result['macd_histogram'] = histogram
-        elif indicator == 'bollinger':
-            upper, middle, lower = TechnicalIndicators.bollinger_bands(df['close'])
-            result['bb_upper'] = upper
-            result['bb_middle'] = middle
-            result['bb_lower'] = lower
-        elif indicator == 'atr':
-            result['atr'] = TechnicalIndicators.atr(df['high'], df['low'], df['close'])
-        elif indicator == 'stochastic':
-            k, d = TechnicalIndicators.stochastic(df['high'], df['low'], df['close'])
-            result['stoch_k'] = k
-            result['stoch_d'] = d
-        elif indicator == 'obv':
-            result['obv'] = TechnicalIndicators.obv(df['close'], df['volume'])
-        elif indicator == 'vwap':
-            result['vwap'] = TechnicalIndicators.vwap(
-                df['high'], df['low'], df['close'], df['volume']
+        if indicator == "sma_20":
+            result["sma_20"] = TechnicalIndicators.sma(df["close"], 20)
+        elif indicator == "sma_50":
+            result["sma_50"] = TechnicalIndicators.sma(df["close"], 50)
+        elif indicator == "sma_200":
+            result["sma_200"] = TechnicalIndicators.sma(df["close"], 200)
+        elif indicator == "ema_12":
+            result["ema_12"] = TechnicalIndicators.ema(df["close"], 12)
+        elif indicator == "ema_26":
+            result["ema_26"] = TechnicalIndicators.ema(df["close"], 26)
+        elif indicator == "rsi":
+            result["rsi"] = TechnicalIndicators.rsi(df["close"])
+        elif indicator == "macd":
+            macd_line, signal_line, histogram = TechnicalIndicators.macd(df["close"])
+            result["macd"] = macd_line
+            result["macd_signal"] = signal_line
+            result["macd_histogram"] = histogram
+        elif indicator == "bollinger":
+            upper, middle, lower = TechnicalIndicators.bollinger_bands(df["close"])
+            result["bb_upper"] = upper
+            result["bb_middle"] = middle
+            result["bb_lower"] = lower
+        elif indicator == "atr":
+            result["atr"] = TechnicalIndicators.atr(df["high"], df["low"], df["close"])
+        elif indicator == "stochastic":
+            k, d = TechnicalIndicators.stochastic(df["high"], df["low"], df["close"])
+            result["stoch_k"] = k
+            result["stoch_d"] = d
+        elif indicator == "obv":
+            result["obv"] = TechnicalIndicators.obv(df["close"], df["volume"])
+        elif indicator == "vwap":
+            result["vwap"] = TechnicalIndicators.vwap(
+                df["high"], df["low"], df["close"], df["volume"]
             )
-        elif indicator == 'adx':
-            result['adx'] = TechnicalIndicators.adx(df['high'], df['low'], df['close'])
-        elif indicator == 'roc':
-            result['roc'] = TechnicalIndicators.roc(df['close'], 12)
+        elif indicator == "adx":
+            result["adx"] = TechnicalIndicators.adx(df["high"], df["low"], df["close"])
+        elif indicator == "roc":
+            result["roc"] = TechnicalIndicators.roc(df["close"], 12)
 
     return result

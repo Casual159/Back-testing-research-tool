@@ -9,15 +9,17 @@ Detects market regimes based on 3D classification:
 Uses adaptive thresholds and event-driven processing (no lookahead bias).
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, Optional, Tuple
 from dataclasses import dataclass
+from typing import Dict, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 
 @dataclass
 class RegimeConfig:
     """Configuration for regime detection thresholds"""
+
     # Trend detection
     adx_trending_threshold: float = 25.0
     adx_sideways_threshold: float = 20.0
@@ -80,17 +82,17 @@ class AdaptiveThresholds:
         if len(self.atr_buffer) < min(self.window // 2, 30):
             # Not enough data - return conservative defaults
             return {
-                "atr_p30": 0.005,   # 0.5% of price
-                "atr_p70": 0.015,   # 1.5% of price
-                "boll_p30": 0.02,   # 2% band width
-                "boll_p70": 0.06    # 6% band width
+                "atr_p30": 0.005,  # 0.5% of price
+                "atr_p70": 0.015,  # 1.5% of price
+                "boll_p30": 0.02,  # 2% band width
+                "boll_p70": 0.06,  # 6% band width
             }
 
         return {
             "atr_p30": np.percentile(self.atr_buffer, config.vol_low_percentile),
             "atr_p70": np.percentile(self.atr_buffer, config.vol_high_percentile),
             "boll_p30": np.percentile(self.boll_width_buffer, config.vol_low_percentile),
-            "boll_p70": np.percentile(self.boll_width_buffer, config.vol_high_percentile)
+            "boll_p70": np.percentile(self.boll_width_buffer, config.vol_high_percentile),
         }
 
     def has_sufficient_data(self) -> bool:
@@ -134,11 +136,11 @@ class MarketRegimeClassifier:
         Returns:
             "uptrend" | "downtrend" | "neutral"
         """
-        adx = row.get('adx')
-        close = row.get('close')
-        sma_20 = row.get('sma_20')
-        sma_50 = row.get('sma_50')
-        sma_200 = row.get('sma_200')
+        adx = row.get("adx")
+        close = row.get("close")
+        sma_20 = row.get("sma_20")
+        sma_50 = row.get("sma_50")
+        sma_200 = row.get("sma_200")
 
         # Handle missing data
         if pd.isna(adx) or pd.isna(close) or pd.isna(sma_50):
@@ -167,11 +169,7 @@ class MarketRegimeClassifier:
         # Between thresholds or ambiguous → neutral
         return "neutral"
 
-    def detect_volatility_state(
-        self,
-        row: pd.Series,
-        thresholds: Dict[str, float]
-    ) -> str:
+    def detect_volatility_state(self, row: pd.Series, thresholds: Dict[str, float]) -> str:
         """
         Detect volatility state: low | high
 
@@ -191,11 +189,11 @@ class MarketRegimeClassifier:
         Returns:
             "low" | "high"
         """
-        atr = row.get('atr')
-        close = row.get('close')
-        bb_upper = row.get('bb_upper')
-        bb_middle = row.get('bb_middle')
-        bb_lower = row.get('bb_lower')
+        atr = row.get("atr")
+        close = row.get("close")
+        bb_upper = row.get("bb_upper")
+        bb_middle = row.get("bb_middle")
+        bb_lower = row.get("bb_lower")
 
         # Handle missing data
         if pd.isna(atr) or pd.isna(close) or close == 0:
@@ -217,10 +215,10 @@ class MarketRegimeClassifier:
         self.adaptive_thresholds.update(normalized_atr, boll_width)
 
         # Classify volatility
-        atr_p30 = thresholds.get('atr_p30', 0.005)
-        atr_p70 = thresholds.get('atr_p70', 0.015)
-        boll_p30 = thresholds.get('boll_p30', 0.02)
-        boll_p70 = thresholds.get('boll_p70', 0.06)
+        atr_p30 = thresholds.get("atr_p30", 0.005)
+        atr_p70 = thresholds.get("atr_p70", 0.015)
+        boll_p30 = thresholds.get("boll_p30", 0.02)
+        boll_p70 = thresholds.get("boll_p70", 0.06)
 
         # High volatility if either metric exceeds 70th percentile
         if normalized_atr > atr_p70 or boll_width > boll_p70:
@@ -256,9 +254,9 @@ class MarketRegimeClassifier:
         Returns:
             "bullish" | "bearish" | "weak"
         """
-        roc = row.get('roc')
-        macd_hist = row.get('macd_histogram')
-        rsi = row.get('rsi')
+        roc = row.get("roc")
+        macd_hist = row.get("macd_histogram")
+        rsi = row.get("rsi")
 
         # Handle missing data
         if pd.isna(roc) or pd.isna(macd_hist) or pd.isna(rsi):
@@ -295,12 +293,7 @@ class MarketRegimeClassifier:
         else:
             return "weak"
 
-    def map_to_simplified_regime(
-        self,
-        trend: str,
-        volatility: str,
-        momentum: str
-    ) -> str:
+    def map_to_simplified_regime(self, trend: str, volatility: str, momentum: str) -> str:
         """
         Map granular regime to simplified practical trading regime
 
@@ -339,12 +332,7 @@ class MarketRegimeClassifier:
         # Default: Everything else
         return "NEUTRAL"
 
-    def calculate_confidence(
-        self,
-        row: pd.Series,
-        trend: str,
-        momentum: str
-    ) -> float:
+    def calculate_confidence(self, row: pd.Series, trend: str, momentum: str) -> float:
         """
         Calculate confidence score for regime classification (0.0 - 1.0)
 
@@ -363,9 +351,9 @@ class MarketRegimeClassifier:
         """
         confidence = 0.5  # Base confidence
 
-        adx = row.get('adx', 0)
-        rsi = row.get('rsi')
-        macd_hist = row.get('macd_histogram')
+        adx = row.get("adx", 0)
+        rsi = row.get("rsi")
+        macd_hist = row.get("macd_histogram")
 
         # Boost confidence for strong trend
         if not pd.isna(adx):
@@ -385,11 +373,7 @@ class MarketRegimeClassifier:
             confidence -= 0.1  # Conflicting signals
 
         # Penalize missing indicators
-        missing_count = sum([
-            pd.isna(rsi),
-            pd.isna(macd_hist),
-            pd.isna(adx)
-        ])
+        missing_count = sum([pd.isna(rsi), pd.isna(macd_hist), pd.isna(adx)])
         confidence -= missing_count * 0.1
 
         # Clamp to [0, 1]
@@ -438,7 +422,7 @@ class MarketRegimeClassifier:
             "momentum_state": momentum,
             "full_regime": full_regime,
             "simplified": simplified,
-            "confidence": confidence
+            "confidence": confidence,
         }
 
     def classify_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -468,21 +452,18 @@ class MarketRegimeClassifier:
         regime_df = pd.DataFrame(regimes, index=result.index)
 
         # Add regime columns to result
-        result['trend_state'] = regime_df['trend_state']
-        result['volatility_state'] = regime_df['volatility_state']
-        result['momentum_state'] = regime_df['momentum_state']
-        result['full_regime'] = regime_df['full_regime']
-        result['simplified_regime'] = regime_df['simplified']
-        result['regime_confidence'] = regime_df['confidence']
+        result["trend_state"] = regime_df["trend_state"]
+        result["volatility_state"] = regime_df["volatility_state"]
+        result["momentum_state"] = regime_df["momentum_state"]
+        result["full_regime"] = regime_df["full_regime"]
+        result["simplified_regime"] = regime_df["simplified"]
+        result["regime_confidence"] = regime_df["confidence"]
 
         return result
 
 
 # Convenience function for quick regime detection
-def detect_market_regimes(
-    df: pd.DataFrame,
-    config: Optional[RegimeConfig] = None
-) -> pd.DataFrame:
+def detect_market_regimes(df: pd.DataFrame, config: Optional[RegimeConfig] = None) -> pd.DataFrame:
     """
     Convenience function to detect market regimes on a dataframe
 

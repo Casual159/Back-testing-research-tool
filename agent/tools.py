@@ -31,11 +31,7 @@ Domain knowledge:
 - Trend-following strategies (MA, MACD) work best in TREND_UP/TREND_DOWN regimes
 - Mean-reversion strategies (RSI, BB) work best in RANGE regimes
 - All strategies should avoid CHOPPY regimes""",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
+        "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "get_strategy",
@@ -53,11 +49,11 @@ Use this to understand how a strategy works before testing it.""",
             "properties": {
                 "name": {
                     "type": "string",
-                    "description": "Strategy name (e.g., 'RSI Reversal', 'MA Crossover')"
+                    "description": "Strategy name (e.g., 'RSI Reversal', 'MA Crossover')",
                 }
             },
-            "required": ["name"]
-        }
+            "required": ["name"],
+        },
     },
     {
         "name": "check_data",
@@ -78,25 +74,25 @@ If data is not available, instruct user to fetch it first.""",
                 "symbol": {
                     "type": "string",
                     "description": "Trading pair (e.g., 'BTCUSDT', 'ETHUSDT')",
-                    "default": "BTCUSDT"
+                    "default": "BTCUSDT",
                 },
                 "timeframe": {
                     "type": "string",
                     "enum": ["1m", "5m", "15m", "1h", "4h", "1d"],
                     "description": "Candle timeframe",
-                    "default": "1h"
+                    "default": "1h",
                 },
                 "start_date": {
                     "type": "string",
-                    "description": "Start date in ISO format (YYYY-MM-DD)"
+                    "description": "Start date in ISO format (YYYY-MM-DD)",
                 },
                 "end_date": {
                     "type": "string",
-                    "description": "End date in ISO format (YYYY-MM-DD)"
-                }
+                    "description": "End date in ISO format (YYYY-MM-DD)",
+                },
             },
-            "required": ["symbol", "timeframe"]
-        }
+            "required": ["symbol", "timeframe"],
+        },
     },
     {
         "name": "run_backtest",
@@ -126,47 +122,37 @@ INTERPRETING RESULTS:
             "properties": {
                 "strategy_name": {
                     "type": "string",
-                    "description": "Name of the strategy to test (must exist)"
+                    "description": "Name of the strategy to test (must exist)",
                 },
-                "symbol": {
-                    "type": "string",
-                    "description": "Trading pair",
-                    "default": "BTCUSDT"
-                },
+                "symbol": {"type": "string", "description": "Trading pair", "default": "BTCUSDT"},
                 "timeframe": {
                     "type": "string",
                     "enum": ["1h", "4h", "1d"],
                     "description": "Candle timeframe",
-                    "default": "1h"
+                    "default": "1h",
                 },
-                "start_date": {
-                    "type": "string",
-                    "description": "Start date (YYYY-MM-DD)"
-                },
-                "end_date": {
-                    "type": "string",
-                    "description": "End date (YYYY-MM-DD)"
-                },
+                "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+                "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)"},
                 "initial_capital": {
                     "type": "number",
                     "description": "Starting capital in USD",
-                    "default": 10000
+                    "default": 10000,
                 },
                 "regime_filter": {
                     "type": "array",
                     "items": {
                         "type": "string",
-                        "enum": ["TREND_UP", "TREND_DOWN", "RANGE", "CHOPPY", "NEUTRAL"]
+                        "enum": ["TREND_UP", "TREND_DOWN", "RANGE", "CHOPPY", "NEUTRAL"],
                     },
-                    "description": "Only trade in these market regimes"
+                    "description": "Only trade in these market regimes",
                 },
                 "parameters": {
                     "type": "object",
-                    "description": "Override strategy parameters for this run"
-                }
+                    "description": "Override strategy parameters for this run",
+                },
             },
-            "required": ["strategy_name", "start_date"]
-        }
+            "required": ["strategy_name", "start_date"],
+        },
     },
     {
         "name": "create_strategy",
@@ -206,33 +192,21 @@ RECOMMENDATION BY REGIME:
         "input_schema": {
             "type": "object",
             "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "Unique strategy name"
-                },
-                "description": {
-                    "type": "string",
-                    "description": "What this strategy does"
-                },
-                "entry_logic": {
-                    "type": "object",
-                    "description": "LogicTree for entry conditions"
-                },
-                "exit_logic": {
-                    "type": "object",
-                    "description": "LogicTree for exit conditions"
-                },
+                "name": {"type": "string", "description": "Unique strategy name"},
+                "description": {"type": "string", "description": "What this strategy does"},
+                "entry_logic": {"type": "object", "description": "LogicTree for entry conditions"},
+                "exit_logic": {"type": "object", "description": "LogicTree for exit conditions"},
                 "regime_filter": {
                     "type": "array",
                     "items": {
                         "type": "string",
-                        "enum": ["TREND_UP", "TREND_DOWN", "RANGE", "CHOPPY", "NEUTRAL"]
+                        "enum": ["TREND_UP", "TREND_DOWN", "RANGE", "CHOPPY", "NEUTRAL"],
                     },
-                    "description": "Only trade in these regimes"
-                }
+                    "description": "Only trade in these regimes",
+                },
             },
-            "required": ["name", "entry_logic", "exit_logic"]
-        }
+            "required": ["name", "entry_logic", "exit_logic"],
+        },
     },
     {
         "name": "fetch_data",
@@ -255,25 +229,25 @@ Progress will be streamed as data downloads.""",
                 "symbol": {
                     "type": "string",
                     "description": "Trading pair (e.g., 'BTCUSDT', 'ETHUSDT')",
-                    "default": "BTCUSDT"
+                    "default": "BTCUSDT",
                 },
                 "timeframe": {
                     "type": "string",
                     "enum": ["1m", "5m", "15m", "1h", "4h", "1d"],
                     "description": "Candle timeframe",
-                    "default": "1h"
+                    "default": "1h",
                 },
                 "start_date": {
                     "type": "string",
-                    "description": "Start date in ISO format (YYYY-MM-DD)"
+                    "description": "Start date in ISO format (YYYY-MM-DD)",
                 },
                 "end_date": {
                     "type": "string",
-                    "description": "End date in ISO format (YYYY-MM-DD). Defaults to 2 days ago."
-                }
+                    "description": "End date in ISO format (YYYY-MM-DD). Defaults to 2 days ago.",
+                },
             },
-            "required": ["symbol", "timeframe", "start_date"]
-        }
+            "required": ["symbol", "timeframe", "start_date"],
+        },
     },
     {
         "name": "get_data_stats",
@@ -285,11 +259,7 @@ Returns list of symbol/timeframe combinations with:
 - last_candle: Most recent data point
 
 Use this to see what data is already available for backtesting.""",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
+        "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "get_market_regime",
@@ -306,21 +276,17 @@ Use this to decide which strategy type would be appropriate:
         "input_schema": {
             "type": "object",
             "properties": {
-                "symbol": {
-                    "type": "string",
-                    "description": "Trading pair",
-                    "default": "BTCUSDT"
-                },
+                "symbol": {"type": "string", "description": "Trading pair", "default": "BTCUSDT"},
                 "timeframe": {
                     "type": "string",
                     "enum": ["1h", "4h", "1d"],
                     "description": "Timeframe for regime detection",
-                    "default": "1h"
-                }
+                    "default": "1h",
+                },
             },
-            "required": []
-        }
-    }
+            "required": [],
+        },
+    },
 ]
 
 
@@ -328,8 +294,9 @@ Use this to decide which strategy type would be appropriate:
 # TOOL EXECUTION (API Wrapper)
 # =============================================================================
 
-import httpx
 from typing import Any, Dict, Optional
+
+import httpx
 
 API_BASE_URL = "http://localhost:8000"
 
@@ -362,28 +329,21 @@ async def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, A
             if "end_date" in arguments:
                 params["end_date"] = arguments["end_date"]
             response = await client.get(
-                f"{API_BASE_URL}/api/data/check/{symbol}/{timeframe}",
-                params=params
+                f"{API_BASE_URL}/api/data/check/{symbol}/{timeframe}", params=params
             )
 
         elif tool_name == "run_backtest":
-            response = await client.post(
-                f"{API_BASE_URL}/api/backtest",
-                json=arguments
-            )
+            response = await client.post(f"{API_BASE_URL}/api/backtest", json=arguments)
 
         elif tool_name == "create_strategy":
-            response = await client.post(
-                f"{API_BASE_URL}/api/strategies",
-                json=arguments
-            )
+            response = await client.post(f"{API_BASE_URL}/api/strategies", json=arguments)
 
         elif tool_name == "fetch_data":
             # Use regular fetch endpoint (progress streaming is handled separately)
             response = await client.post(
                 f"{API_BASE_URL}/api/data/fetch",
                 json=arguments,
-                timeout=300.0  # 5 min timeout for large downloads
+                timeout=300.0,  # 5 min timeout for large downloads
             )
 
         elif tool_name == "get_data_stats":
@@ -392,9 +352,7 @@ async def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, A
         elif tool_name == "get_market_regime":
             symbol = arguments.get("symbol", "BTCUSDT")
             timeframe = arguments.get("timeframe", "1h")
-            response = await client.get(
-                f"{API_BASE_URL}/api/data/regime/{symbol}/{timeframe}"
-            )
+            response = await client.get(f"{API_BASE_URL}/api/data/regime/{symbol}/{timeframe}")
 
         else:
             return {"error": f"Unknown tool: {tool_name}"}
@@ -403,7 +361,7 @@ async def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, A
             return {
                 "error": True,
                 "status_code": response.status_code,
-                "detail": response.json().get("detail", "Unknown error")
+                "detail": response.json().get("detail", "Unknown error"),
             }
 
         return response.json()
@@ -417,37 +375,34 @@ STRATEGY_RECOMMENDATIONS = {
     "TREND_UP": {
         "recommended": ["MA Crossover", "MACD Cross"],
         "avoid": ["RSI Reversal"],
-        "reason": "Trend-following strategies capture sustained upward movements"
+        "reason": "Trend-following strategies capture sustained upward movements",
     },
     "TREND_DOWN": {
         "recommended": ["MA Crossover", "MACD Cross"],
         "note": "These strategies can short or stay out in downtrends",
         "avoid": ["RSI Reversal"],
-        "reason": "Mean-reversion can catch falling knives in strong downtrends"
+        "reason": "Mean-reversion can catch falling knives in strong downtrends",
     },
     "RANGE": {
         "recommended": ["RSI Reversal", "Bollinger Bands"],
         "avoid": ["MA Crossover"],
-        "reason": "Mean-reversion works well when price oscillates in a range"
+        "reason": "Mean-reversion works well when price oscillates in a range",
     },
     "CHOPPY": {
         "recommended": [],
         "avoid": ["all"],
-        "reason": "High whipsaw risk - better to stay out"
+        "reason": "High whipsaw risk - better to stay out",
     },
     "NEUTRAL": {
         "recommended": ["RSI Reversal", "Bollinger Bands"],
-        "reason": "Low volatility suits mean-reversion with tight stops"
-    }
+        "reason": "Low volatility suits mean-reversion with tight stops",
+    },
 }
 
 
 def get_strategy_recommendation(regime: str) -> Dict[str, Any]:
     """Get strategy recommendations for a market regime"""
-    return STRATEGY_RECOMMENDATIONS.get(regime, {
-        "recommended": [],
-        "reason": "Unknown regime"
-    })
+    return STRATEGY_RECOMMENDATIONS.get(regime, {"recommended": [], "reason": "Unknown regime"})
 
 
 METRIC_INTERPRETATION = {
@@ -456,26 +411,26 @@ METRIC_INTERPRETATION = {
         "0-1": "Positive but not great risk-adjusted returns",
         "1-2": "Good risk-adjusted returns",
         "2-3": "Very good risk-adjusted returns",
-        "> 3": "Excellent - but verify not overfitting"
+        "> 3": "Excellent - but verify not overfitting",
     },
     "win_rate": {
         "< 40%": "Low - needs high profit factor to compensate",
         "40-50%": "Average - common for trend-following",
         "50-60%": "Good",
-        "> 60%": "High - typical for mean-reversion with tight stops"
+        "> 60%": "High - typical for mean-reversion with tight stops",
     },
     "max_drawdown": {
         "< 10%": "Excellent risk control",
         "10-20%": "Acceptable for crypto",
         "20-30%": "High but manageable",
-        "> 30%": "Significant - may need position sizing adjustment"
+        "> 30%": "Significant - may need position sizing adjustment",
     },
     "profit_factor": {
         "< 1": "Losing strategy",
         "1-1.5": "Marginal edge",
         "1.5-2": "Good edge",
-        "> 2": "Strong edge"
-    }
+        "> 2": "Strong edge",
+    },
 }
 
 

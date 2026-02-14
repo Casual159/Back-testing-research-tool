@@ -3,36 +3,42 @@
 Test script for Research Agent API endpoints
 Run this to verify all endpoints are working correctly
 """
-import sys
-from pathlib import Path
-import requests
 import json
+import sys
 from datetime import datetime
+from pathlib import Path
+
+import requests
 
 # Colors for terminal output
-GREEN = '\033[92m'
-RED = '\033[91m'
-YELLOW = '\033[93m'
-BLUE = '\033[94m'
-RESET = '\033[0m'
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+BLUE = "\033[94m"
+RESET = "\033[0m"
 
 BASE_URL = "http://localhost:8000"
+
 
 def print_test(name):
     """Print test name"""
     print(f"\n{BLUE}Testing: {name}{RESET}")
 
+
 def print_success(message):
     """Print success message"""
     print(f"{GREEN}✓ {message}{RESET}")
+
 
 def print_error(message):
     """Print error message"""
     print(f"{RED}✗ {message}{RESET}")
 
+
 def print_info(message):
     """Print info message"""
     print(f"{YELLOW}ℹ {message}{RESET}")
+
 
 def test_health():
     """Test health check endpoint"""
@@ -52,6 +58,7 @@ def test_health():
         print_info("Make sure FastAPI is running: ./start-dev.sh")
         return False
 
+
 def test_available_symbols():
     """Test get available symbols endpoint"""
     print_test("Get Available Symbols")
@@ -60,7 +67,7 @@ def test_available_symbols():
         if response.status_code == 200:
             data = response.json()
             print_success(f"Found {data['count']} symbols")
-            for symbol in data['symbols'][:3]:  # Show first 3
+            for symbol in data["symbols"][:3]:  # Show first 3
                 print(f"  - {symbol['symbol']}: {', '.join(symbol['timeframes'])}")
             return True
         else:
@@ -70,22 +77,17 @@ def test_available_symbols():
         print_error(f"Error: {e}")
         return False
 
+
 def test_market_stats():
     """Test market statistics endpoint"""
     print_test("Get Market Statistics")
     try:
-        payload = {
-            "symbol": "BTCUSDT",
-            "timeframe": "1h"
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/research/stats",
-            json=payload
-        )
+        payload = {"symbol": "BTCUSDT", "timeframe": "1h"}
+        response = requests.post(f"{BASE_URL}/api/research/stats", json=payload)
 
         if response.status_code == 200:
             data = response.json()
-            stats = data['stats']
+            stats = data["stats"]
             print_success("Statistics retrieved successfully")
             print(f"  Symbol: {stats['symbol']} ({stats['timeframe']})")
             print(f"  Candles: {stats['candle_count']:,}")
@@ -104,6 +106,7 @@ def test_market_stats():
         print_error(f"Error: {e}")
         return False
 
+
 def test_save_insight():
     """Test save insight endpoint"""
     print_test("Save Research Insight")
@@ -115,30 +118,26 @@ def test_save_insight():
             "insight_detail": {
                 "test": True,
                 "timestamp": datetime.now().isoformat(),
-                "source": "test_research_api.py"
+                "source": "test_research_api.py",
             },
             "symbol": "BTCUSDT",
             "timeframe": "1h",
-            "metadata": {
-                "automated_test": True
-            }
+            "metadata": {"automated_test": True},
         }
 
-        response = requests.post(
-            f"{BASE_URL}/api/research/insights",
-            json=payload
-        )
+        response = requests.post(f"{BASE_URL}/api/research/insights", json=payload)
 
         if response.status_code == 200:
             data = response.json()
             print_success(f"Insight saved with ID: {data['insight_id']}")
-            return data['insight_id']
+            return data["insight_id"]
         else:
             print_error(f"Failed: {response.status_code} - {response.text}")
             return None
     except Exception as e:
         print_error(f"Error: {e}")
         return None
+
 
 def test_get_insights():
     """Test get insights endpoint"""
@@ -149,9 +148,11 @@ def test_get_insights():
         if response.status_code == 200:
             data = response.json()
             print_success(f"Retrieved {data['count']} insights")
-            if data['count'] > 0:
-                for insight in data['insights'][:3]:  # Show first 3
-                    print(f"  #{insight['id']}: {insight['insight_type']} - {insight['insight_summary'][:50]}...")
+            if data["count"] > 0:
+                for insight in data["insights"][:3]:  # Show first 3
+                    print(
+                        f"  #{insight['id']}: {insight['insight_type']} - {insight['insight_summary'][:50]}..."
+                    )
             else:
                 print_info("No insights found yet")
             return True
@@ -162,6 +163,7 @@ def test_get_insights():
         print_error(f"Error: {e}")
         return False
 
+
 def test_query_history():
     """Test query history endpoint"""
     print_test("Get Query History")
@@ -171,9 +173,11 @@ def test_query_history():
         if response.status_code == 200:
             data = response.json()
             print_success(f"Retrieved {data['count']} queries")
-            if data['count'] > 0:
-                for query in data['queries'][:3]:  # Show first 3
-                    print(f"  #{query['id']}: {query['query_type']} - {query['query_text'][:50]}...")
+            if data["count"] > 0:
+                for query in data["queries"][:3]:  # Show first 3
+                    print(
+                        f"  #{query['id']}: {query['query_type']} - {query['query_text'][:50]}..."
+                    )
             else:
                 print_info("No queries found yet")
             return True
@@ -184,19 +188,14 @@ def test_query_history():
         print_error(f"Error: {e}")
         return False
 
+
 def test_log_query():
     """Test log query endpoint"""
     print_test("Log Research Query")
     try:
-        payload = {
-            "query": "Test query for validation",
-            "query_type": "analysis"
-        }
+        payload = {"query": "Test query for validation", "query_type": "analysis"}
 
-        response = requests.post(
-            f"{BASE_URL}/api/research/query",
-            json=payload
-        )
+        response = requests.post(f"{BASE_URL}/api/research/query", json=payload)
 
         if response.status_code == 200:
             data = response.json()
@@ -208,6 +207,7 @@ def test_log_query():
     except Exception as e:
         print_error(f"Error: {e}")
         return False
+
 
 def main():
     """Run all tests"""
@@ -222,7 +222,7 @@ def main():
         "Save Insight": test_save_insight() is not None,
         "Get Insights": test_get_insights(),
         "Log Query": test_log_query(),
-        "Query History": test_query_history()
+        "Query History": test_query_history(),
     }
 
     # Summary
@@ -247,6 +247,7 @@ def main():
     else:
         print(f"{RED}Some tests failed. Check the errors above.{RESET}\n")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

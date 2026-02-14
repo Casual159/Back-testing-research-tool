@@ -9,7 +9,7 @@ Provides technical analysis indicators:
 - Market regime classification
 """
 
-from .technical import TechnicalIndicators, add_all_indicators
 from .regime import MarketRegimeClassifier
+from .technical import TechnicalIndicators, add_all_indicators
 
-__all__ = ['TechnicalIndicators', 'add_all_indicators', 'MarketRegimeClassifier']
+__all__ = ["TechnicalIndicators", "add_all_indicators", "MarketRegimeClassifier"]

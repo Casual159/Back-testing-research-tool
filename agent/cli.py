@@ -50,7 +50,7 @@ async def interactive_mode():
     print("Backtesting Research Agent")
     print("Type 'quit' or 'exit' to end the session")
     print("Type 'new' to start a new conversation")
-    print("="*60)
+    print("=" * 60)
 
     while True:
         try:
@@ -74,8 +74,10 @@ async def interactive_mode():
         response = await agent.chat(user_input, conversation_id)
         conversation_id = response.conversation_id
 
-        print(f"\n[{response.phase.value}] (tokens: {response.tokens_used}, ${response.cost_usd:.4f})")
-        print("─"*60)
+        print(
+            f"\n[{response.phase.value}] (tokens: {response.tokens_used}, ${response.cost_usd:.4f})"
+        )
+        print("─" * 60)
         print(response.message)
 
         if response.tool_calls:

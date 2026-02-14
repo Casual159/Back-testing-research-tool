@@ -6,14 +6,17 @@ Supports various comparison operators:
 - Crossovers: cross_above, cross_below
 - Range: between, outside
 """
+
 from enum import Enum
-from typing import Union, Optional
-import pandas as pd
+from typing import Optional, Union
+
 import numpy as np
+import pandas as pd
 
 
 class ConditionOperator(Enum):
     """Supported comparison operators"""
+
     GREATER_THAN = ">"
     LESS_THAN = "<"
     GREATER_EQUAL = ">="
@@ -45,7 +48,7 @@ class Condition:
         self,
         operator: Union[str, ConditionOperator],
         threshold: float,
-        threshold2: Optional[float] = None
+        threshold2: Optional[float] = None,
     ):
         """
         Initialize condition
@@ -67,7 +70,7 @@ class Condition:
                 "cross_above": ConditionOperator.CROSS_ABOVE,
                 "cross_below": ConditionOperator.CROSS_BELOW,
                 "between": ConditionOperator.BETWEEN,
-                "outside": ConditionOperator.OUTSIDE
+                "outside": ConditionOperator.OUTSIDE,
             }
             if operator not in operator_map:
                 raise ValueError(f"Unknown operator: {operator}")
@@ -82,11 +85,7 @@ class Condition:
             if threshold2 is None:
                 raise ValueError(f"{self.operator.value} requires threshold2")
 
-    def evaluate(
-        self,
-        current_value: float,
-        previous_value: Optional[float] = None
-    ) -> bool:
+    def evaluate(self, current_value: float, previous_value: Optional[float] = None) -> bool:
         """
         Evaluate condition for current value
 
@@ -136,10 +135,7 @@ class Condition:
 
         return False
 
-    def evaluate_series(
-        self,
-        series: pd.Series
-    ) -> pd.Series:
+    def evaluate_series(self, series: pd.Series) -> pd.Series:
         """
         Evaluate condition for entire series
 

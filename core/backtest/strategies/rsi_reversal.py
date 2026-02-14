@@ -9,6 +9,7 @@ Works best in ranging/sideways markets with high volatility.
 """
 
 from typing import Optional
+
 from ..events import MarketEvent, SignalEvent
 from .base import Strategy
 
@@ -34,12 +35,7 @@ class RSIReversal(Strategy):
         >>> # More aggressive thresholds (25/75)
     """
 
-    def __init__(
-        self,
-        rsi_period: int = 14,
-        oversold: float = 30.0,
-        overbought: float = 70.0
-    ):
+    def __init__(self, rsi_period: int = 14, oversold: float = 30.0, overbought: float = 70.0):
         """
         Initialize RSI Reversal strategy.
 
@@ -54,17 +50,13 @@ class RSIReversal(Strategy):
         if oversold >= overbought:
             raise ValueError(f"oversold ({oversold}) must be < overbought ({overbought})")
 
-        super().__init__({
-            'rsi_period': rsi_period,
-            'oversold': oversold,
-            'overbought': overbought
-        })
+        super().__init__({"rsi_period": rsi_period, "oversold": oversold, "overbought": overbought})
 
         self.current_rsi = None
 
     def _get_max_buffer_size(self) -> int:
         """Only need rsi_period + 1 bars for RSI calculation."""
-        return self.parameters['rsi_period'] + 20  # Extra for smoothing
+        return self.parameters["rsi_period"] + 20  # Extra for smoothing
 
     def calculate_signals(self, market_event: MarketEvent) -> Optional[SignalEvent]:
         """
@@ -76,9 +68,9 @@ class RSIReversal(Strategy):
         Returns:
             SignalEvent or None if insufficient data or no signal
         """
-        rsi_period = self.parameters['rsi_period']
-        oversold = self.parameters['oversold']
-        overbought = self.parameters['overbought']
+        rsi_period = self.parameters["rsi_period"]
+        oversold = self.parameters["oversold"]
+        overbought = self.parameters["overbought"]
 
         # Check if we have enough data
         if not self.has_sufficient_data(rsi_period + 1):
@@ -99,13 +91,9 @@ class RSIReversal(Strategy):
             signal = SignalEvent(
                 timestamp=market_event.timestamp,
                 symbol=market_event.symbol,
-                signal_type='BUY',
+                signal_type="BUY",
                 strength=min((oversold - rsi) / oversold, 1.0),  # Stronger if more oversold
-                metadata={
-                    'rsi': rsi,
-                    'threshold': oversold,
-                    'condition': 'oversold'
-                }
+                metadata={"rsi": rsi, "threshold": oversold, "condition": "oversold"},
             )
 
         elif rsi > overbought:
@@ -113,13 +101,9 @@ class RSIReversal(Strategy):
             signal = SignalEvent(
                 timestamp=market_event.timestamp,
                 symbol=market_event.symbol,
-                signal_type='SELL',
+                signal_type="SELL",
                 strength=min((rsi - overbought) / (100 - overbought), 1.0),
-                metadata={
-                    'rsi': rsi,
-                    'threshold': overbought,
-                    'condition': 'overbought'
-                }
+                metadata={"rsi": rsi, "threshold": overbought, "condition": "overbought"},
             )
 
         return signal
@@ -145,7 +129,7 @@ class RSIReversal(Strategy):
         # Calculate price changes
         changes = []
         for i in range(1, len(prices)):
-            changes.append(prices[i] - prices[i-1])
+            changes.append(prices[i] - prices[i - 1])
 
         # Need at least 'period' changes
         if len(changes) < period:
@@ -178,7 +162,9 @@ class RSIReversal(Strategy):
         return self.current_rsi
 
     def __repr__(self):
-        return (f"RSIReversal("
-                f"period={self.parameters['rsi_period']}, "
-                f"oversold={self.parameters['oversold']}, "
-                f"overbought={self.parameters['overbought']})")
+        return (
+            f"RSIReversal("
+            f"period={self.parameters['rsi_period']}, "
+            f"oversold={self.parameters['oversold']}, "
+            f"overbought={self.parameters['overbought']})"
+        )

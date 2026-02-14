@@ -53,13 +53,11 @@ CONFIRMATION_PROMPTS = {
 {strategy_summary}
 
 Would you like me to register this strategy so we can backtest it?""",
-
     "data": """For backtesting, I recommend using:
 
 {data_summary}
 
 Does this look good? Should I proceed with the backtest?""",
-
     "backtest": """Ready to run the backtest:
 
 - **Strategy**: {strategy_name}
@@ -67,7 +65,7 @@ Does this look good? Should I proceed with the backtest?""",
 - **Timeframe**: {timeframe}
 - **Period**: {start_date} to {end_date}
 
-Shall I start the backtest?"""
+Shall I start the backtest?""",
 }
 
 RESULT_INTERPRETATION_TEMPLATE = """## Backtest Results: {strategy_name}

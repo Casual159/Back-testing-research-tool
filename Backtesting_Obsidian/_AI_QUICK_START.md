@@ -1,14 +1,14 @@
 # AI Quick Start Guide
 
-**Purpose:** Get AI (Claude) up to speed in under 60 seconds  
-**Last Updated:** 2024-12-05  
+**Purpose:** Get AI (Claude) up to speed in under 60 seconds
+**Last Updated:** 2024-12-05
 **Project:** Back-testing Research Tool
 
 ---
 
 ## ⚡ 30-Second Context
 
-**What is this project?**  
+**What is this project?**
 AI-enhanced backtesting tool for cryptocurrency trading strategies combining deterministic Python core with AI conversational interface.
 
 **Core Technology Stack:**

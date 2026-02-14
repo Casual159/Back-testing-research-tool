@@ -98,7 +98,7 @@ Agent: [tool_call: run_backtest] → čísla
 ```
 User: "Slyšel jsem v podcastu, že Bitcoin má sezónní pattern v Q1"
 
-Agent: 
+Agent:
 1. Rozpozná doménu: timing/sezónnost
 2. Formuluje tezi: "BTC má nadprůměrné výnosy v Q1"
 3. Identifikuje situaci: leden-březen každého roku
@@ -117,7 +117,7 @@ Agent není yes-man. Challenguje:
 User: "RSI < 30 = nákupní signál, to je jasné"
 
 Agent: "Pojďme to prozkoumat:
-        
+
 1. V silném downtrend může RSI zůstat pod 30 týdny
    → Jak definuješ, kdy to NENÍ nákupní signál?
 
@@ -153,7 +153,7 @@ kdy RSI < 30 NEVEDLO k rally?"
 Název: Post-halving accumulation
 Podmínky:
 ├── Timing: 0-180 dní po halvingu
-├── Regime: TREND_UP nebo NEUTRAL  
+├── Regime: TREND_UP nebo NEUTRAL
 └── Volatilita: klesající
 Historické výskyty: 2012-11, 2016-07, 2020-05
 ```
@@ -280,7 +280,7 @@ Uživatel má pocit "tohle funguje" → popíše to → AI pomůže formalizovat
 ### Začátečník
 "Slyšel jsem, že..." → Tool ho provede procesem → Naučí se kriticky myslet
 
-### Pokročilý trader  
+### Pokročilý trader
 Má intuici z tradingu → Tool pomůže formalizovat → Validuje nebo vyvrací
 
 ### Content creator (YouTuber)
@@ -306,4 +306,3 @@ Research-First Vision definuje **jak**:
 ## Severní hvězda
 
 > **Z každého impulzu k pochopení. Z každé myšlenky k testovatelné tezi. Z každé situace k informovanému rozhodnutí.**
-

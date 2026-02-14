@@ -5,18 +5,18 @@ Allows composing complex strategies by combining multiple indicators
 with AND/OR logic across single or multiple timeframes.
 """
 
-from .condition import Condition, ConditionOperator
-from .signal import IndicatorSignal
-from .logic_tree import LogicTree, LogicNode
 from .composite_strategy import CompositeStrategy
+from .condition import Condition, ConditionOperator
+from .logic_tree import LogicNode, LogicTree
 from .multi_timeframe import MultiTimeframeData
+from .signal import IndicatorSignal
 
 __all__ = [
-    'Condition',
-    'ConditionOperator',
-    'IndicatorSignal',
-    'LogicTree',
-    'LogicNode',
-    'CompositeStrategy',
-    'MultiTimeframeData'
+    "Condition",
+    "ConditionOperator",
+    "IndicatorSignal",
+    "LogicTree",
+    "LogicNode",
+    "CompositeStrategy",
+    "MultiTimeframeData",
 ]

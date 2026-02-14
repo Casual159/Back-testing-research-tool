@@ -9,15 +9,9 @@ Available strategies:
 """
 
 from .base import Strategy
-from .ma_crossover import MovingAverageCrossover
-from .rsi_reversal import RSIReversal
-from .macd_cross import MACDCross
 from .bollinger_bands import BollingerBands
+from .ma_crossover import MovingAverageCrossover
+from .macd_cross import MACDCross
+from .rsi_reversal import RSIReversal
 
-__all__ = [
-    'Strategy',
-    'MovingAverageCrossover',
-    'RSIReversal',
-    'MACDCross',
-    'BollingerBands'
-]
+__all__ = ["Strategy", "MovingAverageCrossover", "RSIReversal", "MACDCross", "BollingerBands"]

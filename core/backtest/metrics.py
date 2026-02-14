@@ -7,9 +7,11 @@ Calculates various metrics to evaluate strategy performance:
 - Trade statistics (win rate, profit factor)
 """
 
+from typing import Any, Dict
+
 import numpy as np
 import pandas as pd
-from typing import Dict, Any
+
 from .portfolio import Portfolio
 
 
@@ -47,36 +49,31 @@ class MetricsCalculator:
         """
         metrics = {
             # Returns
-            'initial_capital': self.portfolio.initial_capital,
-            'final_value': self._final_value(),
-            'total_return': self._total_return(),
-            'annual_return': self._annual_return(),
-
+            "initial_capital": self.portfolio.initial_capital,
+            "final_value": self._final_value(),
+            "total_return": self._total_return(),
+            "annual_return": self._annual_return(),
             # Risk metrics
-            'sharpe_ratio': self._sharpe_ratio(),
-            'max_drawdown': self._max_drawdown(),
-            'max_drawdown_duration': self._max_drawdown_duration(),
-
+            "sharpe_ratio": self._sharpe_ratio(),
+            "max_drawdown": self._max_drawdown(),
+            "max_drawdown_duration": self._max_drawdown_duration(),
             # Trade statistics
-            'total_trades': self.portfolio.total_trades(),
-            'winning_trades': len(self.portfolio.winning_trades()),
-            'losing_trades': len(self.portfolio.losing_trades()),
-            'win_rate': self._win_rate(),
-
+            "total_trades": self.portfolio.total_trades(),
+            "winning_trades": len(self.portfolio.winning_trades()),
+            "losing_trades": len(self.portfolio.losing_trades()),
+            "win_rate": self._win_rate(),
             # Profit metrics
-            'total_profit': self._total_profit(),
-            'total_loss': self._total_loss(),
-            'profit_factor': self._profit_factor(),
-            'avg_win': self._avg_win(),
-            'avg_loss': self._avg_loss(),
-            'avg_trade': self._avg_trade(),
-
+            "total_profit": self._total_profit(),
+            "total_loss": self._total_loss(),
+            "profit_factor": self._profit_factor(),
+            "avg_win": self._avg_win(),
+            "avg_loss": self._avg_loss(),
+            "avg_trade": self._avg_trade(),
             # Streaks
-            'max_win_streak': self._max_win_streak(),
-            'max_loss_streak': self._max_loss_streak(),
-
+            "max_win_streak": self._max_win_streak(),
+            "max_loss_streak": self._max_loss_streak(),
             # Duration
-            'avg_trade_duration': self._avg_trade_duration(),
+            "avg_trade_duration": self._avg_trade_duration(),
         }
 
         return metrics
@@ -110,6 +107,7 @@ class MetricsCalculator:
         except AttributeError:
             # If not datetime objects, try to convert or use len as proxy
             from datetime import datetime
+
             if isinstance(start_date, (int, float)):
                 # Assume it's index - use number of bars as proxy
                 days = len(self.portfolio.equity_curve)
@@ -242,7 +240,7 @@ class MetricsCalculator:
         """
         total_loss = self._total_loss()
         if total_loss == 0:
-            return float('inf') if self._total_profit() > 0 else 0.0
+            return float("inf") if self._total_profit() > 0 else 0.0
 
         return self._total_profit() / total_loss
 

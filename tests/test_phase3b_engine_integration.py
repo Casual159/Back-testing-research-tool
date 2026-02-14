@@ -10,12 +10,14 @@ Tests that BacktestEngine successfully:
 """
 
 import sys
-sys.path.insert(0, '/Users/jakub/Back-testing-research-tool')
 
-from core.data.storage import PostgresStorage
+sys.path.insert(0, "/Users/jakub/Back-testing-research-tool")
+
+from config.config import load_config
 from core.backtest.engine import BacktestEngine
 from core.backtest.strategies.ma_crossover import MovingAverageCrossover
-from config.config import load_config
+from core.data.storage import PostgresStorage
+
 
 def test_engine_regime_integration():
     """Test that engine integrates regime classifier successfully"""
@@ -28,8 +30,8 @@ def test_engine_regime_integration():
     print("1. Loading config and fetching data...")
     config = load_config()
 
-    with PostgresStorage(config['database']) as storage:
-        df = storage.get_candles('BTCUSDT', '1h')
+    with PostgresStorage(config["database"]) as storage:
+        df = storage.get_candles("BTCUSDT", "1h")
         print(f"   ✓ Loaded {len(df)} candles")
         print()
 
@@ -45,7 +47,7 @@ def test_engine_regime_integration():
         data=df,
         strategy=strategy,
         initial_capital=10000.0,
-        enable_regime_detection=True  # KEY: Enable regime detection
+        enable_regime_detection=True,  # KEY: Enable regime detection
     )
     print(f"   ✓ Engine initialized")
     print(f"   ✓ Regime detection enabled: {engine.enable_regime_detection}")
@@ -57,8 +59,12 @@ def test_engine_regime_integration():
     print("4. Verifying regime data preparation...")
     if engine.data_with_indicators is not None:
         regime_cols = [
-            'trend_state', 'volatility_state', 'momentum_state',
-            'full_regime', 'simplified_regime', 'regime_confidence'
+            "trend_state",
+            "volatility_state",
+            "momentum_state",
+            "full_regime",
+            "simplified_regime",
+            "regime_confidence",
         ]
         available_cols = [col for col in regime_cols if col in engine.data_with_indicators.columns]
         print(f"   ✓ Regime columns present: {len(available_cols)}/{len(regime_cols)}")
@@ -89,8 +95,8 @@ def test_engine_regime_integration():
     print(f"   ✓ Has metadata: {len(market_event.metadata) > 0}")
     print(f"   ✓ Has regime: {'regime' in market_event.metadata}")
 
-    if 'regime' in market_event.metadata:
-        regime = market_event.metadata['regime']
+    if "regime" in market_event.metadata:
+        regime = market_event.metadata["regime"]
         print()
         print("   MarketEvent regime metadata:")
         print(f"     - Simplified: {regime.get('simplified')}")
@@ -116,7 +122,7 @@ def test_engine_regime_integration():
         data=df.head(50),
         strategy=MovingAverageCrossover(fast_period=5, slow_period=10),
         initial_capital=10000.0,
-        enable_regime_detection=True
+        enable_regime_detection=True,
     )
 
     try:
@@ -129,6 +135,7 @@ def test_engine_regime_integration():
     except Exception as e:
         print(f"   ✗ FAIL: Backtest error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     print()
@@ -169,6 +176,6 @@ def test_engine_regime_integration():
     return True
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     success = test_engine_regime_integration()
     sys.exit(0 if success else 1)

@@ -2,14 +2,16 @@
 Binance Public Data Bulk Fetcher
 Downloads historical data from data.binance.vision (no API limits)
 """
-import logging
-from datetime import datetime, timedelta
-from typing import Optional, Tuple
-from pathlib import Path
-import requests
-import zipfile
+
 import io
+import logging
+import zipfile
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Optional, Tuple
+
 import pandas as pd
+import requests
 from dateutil.relativedelta import relativedelta
 
 from config import DataConfig
@@ -33,9 +35,7 @@ class BinanceBulkFetcher:
     def __init__(self):
         """Initialize bulk fetcher"""
         self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'CryptoAnalyzer/1.0'
-        })
+        self.session.headers.update({"User-Agent": "CryptoAnalyzer/1.0"})
 
     @staticmethod
     def get_public_data_cutoff() -> datetime:
@@ -48,11 +48,7 @@ class BinanceBulkFetcher:
         return datetime.now() - timedelta(days=BinanceBulkFetcher.PUBLIC_DATA_LAG_DAYS)
 
     def fetch_historical(
-        self,
-        symbol: str,
-        timeframe: str,
-        start_date: datetime,
-        end_date: Optional[datetime] = None
+        self, symbol: str, timeframe: str, start_date: datetime, end_date: Optional[datetime] = None
     ) -> pd.DataFrame:
         """
         Fetch historical klines data from public data repository
@@ -93,7 +89,7 @@ class BinanceBulkFetcher:
             logger.debug(f"Using daily files for {days_requested} days range")
             current = start_date
             while current <= end_date:
-                date_str = current.strftime('%Y-%m-%d')
+                date_str = current.strftime("%Y-%m-%d")
                 try:
                     df = self._download_daily_file(symbol, timeframe, date_str)
                     if not df.empty:
@@ -119,13 +115,12 @@ class BinanceBulkFetcher:
         if all_data:
             combined = pd.concat(all_data, ignore_index=True)
             # Remove duplicates (monthly and daily might overlap)
-            combined = combined.drop_duplicates(subset=['open_time'])
+            combined = combined.drop_duplicates(subset=["open_time"])
             # Filter to exact date range
             combined = combined[
-                (combined['open_time'] >= start_date) &
-                (combined['open_time'] <= end_date)
+                (combined["open_time"] >= start_date) & (combined["open_time"] <= end_date)
             ]
-            combined = combined.sort_values('open_time').reset_index(drop=True)
+            combined = combined.sort_values("open_time").reset_index(drop=True)
             logger.info(f"Fetched {len(combined)} candles from public data")
             return combined
         else:
@@ -133,11 +128,7 @@ class BinanceBulkFetcher:
             return pd.DataFrame()
 
     def fetch_historical_with_progress(
-        self,
-        symbol: str,
-        timeframe: str,
-        start_date: datetime,
-        end_date: Optional[datetime] = None
+        self, symbol: str, timeframe: str, start_date: datetime, end_date: Optional[datetime] = None
     ):
         """
         Generator version of fetch_historical that yields progress updates.
@@ -176,7 +167,7 @@ class BinanceBulkFetcher:
             # Short range: daily files
             current = start_date
             while current <= end_date:
-                date_str = current.strftime('%Y-%m-%d')
+                date_str = current.strftime("%Y-%m-%d")
                 try:
                     df = self._download_daily_file(symbol, timeframe, date_str)
                     if not df.empty:
@@ -189,7 +180,7 @@ class BinanceBulkFetcher:
                     "type": "progress",
                     "current": current_file,
                     "total": total_files,
-                    "pct": min(99, int(current_file / total_files * 100))
+                    "pct": min(99, int(current_file / total_files * 100)),
                 }
                 current += timedelta(days=1)
         else:
@@ -198,7 +189,7 @@ class BinanceBulkFetcher:
             end_month = datetime(end_date.year, end_date.month, 1)
 
             while current < end_month:
-                year_month = current.strftime('%Y-%m')
+                year_month = current.strftime("%Y-%m")
                 try:
                     df = self._download_monthly_file(symbol, timeframe, year_month)
                     if not df.empty:
@@ -211,7 +202,7 @@ class BinanceBulkFetcher:
                     "type": "progress",
                     "current": current_file,
                     "total": total_files,
-                    "pct": min(99, int(current_file / total_files * 100))
+                    "pct": min(99, int(current_file / total_files * 100)),
                 }
                 current += relativedelta(months=1)
 
@@ -223,22 +214,17 @@ class BinanceBulkFetcher:
         # Combine and return final result
         if all_data:
             combined = pd.concat(all_data, ignore_index=True)
-            combined = combined.drop_duplicates(subset=['open_time'])
+            combined = combined.drop_duplicates(subset=["open_time"])
             combined = combined[
-                (combined['open_time'] >= start_date) &
-                (combined['open_time'] <= end_date)
+                (combined["open_time"] >= start_date) & (combined["open_time"] <= end_date)
             ]
-            combined = combined.sort_values('open_time').reset_index(drop=True)
+            combined = combined.sort_values("open_time").reset_index(drop=True)
             yield {"type": "done", "df": combined, "candles": len(combined)}
         else:
             yield {"type": "done", "df": pd.DataFrame(), "candles": 0}
 
     def _fetch_monthly_range(
-        self,
-        symbol: str,
-        timeframe: str,
-        start_date: datetime,
-        end_date: datetime
+        self, symbol: str, timeframe: str, start_date: datetime, end_date: datetime
     ) -> pd.DataFrame:
         """Fetch monthly aggregated files"""
         all_data = []
@@ -249,7 +235,7 @@ class BinanceBulkFetcher:
 
         # Fetch all complete months
         while current < end_month:
-            year_month = current.strftime('%Y-%m')
+            year_month = current.strftime("%Y-%m")
 
             try:
                 df = self._download_monthly_file(symbol, timeframe, year_month)
@@ -266,22 +252,22 @@ class BinanceBulkFetcher:
         return pd.DataFrame()
 
     def _fetch_daily_range(
-        self,
-        symbol: str,
-        timeframe: str,
-        start_date: datetime,
-        end_date: datetime
+        self, symbol: str, timeframe: str, start_date: datetime, end_date: datetime
     ) -> pd.DataFrame:
         """Fetch daily files for partial months"""
         all_data = []
 
         # Fetch daily files for incomplete months at start and end of range
         # Start of range: from start_date to end of start month
-        start_month_end = datetime(start_date.year, start_date.month, 1) + relativedelta(months=1) - timedelta(days=1)
+        start_month_end = (
+            datetime(start_date.year, start_date.month, 1)
+            + relativedelta(months=1)
+            - timedelta(days=1)
+        )
         if start_date.day > 1 and start_date <= min(end_date, start_month_end):
             current = start_date
             while current <= min(end_date, start_month_end):
-                date_str = current.strftime('%Y-%m-%d')
+                date_str = current.strftime("%Y-%m-%d")
                 try:
                     df = self._download_daily_file(symbol, timeframe, date_str)
                     if not df.empty:
@@ -297,7 +283,7 @@ class BinanceBulkFetcher:
             current = end_month_start
 
             while current <= end_date:
-                date_str = current.strftime('%Y-%m-%d')
+                date_str = current.strftime("%Y-%m-%d")
 
                 try:
                     df = self._download_daily_file(symbol, timeframe, date_str)
@@ -313,12 +299,7 @@ class BinanceBulkFetcher:
             return pd.concat(all_data, ignore_index=True)
         return pd.DataFrame()
 
-    def _download_monthly_file(
-        self,
-        symbol: str,
-        timeframe: str,
-        year_month: str
-    ) -> pd.DataFrame:
+    def _download_monthly_file(self, symbol: str, timeframe: str, year_month: str) -> pd.DataFrame:
         """
         Download and parse a single monthly file
 
@@ -333,12 +314,7 @@ class BinanceBulkFetcher:
         url = f"{self.BASE_URL}/monthly/klines/{symbol}/{timeframe}/{symbol}-{timeframe}-{year_month}.zip"
         return self._download_and_parse_zip(url)
 
-    def _download_daily_file(
-        self,
-        symbol: str,
-        timeframe: str,
-        date: str
-    ) -> pd.DataFrame:
+    def _download_daily_file(self, symbol: str, timeframe: str, date: str) -> pd.DataFrame:
         """
         Download and parse a single daily file
 
@@ -397,48 +373,52 @@ class BinanceBulkFetcher:
         df = pd.read_csv(
             csv_file,
             names=[
-                'open_time', 'open', 'high', 'low', 'close', 'volume',
-                'close_time', 'quote_volume', 'count',
-                'taker_buy_volume', 'taker_buy_quote_volume', 'ignore'
+                "open_time",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "close_time",
+                "quote_volume",
+                "count",
+                "taker_buy_volume",
+                "taker_buy_quote_volume",
+                "ignore",
             ],
             dtype={
-                'open_time': 'int64',
-                'open': 'float64',
-                'high': 'float64',
-                'low': 'float64',
-                'close': 'float64',
-                'volume': 'float64',
-                'close_time': 'int64',
-                'quote_volume': 'float64',
-                'count': 'int64',
-                'taker_buy_volume': 'float64',
-                'taker_buy_quote_volume': 'float64',
-                'ignore': 'int64'
-            }
+                "open_time": "int64",
+                "open": "float64",
+                "high": "float64",
+                "low": "float64",
+                "close": "float64",
+                "volume": "float64",
+                "close_time": "int64",
+                "quote_volume": "float64",
+                "count": "int64",
+                "taker_buy_volume": "float64",
+                "taker_buy_quote_volume": "float64",
+                "ignore": "int64",
+            },
         )
 
         # Convert timestamps
         # Check if timestamp is in microseconds (16 digits) or milliseconds (13 digits)
-        if df['open_time'].iloc[0] > 1e15:
+        if df["open_time"].iloc[0] > 1e15:
             # Microseconds (since 2025-01-01)
-            df['open_time'] = pd.to_datetime(df['open_time'], unit='us')
-            df['close_time'] = pd.to_datetime(df['close_time'], unit='us')
+            df["open_time"] = pd.to_datetime(df["open_time"], unit="us")
+            df["close_time"] = pd.to_datetime(df["close_time"], unit="us")
         else:
             # Milliseconds (before 2025-01-01)
-            df['open_time'] = pd.to_datetime(df['open_time'], unit='ms')
-            df['close_time'] = pd.to_datetime(df['close_time'], unit='ms')
+            df["open_time"] = pd.to_datetime(df["open_time"], unit="ms")
+            df["close_time"] = pd.to_datetime(df["close_time"], unit="ms")
 
         # Drop unnecessary columns (keep close_time for storage compatibility)
-        df = df.drop(columns=['ignore'])
+        df = df.drop(columns=["ignore"])
 
         return df
 
-    def check_data_availability(
-        self,
-        symbol: str,
-        timeframe: str,
-        date: datetime
-    ) -> bool:
+    def check_data_availability(self, symbol: str, timeframe: str, date: datetime) -> bool:
         """
         Check if data is available for a specific date
 

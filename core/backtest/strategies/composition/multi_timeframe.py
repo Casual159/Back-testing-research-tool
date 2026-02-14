@@ -12,9 +12,11 @@ Example:
     - Which 4H bar it belongs to (for trend)
     - Which 15M bars it contains (for entry refinement)
 """
-from typing import Dict, List, Optional
-import pandas as pd
+
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+
+import pandas as pd
 
 
 class MultiTimeframeData:
@@ -30,17 +32,17 @@ class MultiTimeframeData:
 
     # Timeframe hierarchy (in minutes)
     TIMEFRAME_MINUTES = {
-        '1m': 1,
-        '5m': 5,
-        '15m': 15,
-        '30m': 30,
-        '1h': 60,
-        '2h': 120,
-        '4h': 240,
-        '6h': 360,
-        '12h': 720,
-        '1d': 1440,
-        '1w': 10080
+        "1m": 1,
+        "5m": 5,
+        "15m": 15,
+        "30m": 30,
+        "1h": 60,
+        "2h": 120,
+        "4h": 240,
+        "6h": 360,
+        "12h": 720,
+        "1d": 1440,
+        "1w": 10080,
     }
 
     def __init__(self, data_dict: Dict[str, pd.DataFrame], primary_timeframe: str):
@@ -67,7 +69,9 @@ class MultiTimeframeData:
         """Validate that all timeframes are recognized"""
         for tf in self.data.keys():
             if tf not in self.TIMEFRAME_MINUTES:
-                raise ValueError(f"Unknown timeframe: {tf}. Valid: {list(self.TIMEFRAME_MINUTES.keys())}")
+                raise ValueError(
+                    f"Unknown timeframe: {tf}. Valid: {list(self.TIMEFRAME_MINUTES.keys())}"
+                )
 
         # Ensure all dataframes have datetime index
         for tf, df in self.data.items():
@@ -96,7 +100,9 @@ class MultiTimeframeData:
                 # Lower timeframe - map primary timestamps to contained lower TF bars
                 self._alignment_cache[tf] = self._align_to_lower_tf(df, tf_minutes)
 
-    def _align_to_higher_tf(self, higher_df: pd.DataFrame, higher_tf_minutes: int) -> Dict[datetime, datetime]:
+    def _align_to_higher_tf(
+        self, higher_df: pd.DataFrame, higher_tf_minutes: int
+    ) -> Dict[datetime, datetime]:
         """
         Align primary timeframe timestamps to higher timeframe bars
 
@@ -127,10 +133,7 @@ class MultiTimeframeData:
 
             # Create timestamp for higher TF bar
             higher_ts = primary_ts.replace(
-                hour=higher_bar_start_hour,
-                minute=0,
-                second=0,
-                microsecond=0
+                hour=higher_bar_start_hour, minute=0, second=0, microsecond=0
             )
 
             # Find closest actual timestamp in higher_df (handle missing data)
@@ -144,7 +147,9 @@ class MultiTimeframeData:
 
         return alignment
 
-    def _align_to_lower_tf(self, lower_df: pd.DataFrame, lower_tf_minutes: int) -> Dict[datetime, List[datetime]]:
+    def _align_to_lower_tf(
+        self, lower_df: pd.DataFrame, lower_tf_minutes: int
+    ) -> Dict[datetime, List[datetime]]:
         """
         Align primary timeframe timestamps to contained lower timeframe bars
 
@@ -171,8 +176,7 @@ class MultiTimeframeData:
 
             # Get all lower TF bars in range [primary_ts, bar_end)
             contained_bars = lower_df.index[
-                (lower_df.index >= primary_ts) &
-                (lower_df.index < bar_end)
+                (lower_df.index >= primary_ts) & (lower_df.index < bar_end)
             ].tolist()
 
             alignment[primary_ts] = contained_bars
@@ -218,10 +222,7 @@ class MultiTimeframeData:
             return self.data[timeframe].loc[aligned_ts]
 
     def get_dataframe_slice(
-        self,
-        timeframe: str,
-        primary_timestamp: datetime,
-        lookback: int = None
+        self, timeframe: str, primary_timestamp: datetime, lookback: int = None
     ) -> pd.DataFrame:
         """
         Get DataFrame slice for timeframe up to primary timestamp
@@ -243,8 +244,8 @@ class MultiTimeframeData:
             idx = df.index.get_loc(primary_timestamp)
             if lookback:
                 start_idx = max(0, idx - lookback + 1)
-                return df.iloc[start_idx:idx + 1]
-            return df.iloc[:idx + 1]
+                return df.iloc[start_idx : idx + 1]
+            return df.iloc[: idx + 1]
 
         # Different timeframe - use alignment
         if timeframe not in self._alignment_cache:
@@ -268,8 +269,8 @@ class MultiTimeframeData:
         idx = df.index.get_loc(end_ts)
         if lookback:
             start_idx = max(0, idx - lookback + 1)
-            return df.iloc[start_idx:idx + 1]
-        return df.iloc[:idx + 1]
+            return df.iloc[start_idx : idx + 1]
+        return df.iloc[: idx + 1]
 
     def get_all_timeframes(self) -> List[str]:
         """Get list of available timeframes"""
@@ -281,11 +282,8 @@ class MultiTimeframeData:
 
     @classmethod
     def from_single_timeframe(
-        cls,
-        data: pd.DataFrame,
-        source_tf: str,
-        target_timeframes: List[str]
-    ) -> 'MultiTimeframeData':
+        cls, data: pd.DataFrame, source_tf: str, target_timeframes: List[str]
+    ) -> "MultiTimeframeData":
         """
         Create multi-timeframe data by resampling from single timeframe
 
@@ -312,14 +310,14 @@ class MultiTimeframeData:
                 raise ValueError(f"Cannot create lower timeframe {target_tf} from {source_tf}")
 
             # Resample to higher timeframe
-            rule = f'{target_minutes}min'  # e.g., '240min' for 4H
-            resampled = data.resample(rule).agg({
-                'open': 'first',
-                'high': 'max',
-                'low': 'min',
-                'close': 'last',
-                'volume': 'sum'
-            }).dropna()
+            rule = f"{target_minutes}min"  # e.g., '240min' for 4H
+            resampled = (
+                data.resample(rule)
+                .agg(
+                    {"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}
+                )
+                .dropna()
+            )
 
             data_dict[target_tf] = resampled
 

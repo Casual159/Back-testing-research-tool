@@ -26,8 +26,8 @@ Cílem je **zachytit moment inspirace** a proměnit ho v testovatelnou tezi. 1-3
 
 ### US-R01: Zachycení myšlenky
 
-**Jako** uživatel  
-**chci** napsat myšlenku, kterou jsem někde slyšel nebo sám mám  
+**Jako** uživatel
+**chci** napsat myšlenku, kterou jsem někde slyšel nebo sám mám
 **abych** mohl zjistit, jestli je pravdivá a za jakých podmínek
 
 **Acceptance criteria:**
@@ -39,25 +39,25 @@ Cílem je **zachytit moment inspirace** a proměnit ho v testovatelnou tezi. 1-3
 
 **Příklad interakce:**
 ```
-User: "Slyšel jsem v podcastu, že po halvingu Bitcoin 
+User: "Slyšel jsem v podcastu, že po halvingu Bitcoin
        vždycky roste 12 měsíců"
 
 AI: "Zajímavá teze. Rozpoznávám:
 
      DOMÉNA: Timing, supply cycle, makro event
-     
+
      PRVKY:
      ├── Event: Bitcoin halving (supply shock)
      ├── Období: 12 měsíců po eventu
      └── Očekávání: Nadprůměrný růst
-     
+
      FORMALIZOVANÁ TEZE:
-     'BTC vykazuje statisticky významný růst 
+     'BTC vykazuje statisticky významný růst
       v období 0-12 měsíců po halvingu'
-     
+
      TESTOVATELNÉ: ✅ Ano
      Máme 3 historické halvingy (2012, 2016, 2020)
-     
+
      Chceš, abych:
      1. Ukázal výnosy v těchto obdobích?
      2. Porovnal s obdobími mimo halving?
@@ -68,8 +68,8 @@ AI: "Zajímavá teze. Rozpoznávám:
 
 ### US-R02: Zachycení z URL
 
-**Jako** uživatel  
-**chci** vložit odkaz na tweet/článek/video  
+**Jako** uživatel
+**chci** vložit odkaz na tweet/článek/video
 **abych** mohl rychle ověřit tvrzení, které jsem viděl online
 
 **Acceptance criteria:**
@@ -82,14 +82,14 @@ AI: "Zajímavá teze. Rozpoznávám:
 ```
 User: [vloží tweet URL]
 
-AI: "Autor tvrdí: 'RSI pod 20 na daily = garantovaný 
+AI: "Autor tvrdí: 'RSI pod 20 na daily = garantovaný
      bounce do týdne'
-     
+
      Moje analýza:
      ├── Testovatelné: ✅ Ano
      ├── Ale 'garantovaný' je silné slovo
      └── Historicky můžeme ověřit success rate
-     
+
      Chceš tuto tezi prozkoumat? Můžu ukázat,
      kolikrát to historicky fungovalo a kdy ne."
 ```
@@ -98,8 +98,8 @@ AI: "Autor tvrdí: 'RSI pod 20 na daily = garantovaný
 
 ### US-R03: Zachycení z vizuálu
 
-**Jako** uživatel  
-**chci** nahrát screenshot grafu nebo anotovaný obrázek  
+**Jako** uživatel
+**chci** nahrát screenshot grafu nebo anotovaný obrázek
 **abych** mohl prozkoumat pattern, který jsem viděl
 
 **Acceptance criteria:**
@@ -122,8 +122,8 @@ Situace = odpověď na otázku "kdy přesně by toto mělo platit?"
 
 ### US-R04: AI extrakce situace z teze
 
-**Jako** uživatel  
-**chci** aby AI navrhla situaci na základě mé teze  
+**Jako** uživatel
+**chci** aby AI navrhla situaci na základě mé teze
 **abych** měl jasně definovaný kontext pro testování
 
 **Acceptance criteria:**
@@ -144,14 +144,14 @@ AI: "Z teze odvozuji situaci:
      ├── Timing: 0-180 dní po halvingu
      ├── Regime: Není TREND_DOWN
      └── Volatilita: ATR klesá (konsolidace)
-     
+
      Historické výskyty (3):
      ├── 2012-11-28 → 2013-05-28
      ├── 2016-07-09 → 2017-01-09
      └── 2020-05-11 → 2020-11-11
-     
+
      Celkem 540 dní dat pro testování.
-     
+
      Souhlasíš s touto definicí, nebo chceš upravit?"
 ```
 
@@ -159,8 +159,8 @@ AI: "Z teze odvozuji situaci:
 
 ### US-R05: Knihovna situací
 
-**Jako** uživatel  
-**chci** mít přehled všech definovaných situací  
+**Jako** uživatel
+**chci** mít přehled všech definovaných situací
 **abych** je mohl znovu použít a kombinovat
 
 **Acceptance criteria:**
@@ -181,8 +181,8 @@ Když je situace definovaná, AI navrhne **co by v ní mohlo fungovat**. Ne gene
 
 ### US-R06: AI návrh strategie pro situaci
 
-**Jako** uživatel  
-**chci** aby AI navrhla vhodnou strategii pro mou situaci  
+**Jako** uživatel
+**chci** aby AI navrhla vhodnou strategii pro mou situaci
 **abych** nemusel hádat
 
 **Acceptance criteria:**
@@ -201,14 +201,14 @@ AI: "Pro tuto situaci navrhuji:
         Proč: Historicky silné trendy po akumulaci
         Entry: Close > 20-day high
         Exit: Trailing stop 10%
-     
+
      2. MA CROSSOVER (alternativa)
         Proč: Klasický trend-following
         Nižší výnosy, ale konzistentnější
-     
+
      3. BUY & HOLD (baseline)
         Pro srovnání
-     
+
      Kterou otestovat? Nebo všechny pro srovnání?"
 ```
 
@@ -216,8 +216,8 @@ AI: "Pro tuto situaci navrhuji:
 
 ### US-R07: Backtest omezený na situaci
 
-**Jako** uživatel  
-**chci** spustit backtest POUZE v obdobích definované situace  
+**Jako** uživatel
+**chci** spustit backtest POUZE v obdobích definované situace
 **abych** viděl, jak strategie funguje v konkrétním kontextu
 
 **Acceptance criteria:**
@@ -244,7 +244,7 @@ Celé období 2012-2024:
 
 AI: "Strategie funguje 3.5x lépe v definované situaci.
      Mimo ni má průměrné výsledky s vyšším rizikem.
-     
+
      POZNÁNÍ: Tuto strategii má smysl používat
      pouze když identifikuješ post-halving fázi."
 ```
@@ -261,8 +261,8 @@ Každý výzkum končí **poznáním**. Teze je validována nebo invalidována. 
 
 ### US-R08: Označení teze jako validované/invalidované
 
-**Jako** uživatel  
-**chci** po testování uzavřít tezi se závěrem  
+**Jako** uživatel
+**chci** po testování uzavřít tezi se závěrem
 **abych** měl přehled o tom, co jsem se naučil
 
 **Acceptance criteria:**
@@ -275,8 +275,8 @@ Každý výzkum končí **poznáním**. Teze je validována nebo invalidována. 
 
 ### US-R09: Knowledge base
 
-**Jako** uživatel  
-**chci** mít přehled všech svých zjištění  
+**Jako** uživatel
+**chci** mít přehled všech svých zjištění
 **abych** viděl, co jsem se naučil a mohl na tom stavět
 
 **Acceptance criteria:**
@@ -297,8 +297,8 @@ AI není jen executor příkazů. Je to **průvodce procesem zkoumání**. Ptá 
 
 ### US-R10: Sokratovský dialog
 
-**Jako** uživatel  
-**chci** aby AI kladla otázky a challengovala mé předpoklady  
+**Jako** uživatel
+**chci** aby AI kladla otázky a challengovala mé předpoklady
 **abych** se vyhnul confirmation bias
 
 **Acceptance criteria:**
@@ -315,14 +315,14 @@ AI: "Moment. Pojďme to prozkoumat:
 
      1. V silném downtrend RSI zůstává pod 30 týdny
         → Jak poznáš, kdy to NENÍ signál?
-     
+
      2. BTC vs altcoiny - funguje to stejně?
         → Altcoiny můžou jít na nulu
-     
+
      3. Jaký je tvůj exit? RSI > 70? Fixed target?
-     
+
      4. Timeframe? Daily RSI ≠ 4h RSI
-     
+
      Chceš vidět případy, kdy RSI < 30 nevedlo k rally?"
 ```
 
@@ -330,8 +330,8 @@ AI: "Moment. Pojďme to prozkoumat:
 
 ### US-R11: Proaktivní návrhy
 
-**Jako** uživatel  
-**chci** aby AI sama navrhovala zajímavé otázky  
+**Jako** uživatel
+**chci** aby AI sama navrhovala zajímavé otázky
 **abych** objevil věci, na které bych nepřišel
 
 **Acceptance criteria:**
@@ -423,4 +423,3 @@ Většina P0 stories je **rozšířením existujícího agenta**:
 - [[Research-First Vision]] – filozofie a principy
 - [[Product Charter – AI Trading Research Tool]] – produktový rámec
 - [[Product-Implementation Gap Analysis]] – co je hotovo
-

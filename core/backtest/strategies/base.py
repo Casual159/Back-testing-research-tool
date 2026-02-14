@@ -6,7 +6,8 @@ the calculate_signals() method.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
+
 from ..events import MarketEvent, SignalEvent
 
 
@@ -48,7 +49,7 @@ Override this in your strategy subclass with detailed information about:
         "exit_type": "market",
         "drawdown_tolerance": "medium",
         "avg_trade_duration": "medium",
-        "win_rate_range": [0.4, 0.6]
+        "win_rate_range": [0.4, 0.6],
     }
 
     def __init__(self, parameters: Dict[str, Any] = None):
@@ -141,26 +142,26 @@ Override this in your strategy subclass with detailed information about:
             List of closing prices (most recent last)
         """
         if lookback:
-            return [bar.ohlcv['close'] for bar in self.data_buffer[-lookback:]]
-        return [bar.ohlcv['close'] for bar in self.data_buffer]
+            return [bar.ohlcv["close"] for bar in self.data_buffer[-lookback:]]
+        return [bar.ohlcv["close"] for bar in self.data_buffer]
 
     def get_high_prices(self, lookback: int = None) -> List[float]:
         """Extract high prices from buffer."""
         if lookback:
-            return [bar.ohlcv['high'] for bar in self.data_buffer[-lookback:]]
-        return [bar.ohlcv['high'] for bar in self.data_buffer]
+            return [bar.ohlcv["high"] for bar in self.data_buffer[-lookback:]]
+        return [bar.ohlcv["high"] for bar in self.data_buffer]
 
     def get_low_prices(self, lookback: int = None) -> List[float]:
         """Extract low prices from buffer."""
         if lookback:
-            return [bar.ohlcv['low'] for bar in self.data_buffer[-lookback:]]
-        return [bar.ohlcv['low'] for bar in self.data_buffer]
+            return [bar.ohlcv["low"] for bar in self.data_buffer[-lookback:]]
+        return [bar.ohlcv["low"] for bar in self.data_buffer]
 
     def get_volumes(self, lookback: int = None) -> List[float]:
         """Extract volumes from buffer."""
         if lookback:
-            return [bar.ohlcv['volume'] for bar in self.data_buffer[-lookback:]]
-        return [bar.ohlcv['volume'] for bar in self.data_buffer]
+            return [bar.ohlcv["volume"] for bar in self.data_buffer[-lookback:]]
+        return [bar.ohlcv["volume"] for bar in self.data_buffer]
 
     def calculate_sma(self, period: int, prices: List[float] = None) -> Optional[float]:
         """

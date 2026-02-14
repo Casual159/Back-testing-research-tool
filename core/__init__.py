@@ -9,4 +9,4 @@ This package contains the deterministic, battle-tested components:
 These components are pure Python code - no AI, fully reproducible.
 """
 
-__version__ = '2.0.0'
+__version__ = "2.0.0"
