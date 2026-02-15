@@ -407,7 +407,7 @@ async def execute_tool(
         except httpx.ConnectError:
             return {
                 "error": True,
-                "detail": "Cannot connect to API server. Make sure FastAPI is running on localhost:8000",
+                "detail": f"Cannot connect to API server at {API_BASE_URL}",
             }
         except httpx.TimeoutException:
             return {"error": True, "detail": "API request timed out"}

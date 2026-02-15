@@ -19,7 +19,10 @@ from mcp.types import TextContent, Tool
 # CONFIGURATION
 # =============================================================================
 
-API_BASE_URL = "http://localhost:8000"
+import os as _os
+
+_port = _os.getenv("PORT", "8000")
+API_BASE_URL = _os.getenv("API_BASE_URL", f"http://localhost:{_port}")
 
 
 # =============================================================================
@@ -511,13 +514,13 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
                 log_error_to_api(
                     tool_name=tool_name,
                     error_type="ConnectError",
-                    error_message="Cannot connect to API server. Make sure FastAPI is running on localhost:8000",
+                    error_message=f"Cannot connect to API server at {API_BASE_URL}",
                     request_data=arguments,
                 )
             )
             return {
                 "error": True,
-                "detail": "Cannot connect to API server. Make sure FastAPI is running on localhost:8000",
+                "detail": f"Cannot connect to API server at {API_BASE_URL}",
             }
         except httpx.TimeoutException:
             # Log timeout error

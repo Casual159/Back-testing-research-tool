@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiEndpoint } from '@/lib/config';
 
 export interface UserPreferences {
   experience_level: 'beginner' | 'intermediate' | 'advanced' | 'professional';
@@ -58,8 +59,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     try {
       // Save to backend if creating first project
       if (projectName) {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${apiUrl}/api/onboarding/preferences`, {
+        const response = await fetch(apiEndpoint('/onboarding/preferences'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
