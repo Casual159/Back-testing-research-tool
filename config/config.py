@@ -64,7 +64,7 @@ class Config:
 
     @classmethod
     def validate(cls):
-        """Validate that all required config values are set"""
+        """Validate config values - warns but doesn't fail for missing Binance keys"""
         if cls.BINANCE_TESTNET:
             required = ["BINANCE_TESTNET_API_KEY", "BINANCE_TESTNET_API_SECRET"]
             mode = "testnet"
@@ -75,7 +75,10 @@ class Config:
         missing = [key for key in required if not getattr(cls, key)]
 
         if missing:
-            raise ValueError(f"Missing required {mode} config values: {', '.join(missing)}")
+            # Only warn, don't raise - API can run without Binance keys
+            print(f"Warning: Missing {mode} Binance config: {', '.join(missing)}")
+            print("Some features (live data fetching) will not be available.")
+            return False
 
         return True
 
