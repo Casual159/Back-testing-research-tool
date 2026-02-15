@@ -345,32 +345,20 @@ class AgentChatRequest(BaseModel):
 class CreateProjectRequest(BaseModel):
     """Request to create a new research project"""
 
-    title: str = Field(..., min_length=1, max_length=200)
+    name: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
-    status: str = Field(default="active", pattern=r"^(active|completed|archived)$")
-    tags: Optional[List[str]] = Field(None, max_items=10)
-
-    @field_validator("tags")
-    @classmethod
-    def validate_tags(cls, v: Optional[List[str]]) -> Optional[List[str]]:
-        if v is None:
-            return v
-        # Remove duplicates and empty strings
-        tags = list(set(tag.strip() for tag in v if tag.strip()))
-        # Validate length
-        for tag in tags:
-            if len(tag) > 50:
-                raise ValueError(f"Tag too long: {tag}")
-        return tags if tags else None
+    thesis: Optional[str] = Field(None, max_length=2000)
+    user_preferences: Optional[Dict[str, Any]] = None
 
 
 class UpdateProjectRequest(BaseModel):
     """Request to update a project"""
 
-    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
-    status: Optional[str] = Field(None, pattern=r"^(active|completed|archived)$")
-    tags: Optional[List[str]] = Field(None, max_items=10)
+    thesis: Optional[str] = Field(None, max_length=2000)
+    status: Optional[str] = Field(None, pattern=r"^(active|paused|concluded)$")
+    validation_result: Optional[str] = Field(None, pattern=r"^(validated|invalidated|inconclusive)$")
 
 
 class CreateEventRequest(BaseModel):

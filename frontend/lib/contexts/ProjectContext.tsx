@@ -83,7 +83,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch('${API_BASE_URL}/api/projects');
+      const response = await fetch(`${API_BASE_URL}/api/projects`);
       if (!response.ok) {
         throw new Error('Failed to fetch projects');
       }
@@ -164,7 +164,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   };
 
   const createProject = async (data: CreateProjectData): Promise<Project> => {
-    const response = await fetch('${API_BASE_URL}/api/projects', {
+    const response = await fetch(`${API_BASE_URL}/api/projects`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
