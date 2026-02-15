@@ -681,7 +681,9 @@ def create_strategy(request: CreateStrategyRequest):
             # Determine strategy type and class name
             if request.builtin_class:
                 # Built-in strategy variant
+                strategy_type = "builtin"
                 class_name = request.builtin_class
+                builtin_class = request.builtin_class
                 parameters = request.parameters or {}
                 metadata = request.metadata or {
                     "category": "builtin-variant",
@@ -690,7 +692,9 @@ def create_strategy(request: CreateStrategyRequest):
                 }
             else:
                 # Composite strategy
+                strategy_type = "composite"
                 class_name = "CompositeStrategy"
+                builtin_class = None
                 # Store entry/exit logic in parameters
                 parameters = {
                     "entry_logic": request.entry_logic,
@@ -704,10 +708,13 @@ def create_strategy(request: CreateStrategyRequest):
                 }
 
             # Insert into strategies table
+            # Includes both old schema columns (strategy_type, builtin_class)
+            # and new schema columns (class_name, metadata) for compatibility
             insert_query = """
                 INSERT INTO strategies
-                (name, class_name, description, metadata, parameters, regime_filter)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (name, class_name, description, metadata, parameters, regime_filter,
+                 strategy_type, builtin_class, entry_logic, exit_logic)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id, name, class_name
             """
 
@@ -719,7 +726,11 @@ def create_strategy(request: CreateStrategyRequest):
                     request.description,
                     json.dumps(metadata),
                     json.dumps(parameters),
-                    json.dumps(request.regime_filter) if request.regime_filter else None,
+                    request.regime_filter if request.regime_filter else None,
+                    strategy_type,
+                    builtin_class,
+                    json.dumps(request.entry_logic) if request.entry_logic else None,
+                    json.dumps(request.exit_logic) if request.exit_logic else None,
                 ),
             )
 
@@ -965,40 +976,50 @@ def run_backtest(request: BacktestRequest):
         report_id = None
         try:
             with PostgresStorage(config["database"]) as storage:
-                query = """
-                    INSERT INTO backtest_reports (
-                        strategy_name, strategy_config, symbol, timeframe,
-                        start_date, end_date, initial_capital,
-                        total_return_pct, sharpe_ratio, max_drawdown_pct,
-                        win_rate_pct, total_trades, profit_factor,
-                        equity_curve, trades, regime_performance
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                    )
-                    RETURNING id
-                """
+                # Check which columns exist in backtest_reports
+                storage.cursor.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'backtest_reports'
+                """)
+                existing_cols = {row[0] for row in storage.cursor.fetchall()}
 
-                storage.cursor.execute(
-                    query,
-                    (
-                        request.strategy_name,
-                        json.dumps(final_params),
-                        request.symbol,
-                        request.timeframe,
-                        start_date_str[:10],  # Just date part
-                        end_date_str[:10],
-                        request.initial_capital,
-                        total_return_pct,
-                        sharpe_ratio,
-                        max_drawdown_pct,
-                        win_rate_pct,
-                        total_trades,
-                        profit_factor,
-                        json.dumps(equity_curve),
-                        json.dumps([t.model_dump() for t in trades_list]),
-                        json.dumps(regime_stats) if regime_stats else None,
-                    ),
-                )
+                columns = ["strategy_name", "symbol", "timeframe",
+                           "start_date", "end_date", "initial_capital",
+                           "total_return_pct", "sharpe_ratio", "max_drawdown_pct",
+                           "win_rate_pct", "total_trades", "profit_factor",
+                           "equity_curve", "trades", "regime_performance"]
+                values = [
+                    request.strategy_name,
+                    request.symbol,
+                    request.timeframe,
+                    start_date_str[:10],  # Just date part
+                    end_date_str[:10],
+                    request.initial_capital,
+                    total_return_pct,
+                    sharpe_ratio,
+                    max_drawdown_pct,
+                    win_rate_pct,
+                    total_trades,
+                    profit_factor,
+                    json.dumps(equity_curve),
+                    json.dumps([t.model_dump() for t in trades_list]),
+                    json.dumps(regime_stats) if regime_stats else None,
+                ]
+
+                # Add strategy_config if column exists
+                if "strategy_config" in existing_cols:
+                    columns.insert(1, "strategy_config")
+                    values.insert(1, json.dumps(final_params))
+
+                placeholders = ", ".join(["%s"] * len(columns))
+                col_names = ", ".join(columns)
+                query = f"""
+                    INSERT INTO backtest_reports ({col_names})
+                    VALUES ({placeholders})
+                    RETURNING id
+                """  # nosec B608 - column names from hardcoded list
+
+                storage.cursor.execute(query, values)
 
                 result = storage.cursor.fetchone()
                 storage.conn.commit()
@@ -1442,46 +1463,54 @@ def save_report(request: dict):
         ai_concerns = request.get("ai_concerns", [])
 
         with PostgresStorage(config["database"]) as storage:
-            # Note: conversation_id is not included because conversations
-            # are stored in-memory, not in DB. FK constraint would fail.
-            query = """
-                INSERT INTO backtest_reports (
-                    strategy_name, strategy_config, symbol, timeframe,
-                    start_date, end_date, initial_capital,
-                    total_return_pct, sharpe_ratio, max_drawdown_pct,
-                    win_rate_pct, total_trades, profit_factor,
-                    equity_curve, trades,
-                    ai_summary, ai_recommendations, ai_concerns
-                ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                )
+            # Check which columns exist in backtest_reports
+            storage.cursor.execute("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'backtest_reports'
+            """)
+            existing_columns = {row[0] for row in storage.cursor.fetchall()}
+
+            # Build INSERT dynamically based on available columns
+            columns = ["strategy_name", "symbol", "timeframe",
+                       "start_date", "end_date", "initial_capital",
+                       "total_return_pct", "sharpe_ratio", "max_drawdown_pct",
+                       "win_rate_pct", "total_trades", "profit_factor",
+                       "equity_curve", "trades",
+                       "ai_summary", "ai_recommendations", "ai_concerns"]
+            values = [
+                backtest_results.get("strategy_name"),
+                backtest_results.get("symbol"),
+                backtest_results.get("timeframe"),
+                backtest_results.get("start_date"),
+                backtest_results.get("end_date"),
+                backtest_results.get("initial_capital", 10000),
+                backtest_results.get("total_return_pct"),
+                backtest_results.get("sharpe_ratio"),
+                backtest_results.get("max_drawdown_pct"),
+                backtest_results.get("win_rate_pct"),
+                backtest_results.get("total_trades"),
+                backtest_results.get("profit_factor"),
+                json.dumps(backtest_results.get("equity_curve", [])),
+                json.dumps(backtest_results.get("trades", [])),
+                ai_summary,
+                json.dumps(ai_recommendations),
+                json.dumps(ai_concerns),
+            ]
+
+            # Add strategy_config if column exists
+            if "strategy_config" in existing_columns:
+                columns.insert(1, "strategy_config")
+                values.insert(1, json.dumps(backtest_results.get("strategy_config", {})))
+
+            placeholders = ", ".join(["%s"] * len(columns))
+            col_names = ", ".join(columns)
+            query = f"""
+                INSERT INTO backtest_reports ({col_names})
+                VALUES ({placeholders})
                 RETURNING id
-            """
+            """  # nosec B608 - column names from hardcoded list
 
-            storage.cursor.execute(
-                query,
-                (
-                    backtest_results.get("strategy_name"),
-                    json.dumps(backtest_results.get("strategy_config", {})),
-                    backtest_results.get("symbol"),
-                    backtest_results.get("timeframe"),
-                    backtest_results.get("start_date"),
-                    backtest_results.get("end_date"),
-                    backtest_results.get("initial_capital", 10000),
-                    backtest_results.get("total_return_pct"),
-                    backtest_results.get("sharpe_ratio"),
-                    backtest_results.get("max_drawdown_pct"),
-                    backtest_results.get("win_rate_pct"),
-                    backtest_results.get("total_trades"),
-                    backtest_results.get("profit_factor"),
-                    json.dumps(backtest_results.get("equity_curve", [])),
-                    json.dumps(backtest_results.get("trades", [])),
-                    ai_summary,
-                    json.dumps(ai_recommendations),
-                    json.dumps(ai_concerns),
-                ),
-            )
-
+            storage.cursor.execute(query, values)
             result = storage.cursor.fetchone()
             storage.conn.commit()
 
@@ -1505,6 +1534,16 @@ def save_suggestion(request: dict):
     """
     try:
         with PostgresStorage(config["database"]) as storage:
+            # Validate conversation_id FK if provided
+            conversation_id = request.get("conversation_id")
+            if conversation_id:
+                storage.cursor.execute(
+                    "SELECT 1 FROM conversations WHERE id = %s",
+                    (conversation_id,),
+                )
+                if not storage.cursor.fetchone():
+                    conversation_id = None  # Skip invalid FK
+
             query = """
                 INSERT INTO agent_suggestions (
                     category, title, description, rationale,
@@ -1520,7 +1559,7 @@ def save_suggestion(request: dict):
                     request.get("title"),
                     request.get("description"),
                     request.get("rationale"),
-                    request.get("conversation_id"),
+                    conversation_id,
                 ),
             )
 
