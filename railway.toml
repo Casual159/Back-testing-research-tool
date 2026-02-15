@@ -7,7 +7,7 @@ buildCommand = "pip install -r requirements.txt"
 
 [deploy]
 # Run migrations first, then start server
-startCommand = "uvicorn api.main:app --host 0.0.0.0 --port $PORT"
+startCommand = "pip install tqdm && uvicorn api.main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
