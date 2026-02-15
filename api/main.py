@@ -5,6 +5,7 @@ Provides REST API endpoints for the Next.js frontend
 
 import inspect
 import json
+import os
 import sys
 import traceback
 from datetime import datetime
@@ -74,9 +75,16 @@ app.add_middleware(RequestIDMiddleware)  # Add request IDs
 app.add_middleware(LoggingMiddleware)  # Log requests
 
 # CORS configuration for Next.js frontend
+_cors_origins = [
+    "http://localhost:3000",  # Next.js dev server
+]
+_extra_origin = os.environ.get("CORS_ORIGIN")
+if _extra_origin:
+    _cors_origins.append(_extra_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js default port
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

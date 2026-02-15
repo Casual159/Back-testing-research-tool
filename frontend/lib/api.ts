@@ -28,14 +28,14 @@ export async function sendChatMessage(
   message: string,
   sessionId?: string | null
 ): Promise<ChatResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/chat/send`, {
+  const response = await fetch(`${API_BASE_URL}/api/agent/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       message,
-      session_id: sessionId,
+      conversation_id: sessionId,
     }),
   });
 
@@ -51,7 +51,7 @@ export async function sendChatMessage(
  * Check if Langflow is healthy and accessible
  */
 export async function checkChatHealth(): Promise<ChatHealthResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/chat/health`);
+  const response = await fetch(`${API_BASE_URL}/api/health`);
 
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
