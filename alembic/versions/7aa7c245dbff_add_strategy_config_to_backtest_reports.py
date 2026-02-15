@@ -25,11 +25,75 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # =========================================================================
-    # backtest_reports: add strategy_config if missing
+    # backtest_reports: add all columns from 003 migration that may be missing
     # =========================================================================
     op.execute("""
         ALTER TABLE backtest_reports
         ADD COLUMN IF NOT EXISTS strategy_config JSONB DEFAULT '{}'::jsonb;
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS calmar_ratio DECIMAL(10, 4);
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS sortino_ratio DECIMAL(10, 4);
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS recovery_factor DECIMAL(10, 4);
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS avg_trade_duration_hours DECIMAL(10, 2);
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS best_trade_pct DECIMAL(10, 4);
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS worst_trade_pct DECIMAL(10, 4);
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS max_consecutive_wins INTEGER;
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS max_consecutive_losses INTEGER;
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS drawdown_curve JSONB;
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS monthly_returns JSONB;
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS regime_performance JSONB;
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS ai_summary TEXT;
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS ai_recommendations JSONB;
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS ai_concerns JSONB;
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS conversation_id UUID;
+    """)
+    op.execute("""
+        ALTER TABLE backtest_reports
+        ADD COLUMN IF NOT EXISTS project_id UUID;
     """)
 
     # =========================================================================

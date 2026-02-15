@@ -983,33 +983,30 @@ def run_backtest(request: BacktestRequest):
                 """)
                 existing_cols = {row[0] for row in storage.cursor.fetchall()}
 
-                columns = ["strategy_name", "symbol", "timeframe",
-                           "start_date", "end_date", "initial_capital",
-                           "total_return_pct", "sharpe_ratio", "max_drawdown_pct",
-                           "win_rate_pct", "total_trades", "profit_factor",
-                           "equity_curve", "trades", "regime_performance"]
-                values = [
-                    request.strategy_name,
-                    request.symbol,
-                    request.timeframe,
-                    start_date_str[:10],  # Just date part
-                    end_date_str[:10],
-                    request.initial_capital,
-                    total_return_pct,
-                    sharpe_ratio,
-                    max_drawdown_pct,
-                    win_rate_pct,
-                    total_trades,
-                    profit_factor,
-                    json.dumps(equity_curve),
-                    json.dumps([t.model_dump() for t in trades_list]),
-                    json.dumps(regime_stats) if regime_stats else None,
+                # Define all desired columns and their values
+                desired = [
+                    ("strategy_name", request.strategy_name),
+                    ("strategy_config", json.dumps(final_params)),
+                    ("symbol", request.symbol),
+                    ("timeframe", request.timeframe),
+                    ("start_date", start_date_str[:10]),
+                    ("end_date", end_date_str[:10]),
+                    ("initial_capital", request.initial_capital),
+                    ("total_return_pct", total_return_pct),
+                    ("sharpe_ratio", sharpe_ratio),
+                    ("max_drawdown_pct", max_drawdown_pct),
+                    ("win_rate_pct", win_rate_pct),
+                    ("total_trades", total_trades),
+                    ("profit_factor", profit_factor),
+                    ("equity_curve", json.dumps(equity_curve)),
+                    ("trades", json.dumps([t.model_dump() for t in trades_list])),
+                    ("regime_performance", json.dumps(regime_stats) if regime_stats else None),
                 ]
 
-                # Add strategy_config if column exists
-                if "strategy_config" in existing_cols:
-                    columns.insert(1, "strategy_config")
-                    values.insert(1, json.dumps(final_params))
+                # Only insert columns that exist in the table
+                filtered = [(c, v) for c, v in desired if c in existing_cols]
+                columns = [c for c, v in filtered]
+                values = [v for c, v in filtered]
 
                 placeholders = ", ".join(["%s"] * len(columns))
                 col_names = ", ".join(columns)
@@ -1470,37 +1467,32 @@ def save_report(request: dict):
             """)
             existing_columns = {row[0] for row in storage.cursor.fetchall()}
 
-            # Build INSERT dynamically based on available columns
-            columns = ["strategy_name", "symbol", "timeframe",
-                       "start_date", "end_date", "initial_capital",
-                       "total_return_pct", "sharpe_ratio", "max_drawdown_pct",
-                       "win_rate_pct", "total_trades", "profit_factor",
-                       "equity_curve", "trades",
-                       "ai_summary", "ai_recommendations", "ai_concerns"]
-            values = [
-                backtest_results.get("strategy_name"),
-                backtest_results.get("symbol"),
-                backtest_results.get("timeframe"),
-                backtest_results.get("start_date"),
-                backtest_results.get("end_date"),
-                backtest_results.get("initial_capital", 10000),
-                backtest_results.get("total_return_pct"),
-                backtest_results.get("sharpe_ratio"),
-                backtest_results.get("max_drawdown_pct"),
-                backtest_results.get("win_rate_pct"),
-                backtest_results.get("total_trades"),
-                backtest_results.get("profit_factor"),
-                json.dumps(backtest_results.get("equity_curve", [])),
-                json.dumps(backtest_results.get("trades", [])),
-                ai_summary,
-                json.dumps(ai_recommendations),
-                json.dumps(ai_concerns),
+            # Define all desired columns and their values
+            desired = [
+                ("strategy_name", backtest_results.get("strategy_name")),
+                ("strategy_config", json.dumps(backtest_results.get("strategy_config", {}))),
+                ("symbol", backtest_results.get("symbol")),
+                ("timeframe", backtest_results.get("timeframe")),
+                ("start_date", backtest_results.get("start_date")),
+                ("end_date", backtest_results.get("end_date")),
+                ("initial_capital", backtest_results.get("initial_capital", 10000)),
+                ("total_return_pct", backtest_results.get("total_return_pct")),
+                ("sharpe_ratio", backtest_results.get("sharpe_ratio")),
+                ("max_drawdown_pct", backtest_results.get("max_drawdown_pct")),
+                ("win_rate_pct", backtest_results.get("win_rate_pct")),
+                ("total_trades", backtest_results.get("total_trades")),
+                ("profit_factor", backtest_results.get("profit_factor")),
+                ("equity_curve", json.dumps(backtest_results.get("equity_curve", []))),
+                ("trades", json.dumps(backtest_results.get("trades", []))),
+                ("ai_summary", ai_summary),
+                ("ai_recommendations", json.dumps(ai_recommendations)),
+                ("ai_concerns", json.dumps(ai_concerns)),
             ]
 
-            # Add strategy_config if column exists
-            if "strategy_config" in existing_columns:
-                columns.insert(1, "strategy_config")
-                values.insert(1, json.dumps(backtest_results.get("strategy_config", {})))
+            # Only insert columns that exist in the table
+            filtered = [(c, v) for c, v in desired if c in existing_columns]
+            columns = [c for c, v in filtered]
+            values = [v for c, v in filtered]
 
             placeholders = ", ".join(["%s"] * len(columns))
             col_names = ", ".join(columns)
