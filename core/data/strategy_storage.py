@@ -58,6 +58,7 @@ class StrategyStorage:
                 database=self.config["database"],
                 user=self.config["user"],
                 password=self.config.get("password", ""),
+                sslmode=self.config.get("sslmode", "prefer"),
             )
             logger.info("StrategyStorage connected to database")
             return True

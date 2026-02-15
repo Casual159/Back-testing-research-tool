@@ -46,6 +46,7 @@ class PostgresStorage:
                 database=self.config["database"],
                 user=self.config["user"],
                 password=self.config["password"],
+                sslmode=self.config.get("sslmode", "prefer"),
             )
             self.cursor = self.conn.cursor()
             logger.info(f"Connected to PostgreSQL at {self.config['host']}:{self.config['port']}")

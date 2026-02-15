@@ -46,12 +46,14 @@ class Config:
         POSTGRES_DB = _parsed.path.lstrip("/") or "trading_bot"
         POSTGRES_USER = _parsed.username or "postgres"
         POSTGRES_PASSWORD = _parsed.password
+        POSTGRES_SSLMODE = "require"  # Public connections need SSL
     else:
         POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
         POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
         POSTGRES_DB = os.getenv("POSTGRES_DB", "trading_bot")
         POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
         POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+        POSTGRES_SSLMODE = os.getenv("POSTGRES_SSLMODE", "prefer")
 
     # Trading Settings
     TEST_MODE = os.getenv("TEST_MODE", "true").lower() == "true"
@@ -120,6 +122,7 @@ class Config:
             "database": cls.POSTGRES_DB,
             "user": cls.POSTGRES_USER,
             "password": cls.POSTGRES_PASSWORD,
+            "sslmode": cls.POSTGRES_SSLMODE,
         }
 
 
