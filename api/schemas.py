@@ -323,6 +323,10 @@ class AgentChatRequest(BaseModel):
         pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
         description="UUID of existing conversation to continue",
     )
+    project_id: Optional[str] = Field(
+        None,
+        description="Project ID for timeline event creation",
+    )
 
     @field_validator("message")
     @classmethod
