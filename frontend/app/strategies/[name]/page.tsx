@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, PlayCircle, Settings, Zap, Layers, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { apiEndpoint } from "@/lib/config";
 
 interface StrategyDetail {
   name: string;
@@ -44,7 +45,7 @@ export default function StrategyDetailPage({
       setError(null);
       try {
         const response = await fetch(
-          `http://localhost:8000/api/strategies/${encodeURIComponent(name)}`
+          apiEndpoint(`/strategies/${encodeURIComponent(name)}`)
         );
         if (!response.ok) {
           if (response.status === 404) {

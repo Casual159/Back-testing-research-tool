@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
 import { useProject } from '@/lib/contexts';
+import { apiEndpoint } from '@/lib/config';
 
 // =============================================================================
 // Types - Block-based message structure
@@ -139,7 +140,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
     setMessages((prev) => [...prev, assistantMessage]);
 
     try {
-      const response = await fetch('http://localhost:8000/api/agent/chat/stream', {
+      const response = await fetch(apiEndpoint('/agent/chat/stream'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

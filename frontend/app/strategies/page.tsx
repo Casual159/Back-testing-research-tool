@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ArrowLeft, Plus, PlayCircle, Settings, Layers, Zap, RefreshCw, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { apiEndpoint } from "@/lib/config";
 
 interface Strategy {
   name: string;
@@ -43,7 +44,7 @@ export default function StrategiesPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("http://localhost:8000/api/strategies");
+      const response = await fetch(apiEndpoint("/strategies"));
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -68,7 +69,7 @@ export default function StrategiesPage() {
 
     setDeletingStrategy(name);
     try {
-      const response = await fetch(`http://localhost:8000/api/strategies/${encodeURIComponent(name)}`, {
+      const response = await fetch(apiEndpoint(`/strategies/${encodeURIComponent(name)}`), {
         method: "DELETE",
       });
       if (!response.ok) {

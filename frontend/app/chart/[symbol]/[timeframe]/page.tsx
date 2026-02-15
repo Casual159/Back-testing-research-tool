@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import CandlestickChart from "@/components/CandlestickChart";
+import { apiEndpoint } from "@/lib/config";
 
 interface CandleData {
   time: number;
@@ -48,8 +49,8 @@ export default function ChartPage() {
       try {
         // Fetch both candles and regime data in parallel
         const [candlesRes, regimeRes] = await Promise.all([
-          fetch(`http://localhost:8000/api/data/candles/${symbol}/${timeframe}`),
-          fetch(`http://localhost:8000/api/data/regime/${symbol}/${timeframe}`)
+          fetch(apiEndpoint(`/data/candles/${symbol}/${timeframe}`)),
+          fetch(apiEndpoint(`/data/regime/${symbol}/${timeframe}`))
         ]);
 
         if (!candlesRes.ok) {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { apiEndpoint } from '@/lib/config';
 
 interface ReportSummary {
   id: string;
@@ -152,7 +153,7 @@ export default function ResultsPage() {
 
   const fetchReports = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/reports');
+      const response = await fetch(apiEndpoint('/reports'));
       if (!response.ok) throw new Error('Failed to fetch reports');
       const data = await response.json();
       setReports(data);
@@ -165,7 +166,7 @@ export default function ResultsPage() {
 
   const fetchReportDetail = async (reportId: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/reports/${reportId}`);
+      const response = await fetch(apiEndpoint(`/reports/${reportId}`));
       if (!response.ok) throw new Error('Failed to fetch report');
       const data = await response.json();
       setSelectedReport(data);

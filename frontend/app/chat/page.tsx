@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { ChatMessage, ChatInput, ConfirmationCard } from '@/components/chat';
 import { MessageBlock, TextBlock, ToolBlock } from '@/components/chat/ChatProvider';
+import { apiEndpoint } from '@/lib/config';
 
 interface ToolCall {
   tool_name: string;
@@ -64,7 +65,7 @@ export default function ChatPage() {
     setAwaitingConfirmation(false);
 
     try {
-      const response = await fetch('http://localhost:8000/api/agent/chat', {
+      const response = await fetch(apiEndpoint('/agent/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

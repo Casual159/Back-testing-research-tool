@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Plus, Trash2, Save, Eye, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { apiEndpoint } from "@/lib/config";
 
 // Available indicators with their parameters and outputs
 const INDICATORS = {
@@ -162,7 +163,7 @@ export default function CreateStrategyPage() {
         ...(regimeFilter.length > 0 ? { regime_filter: regimeFilter } : {}),
       };
 
-      const response = await fetch("http://localhost:8000/api/strategies", {
+      const response = await fetch(apiEndpoint("/strategies"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

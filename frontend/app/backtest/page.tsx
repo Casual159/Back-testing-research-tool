@@ -9,6 +9,7 @@ import {
   BarChart3, Activity, Target, AlertCircle, CheckCircle
 } from "lucide-react";
 import Link from "next/link";
+import { apiEndpoint } from "@/lib/config";
 
 interface Strategy {
   name: string;
@@ -102,7 +103,7 @@ function BacktestPageContent() {
   useEffect(() => {
     const loadStrategies = async () => {
       try {
-        const response = await fetch("http://localhost:8000/api/strategies");
+        const response = await fetch(apiEndpoint("/strategies"));
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -132,7 +133,7 @@ function BacktestPageContent() {
   useEffect(() => {
     const loadDatasets = async () => {
       try {
-        const response = await fetch("http://localhost:8000/api/data/stats");
+        const response = await fetch(apiEndpoint("/data/stats"));
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -205,7 +206,7 @@ function BacktestPageContent() {
           end_date: endDate,
         });
         const response = await fetch(
-          `http://localhost:8000/api/data/check/${symbol}/${timeframe}?${params}`
+          apiEndpoint(`/data/check/${symbol}/${timeframe}?${params}`)
         );
         const data = await response.json();
         setDataAvailable(data.available);
@@ -231,7 +232,7 @@ function BacktestPageContent() {
     setResult(null);
 
     try {
-      const response = await fetch("http://localhost:8000/api/backtest", {
+      const response = await fetch(apiEndpoint("/backtest"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

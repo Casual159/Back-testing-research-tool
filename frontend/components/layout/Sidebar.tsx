@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useProject } from '@/lib/contexts';
 import { cn } from '@/lib/utils';
+import { apiEndpoint } from '@/lib/config';
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar_collapsed';
 
@@ -141,7 +142,7 @@ function SystemStatus() {
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const response = await fetch('http://localhost:8000/');
+        const response = await fetch(apiEndpoint('/'));
         setStatus(response.ok ? 'ok' : 'error');
       } catch {
         setStatus('error');

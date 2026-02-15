@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Download, Database, Calendar, X, LineChart, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { apiEndpoint } from "@/lib/config";
 
 interface DataStats {
   symbol: string;
@@ -37,7 +38,7 @@ export default function DataPage() {
   const loadStats = async () => {
     setStatsLoading(true);
     try {
-      const response = await fetch("http://localhost:8000/api/data/stats");
+      const response = await fetch(apiEndpoint("/data/stats"));
       const data = await response.json();
       setStats(data);
     } catch (error) {
@@ -58,7 +59,7 @@ export default function DataPage() {
     setResult(null);
 
     try {
-      const response = await fetch("http://localhost:8000/api/data/fetch", {
+      const response = await fetch(apiEndpoint("/data/fetch"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -94,7 +95,7 @@ export default function DataPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/data/${symbol}/${timeframe}`,
+        apiEndpoint(`/data/${symbol}/${timeframe}`),
         { method: "DELETE" }
       );
 
