@@ -26,7 +26,7 @@ config = context.config
 # Load app config and set database URL
 app_config = load_config()
 db_config = app_config["database"]
-db_url = f"postgresql://{db_config['user']}:{db_config['password']}@{db_config['host']}/{db_config['database']}"
+db_url = f"postgresql://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['database']}?sslmode={db_config.get('sslmode', 'prefer')}"
 config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
