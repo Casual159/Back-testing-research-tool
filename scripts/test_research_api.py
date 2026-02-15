@@ -3,10 +3,8 @@
 Test script for Research Agent API endpoints
 Run this to verify all endpoints are working correctly
 """
-import json
 import sys
 from datetime import datetime
-from pathlib import Path
 
 import requests
 
@@ -44,7 +42,7 @@ def test_health():
     """Test health check endpoint"""
     print_test("Health Check")
     try:
-        response = requests.get(f"{BASE_URL}/api/health")
+        response = requests.get(f"{BASE_URL}/api/health", timeout=30)
         if response.status_code == 200:
             data = response.json()
             print_success(f"API is {data['status']}")
@@ -63,7 +61,7 @@ def test_available_symbols():
     """Test get available symbols endpoint"""
     print_test("Get Available Symbols")
     try:
-        response = requests.get(f"{BASE_URL}/api/research/symbols")
+        response = requests.get(f"{BASE_URL}/api/research/symbols", timeout=30)
         if response.status_code == 200:
             data = response.json()
             print_success(f"Found {data['count']} symbols")
@@ -83,7 +81,7 @@ def test_market_stats():
     print_test("Get Market Statistics")
     try:
         payload = {"symbol": "BTCUSDT", "timeframe": "1h"}
-        response = requests.post(f"{BASE_URL}/api/research/stats", json=payload)
+        response = requests.post(f"{BASE_URL}/api/research/stats", json=payload, timeout=30)
 
         if response.status_code == 200:
             data = response.json()
@@ -125,7 +123,7 @@ def test_save_insight():
             "metadata": {"automated_test": True},
         }
 
-        response = requests.post(f"{BASE_URL}/api/research/insights", json=payload)
+        response = requests.post(f"{BASE_URL}/api/research/insights", json=payload, timeout=30)
 
         if response.status_code == 200:
             data = response.json()
@@ -143,16 +141,15 @@ def test_get_insights():
     """Test get insights endpoint"""
     print_test("Get Research Insights")
     try:
-        response = requests.get(f"{BASE_URL}/api/research/insights?limit=5")
+        response = requests.get(f"{BASE_URL}/api/research/insights?limit=5", timeout=30)
 
         if response.status_code == 200:
             data = response.json()
             print_success(f"Retrieved {data['count']} insights")
             if data["count"] > 0:
                 for insight in data["insights"][:3]:  # Show first 3
-                    print(
-                        f"  #{insight['id']}: {insight['insight_type']} - {insight['insight_summary'][:50]}..."
-                    )
+                    summary = insight["insight_summary"][:50]
+                    print(f"  #{insight['id']}: {insight['insight_type']}" f" - {summary}...")
             else:
                 print_info("No insights found yet")
             return True
@@ -168,7 +165,7 @@ def test_query_history():
     """Test query history endpoint"""
     print_test("Get Query History")
     try:
-        response = requests.get(f"{BASE_URL}/api/research/queries?limit=5")
+        response = requests.get(f"{BASE_URL}/api/research/queries?limit=5", timeout=30)
 
         if response.status_code == 200:
             data = response.json()
@@ -195,7 +192,7 @@ def test_log_query():
     try:
         payload = {"query": "Test query for validation", "query_type": "analysis"}
 
-        response = requests.post(f"{BASE_URL}/api/research/query", json=payload)
+        response = requests.post(f"{BASE_URL}/api/research/query", json=payload, timeout=30)
 
         if response.status_code == 200:
             data = response.json()

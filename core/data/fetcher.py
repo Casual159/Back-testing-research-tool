@@ -5,7 +5,7 @@ Handles downloading historical OHLCV data from Binance API
 
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 
 import pandas as pd

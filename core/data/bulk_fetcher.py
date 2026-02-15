@@ -7,14 +7,11 @@ import io
 import logging
 import zipfile
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 import pandas as pd
 import requests
 from dateutil.relativedelta import relativedelta
-
-from config import DataConfig
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +169,7 @@ class BinanceBulkFetcher:
                     df = self._download_daily_file(symbol, timeframe, date_str)
                     if not df.empty:
                         all_data.append(df)
-                except Exception:
+                except Exception:  # nosec B110
                     pass
 
                 current_file += 1
@@ -194,7 +191,7 @@ class BinanceBulkFetcher:
                     df = self._download_monthly_file(symbol, timeframe, year_month)
                     if not df.empty:
                         all_data.append(df)
-                except Exception:
+                except Exception:  # nosec B110
                     pass
 
                 current_file += 1
@@ -311,7 +308,10 @@ class BinanceBulkFetcher:
         Returns:
             DataFrame with OHLCV data
         """
-        url = f"{self.BASE_URL}/monthly/klines/{symbol}/{timeframe}/{symbol}-{timeframe}-{year_month}.zip"
+        url = (
+            f"{self.BASE_URL}/monthly/klines/{symbol}/{timeframe}"
+            f"/{symbol}-{timeframe}-{year_month}.zip"
+        )
         return self._download_and_parse_zip(url)
 
     def _download_daily_file(self, symbol: str, timeframe: str, date: str) -> pd.DataFrame:

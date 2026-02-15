@@ -10,7 +10,7 @@ Uses adaptive thresholds and event-driven processing (no lookahead bias).
 """
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -138,7 +138,6 @@ class MarketRegimeClassifier:
         """
         adx = row.get("adx")
         close = row.get("close")
-        sma_20 = row.get("sma_20")
         sma_50 = row.get("sma_50")
         sma_200 = row.get("sma_200")
 

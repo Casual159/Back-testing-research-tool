@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Test the regime API endpoint"""
-import json
 from collections import Counter
 
 import requests
@@ -24,7 +23,8 @@ print()
 print("Last 5 regimes:")
 for d in data[-5:]:
     print(
-        f"  {d['regime']:12s} | {d['full_regime']:30s} | confidence: {d['confidence']:.2f} | color: {d['color']}"
+        f"  {d['regime']:12s} | {d['full_regime']:30s}"
+        f" | confidence: {d['confidence']:.2f} | color: {d['color']}"
     )
 
 print()

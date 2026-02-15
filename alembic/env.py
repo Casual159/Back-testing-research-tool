@@ -12,12 +12,12 @@ from alembic import context
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Load environment variables
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv()
 
 # Import config
-from config.config import load_config
+from config.config import load_config  # noqa: E402
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -26,7 +26,11 @@ config = context.config
 # Load app config and set database URL
 app_config = load_config()
 db_config = app_config["database"]
-db_url = f"postgresql://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['database']}?sslmode={db_config.get('sslmode', 'prefer')}"
+db_url = (
+    f"postgresql://{db_config['user']}:{db_config['password']}"
+    f"@{db_config['host']}:{db_config['port']}/{db_config['database']}"
+    f"?sslmode={db_config.get('sslmode', 'prefer')}"
+)
 config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.

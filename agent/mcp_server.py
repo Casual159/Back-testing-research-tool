@@ -6,7 +6,7 @@ Exposes backtesting tools via Model Context Protocol for Claude Code integration
 
 import asyncio
 import json
-import sys
+import os as _os
 from typing import Any
 from urllib.parse import quote
 
@@ -19,7 +19,6 @@ from mcp.types import TextContent, Tool
 # CONFIGURATION
 # =============================================================================
 
-import os as _os
 
 _port = _os.getenv("PORT", "8000")
 API_BASE_URL = _os.getenv("API_BASE_URL", f"http://localhost:{_port}")
@@ -50,7 +49,7 @@ async def log_error_to_api(
                 },
             )
     except Exception:
-        pass  # Fire and forget - don't fail if logging fails
+        pass  # Fire and forget - don't fail if logging fails  # nosec B110
 
 
 # =============================================================================
@@ -179,7 +178,11 @@ INTERPRETING RESULTS:
                     "regime_filter": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Only trade in these regimes: TREND_UP, TREND_DOWN, RANGE, CHOPPY, NEUTRAL",
+                        "description": (
+                            "Only trade in these regimes:"
+                            " TREND_UP, TREND_DOWN, RANGE,"
+                            " CHOPPY, NEUTRAL"
+                        ),
                     },
                     "parameters": {"type": "object", "description": "Override strategy parameters"},
                 },
@@ -218,7 +221,9 @@ REGIME RECOMMENDATIONS:
                     },
                     "parameters": {
                         "type": "object",
-                        "description": "Strategy parameters (e.g., {fast_period: 10, slow_period: 30})",
+                        "description": (
+                            "Strategy parameters (e.g.," " {fast_period: 10," " slow_period: 30})"
+                        ),
                     },
                     "entry_logic": {
                         "type": "object",
@@ -502,7 +507,7 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
                 error_detail = "Unknown error"
                 try:
                     error_detail = response.json().get("detail", error_detail)
-                except:
+                except Exception:
                     error_detail = response.text
                 return {"error": True, "status_code": response.status_code, "detail": error_detail}
 

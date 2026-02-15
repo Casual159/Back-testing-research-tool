@@ -249,7 +249,7 @@ class BacktestRequest(BaseModel):
             if date > datetime.now():
                 raise ValueError("Date cannot be in the future")
             return v
-        except ValueError as e:
+        except ValueError:
             raise ValueError(f"Invalid date: {v}. Use YYYY-MM-DD format")
 
     @field_validator("end_date")
@@ -362,7 +362,9 @@ class UpdateProjectRequest(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     thesis: Optional[str] = Field(None, max_length=2000)
     status: Optional[str] = Field(None, pattern=r"^(active|paused|concluded)$")
-    validation_result: Optional[str] = Field(None, pattern=r"^(validated|invalidated|inconclusive)$")
+    validation_result: Optional[str] = Field(
+        None, pattern=r"^(validated|invalidated|inconclusive)$"
+    )
 
 
 class CreateEventRequest(BaseModel):

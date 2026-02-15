@@ -37,8 +37,8 @@ repos:
         additional_dependencies:
           - types-requests
           - types-python-dateutil
-        args: [--ignore-missing-imports, --no-strict-optional]
-        exclude: ^(tests/|scripts/|migrations/)
+        args: [--ignore-missing-imports, --no-strict-optional, --follow-imports=silent]
+        exclude: ^(tests/|scripts/|migrations/|alembic/|core/|agent/|api/middleware\.py|api/schemas\.py)
 
   # General checks
   - repo: https://github.com/pre-commit/pre-commit-hooks

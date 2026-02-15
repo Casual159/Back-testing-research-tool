@@ -47,7 +47,7 @@ def generate_db_schema():
         cursor = conn.cursor()
 
         output_lines = []
-        output_lines.append(f"-- Auto-generated database schema documentation")
+        output_lines.append("-- Auto-generated database schema documentation")
         output_lines.append(f"-- Generated: {datetime.now().isoformat()}")
         output_lines.append(f"-- Database: {config['database']}")
         output_lines.append(f"-- Host: {config['host']}:{config['port']}")
@@ -188,7 +188,7 @@ def generate_db_schema():
         with open(output_file, "w", encoding="utf-8") as f:
             f.write("\n".join(output_lines))
 
-        print(f"✓ Generated database schema documentation")
+        print("✓ Generated database schema documentation")
         print(f"  - Tables: {len(tables)}")
         print(f"  - Output: {output_file}")
         print(f"  - Generated: {datetime.now().isoformat()}")
@@ -197,8 +197,8 @@ def generate_db_schema():
 
     except psycopg2.Error as e:
         print(f"✗ Database error: {e}")
-        print(f"  - Check your .env file has correct DB credentials")
-        print(f"  - Ensure PostgreSQL is running")
+        print("  - Check your .env file has correct DB credentials")
+        print("  - Ensure PostgreSQL is running")
         sys.exit(1)
 
 

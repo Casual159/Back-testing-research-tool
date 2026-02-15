@@ -6,9 +6,9 @@ import sys
 
 sys.path.insert(0, "/Users/jakub/Back-testing-research-tool")
 
-import psycopg2
+import psycopg2  # noqa: E402
 
-from config.config import load_config
+from config.config import load_config  # noqa: E402
 
 
 def run_migration(migration_file: str):

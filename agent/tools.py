@@ -294,11 +294,10 @@ Use this to decide which strategy type would be appropriate:
 # TOOL EXECUTION (API Wrapper)
 # =============================================================================
 
-from typing import Any, Dict, Optional
+import os  # noqa: E402
+from typing import Any, Dict  # noqa: E402
 
-import httpx
-
-import os
+import httpx  # noqa: E402
 
 _port = os.getenv("PORT", "8000")
 API_BASE_URL = os.getenv("API_BASE_URL", f"http://localhost:{_port}")

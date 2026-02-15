@@ -64,7 +64,7 @@ def test_connection():
         print("\n" + "=" * 50)
         print("🎉 PostgreSQL setup complete!")
         print("=" * 50)
-        print(f"\nConnection details:")
+        print("\nConnection details:")
         print(f"  Host: {Config.POSTGRES_HOST}")
         print(f"  Port: {Config.POSTGRES_PORT}")
         print(f"  Database: {Config.POSTGRES_DB}")

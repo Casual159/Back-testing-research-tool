@@ -20,7 +20,9 @@ def get_system_prompt() -> str:
 
 ## Tools
 
-You have tools for: listing strategies, checking data, fetching data, getting market regime, running backtests, creating strategies.
+You have tools for: listing strategies, checking data,
+fetching data, getting market regime, running backtests,
+creating strategies.
 
 ## Key Rules
 

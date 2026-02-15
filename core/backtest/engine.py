@@ -127,7 +127,7 @@ class BacktestEngine:
 
         # Backtest complete
         print("-" * 60)
-        print(f"Backtest complete!")
+        print("Backtest complete!")
         print(f"Bars processed: {self.bars_processed}")
         print(f"Signals generated: {self.signals_generated}")
         print(f"Orders executed: {self.orders_executed}")

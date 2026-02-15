@@ -8,8 +8,8 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from config.config import load_config
-from core.data.storage import PostgresStorage
+from config.config import load_config  # noqa: E402
+from core.data.storage import PostgresStorage  # noqa: E402
 
 
 def apply_migration(migration_file: str):

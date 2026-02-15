@@ -7,7 +7,7 @@ Supports both built-in and composite strategies.
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -314,7 +314,7 @@ class StrategyStorage:
             SET {', '.join(set_clauses)}
             WHERE name = %s
             RETURNING id
-        """
+        """  # nosec B608 - column names from allowed_fields, not user input
 
         with self.conn.cursor() as cur:
             cur.execute(query, values)
@@ -342,7 +342,10 @@ class StrategyStorage:
         if hard_delete:
             query = "DELETE FROM strategies WHERE name = %s RETURNING id"
         else:
-            query = "UPDATE strategies SET is_active = false, updated_at = NOW() WHERE name = %s RETURNING id"
+            query = (
+                "UPDATE strategies SET is_active = false, updated_at = NOW() "
+                "WHERE name = %s RETURNING id"
+            )
 
         with self.conn.cursor() as cur:
             cur.execute(query, (name,))

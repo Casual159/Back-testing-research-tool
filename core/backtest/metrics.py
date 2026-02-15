@@ -106,8 +106,6 @@ class MetricsCalculator:
             days = (end_date - start_date).days
         except AttributeError:
             # If not datetime objects, try to convert or use len as proxy
-            from datetime import datetime
-
             if isinstance(start_date, (int, float)):
                 # Assume it's index - use number of bars as proxy
                 days = len(self.portfolio.equity_curve)

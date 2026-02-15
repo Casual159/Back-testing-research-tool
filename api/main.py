@@ -13,36 +13,38 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 # Add parent directory to path to import core modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Structured logging
-from core.logging_config import get_logger, setup_logging
+from core.logging_config import get_logger, setup_logging  # noqa: E402
 
 # Setup logging first
 setup_logging(log_level="INFO", json_logs=False)  # Set json_logs=True for production
 logger = get_logger(__name__)
 
 # Import middleware
-from api.middleware import ErrorHandlerMiddleware, LoggingMiddleware, RequestIDMiddleware
+from api.middleware import (  # noqa: E402
+    ErrorHandlerMiddleware,
+    LoggingMiddleware,
+    RequestIDMiddleware,
+)
 
 # Import schemas (new validated models)
-from api.schemas import (
+from api.schemas import (  # noqa: E402
     AgentChatRequest,
     BacktestRequest,
     BacktestResponse,
-    CandleData,
     CreateEventRequest,
     CreateProjectRequest,
     CreateStrategyRequest,
     DataFetchRequest,
     DataFetchResponse,
-    DataStatsResponse,
     LogErrorRequest,
     OnboardingPreferencesRequest,
     StrategyResponse,
@@ -53,13 +55,13 @@ from api.schemas import (
 # Add parent directory to path to import core modules
 sys.path.append(str(Path(__file__).parent.parent))
 
-from config.config import load_config
-from core.data.bulk_fetcher import BinanceBulkFetcher
-from core.data.storage import PostgresStorage
-from core.indicators.regime import detect_market_regimes
+from config.config import load_config  # noqa: E402
+from core.data.bulk_fetcher import BinanceBulkFetcher  # noqa: E402
+from core.data.storage import PostgresStorage  # noqa: E402
+from core.indicators.regime import detect_market_regimes  # noqa: E402
 
 # from core.data.strategy_storage import StrategyStorage  # Deprecated - using new strategies table
-from core.indicators.technical import add_all_indicators
+from core.indicators.technical import add_all_indicators  # noqa: E402
 
 app = FastAPI(
     title="Backtesting Research Tool API",
@@ -112,6 +114,7 @@ PARAMETER_ALIASES = {
     "std": "num_std",
 }
 
+
 def log_error_to_db(
     source: str,
     error_type: str,
@@ -126,7 +129,9 @@ def log_error_to_db(
         with PostgresStorage(config["database"]) as storage:
             storage.cursor.execute(
                 """
-                INSERT INTO error_logs (source, tool_name, error_type, error_message, stack_trace, request_data, conversation_id)
+                INSERT INTO error_logs
+                (source, tool_name, error_type, error_message,
+                 stack_trace, request_data, conversation_id)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
                 (
@@ -142,6 +147,7 @@ def log_error_to_db(
             storage.conn.commit()
     except Exception as e:
         logger.error(f"Failed to log error to DB: {e}")
+
 
 def raise_http_error(
     status_code: int,
@@ -159,6 +165,7 @@ def raise_http_error(
         request_data=request_data,
     )
     raise HTTPException(status_code=status_code, detail=detail)
+
 
 def normalize_strategy_parameters(params: Dict[str, Any], strategy_class: Type) -> Dict[str, Any]:
     """
@@ -196,6 +203,7 @@ def normalize_strategy_parameters(params: Dict[str, Any], strategy_class: Type) 
 
     return filtered
 
+
 # =============================================================================
 # DEPRECATED: Old Pydantic models (use api.schemas instead)
 # Kept for backward compatibility during migration
@@ -205,6 +213,7 @@ def normalize_strategy_parameters(params: Dict[str, Any], strategy_class: Type) 
 # Example: from api.schemas import DataFetchRequest
 # The models below will be removed in a future version.
 
+
 class DataFetchRequest_DEPRECATED(BaseModel):
     """DEPRECATED: Use api.schemas.DataFetchRequest instead"""
 
@@ -213,13 +222,15 @@ class DataFetchRequest_DEPRECATED(BaseModel):
     start_date: str  # ISO format: "2024-01-01"
     end_date: Optional[str] = None
 
+
 @app.get("/")
 def read_root():
     """Health check endpoint"""
     return {"status": "running", "service": "Backtesting Research Tool API", "version": "1.0.0"}
 
+
 @app.get("/api/data/stats")
-def get_data_stats() -> List[DataStatsResponse]:
+def get_data_stats() -> list:
     """Get statistics about stored data in PostgreSQL"""
     try:
         with PostgresStorage(config["database"]) as storage:
@@ -241,6 +252,7 @@ def get_data_stats() -> List[DataStatsResponse]:
             return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+
 
 @app.post("/api/data/fetch/stream")
 async def fetch_data_stream(request: DataFetchRequest):
@@ -279,7 +291,13 @@ async def fetch_data_stream(request: DataFetchRequest):
                     storage.create_tables()
                     inserted = storage.insert_candles(final_df, request.symbol, request.timeframe)
 
-            yield f"data: {json.dumps({'type': 'done', 'success': True, 'candles_fetched': len(final_df) if final_df is not None else 0, 'candles_inserted': inserted})}\n\n"
+            done_event = {
+                "type": "done",
+                "success": True,
+                "candles_fetched": len(final_df) if final_df is not None else 0,
+                "candles_inserted": inserted,
+            }
+            yield f"data: {json.dumps(done_event)}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -293,6 +311,7 @@ async def fetch_data_stream(request: DataFetchRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
 
 @app.post("/api/data/fetch")
 def fetch_data(request: DataFetchRequest) -> DataFetchResponse:
@@ -334,6 +353,7 @@ def fetch_data(request: DataFetchRequest) -> DataFetchResponse:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch data: {str(e)}")
 
+
 @app.get("/api/data/range/{symbol}/{timeframe}")
 def get_data_range(symbol: str, timeframe: str):
     """Get available data range for a symbol/timeframe"""
@@ -354,8 +374,9 @@ def get_data_range(symbol: str, timeframe: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get data range: {str(e)}")
 
+
 @app.get("/api/data/candles/{symbol}/{timeframe}")
-def get_candles(symbol: str, timeframe: str) -> List[CandleData]:
+def get_candles(symbol: str, timeframe: str) -> list:
     """Get all candles for a symbol/timeframe for chart visualization"""
     try:
         with PostgresStorage(config["database"]) as storage:
@@ -386,6 +407,7 @@ def get_candles(symbol: str, timeframe: str) -> List[CandleData]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get candles: {str(e)}")
 
+
 @app.delete("/api/data/{symbol}/{timeframe}")
 def delete_data(symbol: str, timeframe: str):
     """Delete all candles for a symbol/timeframe"""
@@ -407,6 +429,7 @@ def delete_data(symbol: str, timeframe: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete data: {str(e)}")
+
 
 @app.get("/api/data/regime/{symbol}/{timeframe}")
 def get_regime_data(symbol: str, timeframe: str):
@@ -515,28 +538,11 @@ def get_regime_data(symbol: str, timeframe: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get regimes: {str(e)}")
 
+
 # =============================================================================
 # STRATEGY ENDPOINTS
 # =============================================================================
 
-    name: str
-    description: str
-    strategy_type: str
-    parameters: dict
-    regime_filter: Optional[List[str]] = None
-    sub_regime_filter: Optional[dict] = None
-
-    name: str
-    description: str = ""
-    builtin_class: Optional[str] = (
-        None  # For built-in strategy variants (e.g., "MovingAverageCrossover")
-    )
-    entry_logic: Optional[dict] = None  # LogicTree JSON for composite strategies
-    exit_logic: Optional[dict] = None  # LogicTree JSON for composite strategies
-    parameters: Optional[dict] = None
-    regime_filter: Optional[List[str]] = None
-    sub_regime_filter: Optional[dict] = None
-    metadata: Optional[dict] = None  # Optional metadata override
 
 @app.get("/api/strategies", response_model=List[StrategyResponse])
 def list_strategies():
@@ -575,6 +581,7 @@ def list_strategies():
             ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list strategies: {str(e)}")
+
 
 @app.get("/api/strategies/{name:path}")
 def get_strategy(name: str):
@@ -629,6 +636,7 @@ def get_strategy(name: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get strategy: {str(e)}")
+
 
 @app.post("/api/strategies")
 def create_strategy(request: CreateStrategyRequest):
@@ -728,6 +736,7 @@ def create_strategy(request: CreateStrategyRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create strategy: {str(e)}")
 
+
 @app.delete("/api/strategies/{name:path}")
 def delete_strategy(name: str):
     """Delete a strategy from strategies table"""
@@ -755,56 +764,11 @@ def delete_strategy(name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete strategy: {str(e)}")
 
+
 # =============================================================================
 # BACKTEST ENDPOINT
 # =============================================================================
 
-    strategy_name: str
-    symbol: str = "BTCUSDT"
-    timeframe: str = "1h"
-    start_date: str  # ISO format: "2024-01-01"
-    end_date: Optional[str] = None
-    initial_capital: float = 10000.0
-    commission_rate: float = 0.001
-    slippage_rate: float = 0.0005
-    position_size_pct: float = 1.0
-    # Override strategy parameters for this run
-    parameters: Optional[dict] = None
-    # Override regime filter for this run
-    regime_filter: Optional[List[str]] = None
-
-    entry_time: str
-    exit_time: str
-    entry_price: float
-    exit_price: float
-    pnl: float
-    pnl_pct: float
-    duration_hours: float
-
-    success: bool
-    strategy_name: str
-    symbol: str
-    timeframe: str
-    start_date: str
-    end_date: str
-
-    # Key metrics for AI analysis
-    total_return_pct: float
-    sharpe_ratio: float
-    max_drawdown_pct: float
-    win_rate_pct: float
-    total_trades: int
-    profit_factor: float
-
-    # Data for visualization
-    equity_curve: List[dict]
-    trades: List[TradeResult]
-
-    # Regime statistics
-    regime_stats: Optional[dict] = None
-
-    # Auto-saved report ID
-    report_id: Optional[str] = None
 
 @app.post("/api/backtest", response_model=BacktestResponse)
 def run_backtest(request: BacktestRequest):
@@ -833,7 +797,10 @@ def run_backtest(request: BacktestRequest):
             if not row:
                 raise_http_error(
                     status_code=404,
-                    detail=f"Strategy '{request.strategy_name}' not found. Use list_strategies to see available strategies.",
+                    detail=(
+                        f"Strategy '{request.strategy_name}' not found."
+                        " Use list_strategies to see available strategies."
+                    ),
                     tool_name="run_backtest",
                     request_data=request.model_dump(),
                 )
@@ -851,7 +818,11 @@ def run_backtest(request: BacktestRequest):
             if data_range is None:
                 raise_http_error(
                     status_code=404,
-                    detail=f"No data found for {request.symbol} {request.timeframe}. Fetch data first using /api/data/fetch.",
+                    detail=(
+                        f"No data found for {request.symbol}"
+                        f" {request.timeframe}. Fetch data first"
+                        " using /api/data/fetch."
+                    ),
                     tool_name="run_backtest",
                     request_data=request.model_dump(),
                 )
@@ -864,7 +835,11 @@ def run_backtest(request: BacktestRequest):
             if df.empty:
                 raise_http_error(
                     status_code=400,
-                    detail=f"No candles found for {request.symbol} {request.timeframe} in range {request.start_date} to {request.end_date}",
+                    detail=(
+                        f"No candles found for {request.symbol}"
+                        f" {request.timeframe} in range"
+                        f" {request.start_date} to {request.end_date}"
+                    ),
                     tool_name="run_backtest",
                     request_data=request.model_dump(),
                 )
@@ -895,7 +870,10 @@ def run_backtest(request: BacktestRequest):
         if not strategy_class:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unknown strategy class: {class_name}. Available: {list(STRATEGY_CLASSES.keys())}",
+                detail=(
+                    f"Unknown strategy class: {class_name}."
+                    f" Available: {list(STRATEGY_CLASSES.keys())}"
+                ),
             )
 
         # Normalize and filter parameters to match strategy's __init__ signature
@@ -1067,6 +1045,7 @@ def run_backtest(request: BacktestRequest):
 
         raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
 
+
 @app.get("/api/data/check/{symbol}/{timeframe}")
 def check_data_availability(
     symbol: str, timeframe: str, start_date: Optional[str] = None, end_date: Optional[str] = None
@@ -1098,7 +1077,11 @@ def check_data_availability(
                         "timeframe": timeframe,
                         "data_start": data_range[0].isoformat(),
                         "data_end": data_range[1].isoformat(),
-                        "message": f"Requested start date {start_date} is before available data ({data_range[0].date()})",
+                        "message": (
+                            f"Requested start date {start_date}"
+                            " is before available data"
+                            f" ({data_range[0].date()})"
+                        ),
                     }
 
             if end_date:
@@ -1110,7 +1093,11 @@ def check_data_availability(
                         "timeframe": timeframe,
                         "data_start": data_range[0].isoformat(),
                         "data_end": data_range[1].isoformat(),
-                        "message": f"Requested end date {end_date} is after available data ({data_range[1].date()})",
+                        "message": (
+                            f"Requested end date {end_date}"
+                            " is after available data"
+                            f" ({data_range[1].date()})"
+                        ),
                     }
 
             return {
@@ -1125,13 +1112,11 @@ def check_data_availability(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to check data: {str(e)}")
 
+
 # =============================================================================
 # AGENT ENDPOINTS
 # =============================================================================
 
-    message: str
-    conversation_id: Optional[str] = None
-    project_id: Optional[str] = None  # For tracking research events
 
 def create_research_event_from_tool(project_id: str, tool_name: str, tool_result: dict):
     """
@@ -1152,7 +1137,11 @@ def create_research_event_from_tool(project_id: str, tool_name: str, tool_result
         "run_backtest": {
             "event_type": "backtest_run",
             "title_template": "Backtest: {strategy_name} on {symbol}",
-            "summary_template": "Return: {total_return_pct:.1f}%, Sharpe: {sharpe_ratio:.2f}, Trades: {total_trades}",
+            "summary_template": (
+                "Return: {total_return_pct:.1f}%,"
+                " Sharpe: {sharpe_ratio:.2f},"
+                " Trades: {total_trades}"
+            ),
             "reference_type": "backtest_report",
         },
     }
@@ -1177,7 +1166,11 @@ def create_research_event_from_tool(project_id: str, tool_name: str, tool_result
                 # For backtest, metrics might be nested
                 if tool_name == "run_backtest" and "metrics" in tool_result:
                     metrics = tool_result["metrics"]
-                    summary = f"Return: {metrics.get('total_return_pct', 0):.1f}%, Sharpe: {metrics.get('sharpe_ratio', 0):.2f}, Trades: {metrics.get('total_trades', 0)}"
+                    summary = (
+                        f"Return: {metrics.get('total_return_pct', 0):.1f}%,"
+                        f" Sharpe: {metrics.get('sharpe_ratio', 0):.2f},"
+                        f" Trades: {metrics.get('total_trades', 0)}"
+                    )
                 else:
                     summary = mapping["summary_template"].format(**tool_result)
             except (KeyError, TypeError):
@@ -1196,7 +1189,10 @@ def create_research_event_from_tool(project_id: str, tool_name: str, tool_result
 
             event_id = str(uuid4())
             query = """
-                INSERT INTO research_events (id, project_id, event_type, title, summary, reference_type, reference_id, data)
+                INSERT INTO research_events
+                    (id, project_id, event_type, title,
+                     summary, reference_type, reference_id,
+                     data)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """
@@ -1219,6 +1215,7 @@ def create_research_event_from_tool(project_id: str, tool_name: str, tool_result
     except Exception as e:
         print(f"Failed to create research event: {e}")
         return None
+
 
 @app.post("/api/agent/chat")
 async def agent_chat(request: AgentChatRequest):
@@ -1270,6 +1267,7 @@ async def agent_chat(request: AgentChatRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
 
+
 @app.post("/api/agent/chat/stream")
 async def agent_chat_stream(request: AgentChatRequest):
     """
@@ -1301,7 +1299,9 @@ async def agent_chat_stream(request: AgentChatRequest):
                     tool_result = event.get("result")
                     is_success = event.get("success", False)
                     print(
-                        f"[DEBUG] tool_result: tool={tool_name}, success={is_success}, project_id={project_id}"
+                        f"[DEBUG] tool_result: tool={tool_name},"
+                        f" success={is_success},"
+                        f" project_id={project_id}"
                     )
 
                     if project_id and is_success and tool_name and tool_result:
@@ -1328,9 +1328,11 @@ async def agent_chat_stream(request: AgentChatRequest):
         },
     )
 
+
 # =============================================================================
 # REPORTS ENDPOINTS
 # =============================================================================
+
 
 @app.get("/api/reports")
 def list_reports(limit: int = 50):
@@ -1366,6 +1368,7 @@ def list_reports(limit: int = 50):
             ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list reports: {str(e)}")
+
 
 @app.get("/api/reports/{report_id}")
 def get_report(report_id: str):
@@ -1423,6 +1426,7 @@ def get_report(report_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get report: {str(e)}")
+
 
 @app.post("/api/reports")
 def save_report(request: dict):
@@ -1486,9 +1490,11 @@ def save_report(request: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save report: {str(e)}")
 
+
 # =============================================================================
 # SUGGESTIONS ENDPOINT
 # =============================================================================
+
 
 @app.post("/api/suggestions")
 def save_suggestion(request: dict):
@@ -1525,6 +1531,7 @@ def save_suggestion(request: dict):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save suggestion: {str(e)}")
+
 
 @app.get("/api/suggestions")
 def list_suggestions(status: Optional[str] = None, limit: int = 50):
@@ -1566,9 +1573,11 @@ def list_suggestions(status: Optional[str] = None, limit: int = 50):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list suggestions: {str(e)}")
 
+
 # =============================================================================
 # ERROR LOGS ENDPOINTS
 # =============================================================================
+
 
 @app.get("/api/errors")
 def list_error_logs(limit: int = 50, source: Optional[str] = None, tool_name: Optional[str] = None):
@@ -1582,8 +1591,8 @@ def list_error_logs(limit: int = 50, source: Optional[str] = None, tool_name: Op
     """
     try:
         with PostgresStorage(config["database"]) as storage:
-            conditions = []
-            params = []
+            conditions: list = []
+            params: list = []
 
             if source:
                 conditions.append("source = %s")
@@ -1595,13 +1604,14 @@ def list_error_logs(limit: int = 50, source: Optional[str] = None, tool_name: Op
             where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
             query = f"""
-                SELECT id, source, tool_name, error_type, error_message,
-                       request_data, created_at, resolved_at
+                SELECT id, source, tool_name, error_type,
+                       error_message, request_data,
+                       created_at, resolved_at
                 FROM error_logs
                 {where_clause}
                 ORDER BY created_at DESC
                 LIMIT %s
-            """
+            """  # nosec B608
             params.append(limit)
 
             storage.cursor.execute(query, params)
@@ -1623,13 +1633,6 @@ def list_error_logs(limit: int = 50, source: Optional[str] = None, tool_name: Op
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list errors: {str(e)}")
 
-    source: str  # 'mcp_tool', 'api', 'agent', 'backtest'
-    tool_name: Optional[str] = None
-    error_type: str
-    error_message: str
-    stack_trace: Optional[str] = None
-    request_data: Optional[Dict[str, Any]] = None
-    conversation_id: Optional[str] = None
 
 @app.post("/api/errors")
 def log_error(request: LogErrorRequest):
@@ -1653,6 +1656,7 @@ def log_error(request: LogErrorRequest):
     except Exception as e:
         # Don't fail if logging fails - just return error
         return {"success": False, "message": f"Failed to log error: {str(e)}"}
+
 
 @app.get("/api/errors/{error_id}")
 def get_error_log(error_id: str):
@@ -1692,6 +1696,7 @@ def get_error_log(error_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get error: {str(e)}")
 
+
 @app.patch("/api/errors/{error_id}/resolve")
 def resolve_error(error_id: str, resolution_notes: str = None):
     """Mark an error as resolved with optional notes."""
@@ -1718,27 +1723,11 @@ def resolve_error(error_id: str, resolution_notes: str = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to resolve error: {str(e)}")
 
+
 # =============================================================================
 # PROJECTS ENDPOINTS
 # =============================================================================
 
-    name: str
-    description: Optional[str] = None
-    thesis: Optional[str] = None
-    user_preferences: Optional[Dict[str, Any]] = None
-
-    name: Optional[str] = None
-    description: Optional[str] = None
-    thesis: Optional[str] = None
-    status: Optional[str] = None  # active, paused, concluded
-    validation_result: Optional[str] = None  # validated, invalidated, inconclusive
-
-    event_type: str  # strategy_created, backtest_run, conclusion, note, milestone
-    title: str
-    summary: Optional[str] = None
-    reference_type: Optional[str] = None  # conversation, backtest_report, strategy
-    reference_id: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
 
 @app.get("/api/projects")
 def list_projects(status: Optional[str] = None, limit: int = 50):
@@ -1791,6 +1780,7 @@ def list_projects(status: Optional[str] = None, limit: int = 50):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list projects: {str(e)}")
 
+
 @app.post("/api/projects")
 def create_project(request: CreateProjectRequest):
     """Create a new project."""
@@ -1824,6 +1814,7 @@ def create_project(request: CreateProjectRequest):
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create project: {str(e)}")
+
 
 @app.get("/api/projects/{project_id}")
 def get_project(project_id: str):
@@ -1865,6 +1856,7 @@ def get_project(project_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get project: {str(e)}")
 
+
 @app.patch("/api/projects/{project_id}")
 def update_project(project_id: str, request: UpdateProjectRequest):
     """Update project details."""
@@ -1905,7 +1897,7 @@ def update_project(project_id: str, request: UpdateProjectRequest):
                 SET {', '.join(updates)}
                 WHERE id = %s
                 RETURNING id, name, updated_at
-            """
+            """  # nosec B608
             storage.cursor.execute(query, params)
             result = storage.cursor.fetchone()
 
@@ -1926,6 +1918,7 @@ def update_project(project_id: str, request: UpdateProjectRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update project: {str(e)}")
+
 
 @app.delete("/api/projects/{project_id}")
 def delete_project(project_id: str):
@@ -1952,9 +1945,11 @@ def delete_project(project_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete project: {str(e)}")
 
+
 # =============================================================================
 # RESEARCH EVENTS ENDPOINTS
 # =============================================================================
+
 
 @app.get("/api/projects/{project_id}/events")
 def list_project_events(project_id: str, event_type: Optional[str] = None, limit: int = 100):
@@ -2010,6 +2005,7 @@ def list_project_events(project_id: str, event_type: Optional[str] = None, limit
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list events: {str(e)}")
 
+
 @app.post("/api/projects/{project_id}/events")
 def create_project_event(project_id: str, request: CreateEventRequest):
     """Create a new research event for a project."""
@@ -2058,14 +2054,11 @@ def create_project_event(project_id: str, request: CreateEventRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create event: {str(e)}")
 
+
 # =============================================================================
 # ONBOARDING PREFERENCES ENDPOINT
 # =============================================================================
 
-    experience_level: str  # beginner, intermediate, advanced, professional
-    goals: List[str]  # List of selected goals
-    first_project_name: Optional[str] = None
-    first_project_thesis: Optional[str] = None
 
 @app.post("/api/onboarding/preferences")
 def save_onboarding_preferences(request: OnboardingPreferencesRequest):
@@ -2107,7 +2100,8 @@ def save_onboarding_preferences(request: OnboardingPreferencesRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save preferences: {str(e)}")
 
+
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)  # nosec B104

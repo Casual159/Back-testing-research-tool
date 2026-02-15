@@ -7,18 +7,18 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent))
 
-import numpy as np
-import pandas as pd
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 
-from config.config import load_config
-from core.data.storage import PostgresStorage
-from core.indicators.regime import (
+from config.config import load_config  # noqa: E402
+from core.data.storage import PostgresStorage  # noqa: E402
+from core.indicators.regime import (  # noqa: E402
     AdaptiveThresholds,
     MarketRegimeClassifier,
     RegimeConfig,
     detect_market_regimes,
 )
-from core.indicators.technical import add_all_indicators
+from core.indicators.technical import add_all_indicators  # noqa: E402
 
 
 def test_adaptive_thresholds():
@@ -39,7 +39,7 @@ def test_adaptive_thresholds():
     # Get thresholds
     t = thresholds.get_thresholds(config)
 
-    print(f"✅ Adaptive thresholds calculated")
+    print("Adaptive thresholds calculated")
     print(f"   Window size: {thresholds.window}")
     print(f"   Data points: {len(thresholds.atr_buffer)}")
     print(f"   ATR p30: {t['atr_p30']:.4f}")
@@ -162,11 +162,11 @@ def test_full_regime_detection():
 
             # Add all indicators
             df = add_all_indicators(df)
-            print(f"✅ Indicators calculated")
+            print("Indicators calculated")
 
             # Detect regimes
             df = detect_market_regimes(df)
-            print(f"✅ Regimes detected")
+            print("Regimes detected")
 
             # Validate regime columns exist
             required_cols = [
@@ -179,7 +179,7 @@ def test_full_regime_detection():
 
             for col in required_cols:
                 assert col in df.columns, f"Missing column: {col}"
-            print(f"✅ All regime columns present")
+            print("All regime columns present")
 
             # Count valid regimes (not NaN)
             valid_regimes = df["simplified_regime"].notna().sum()
@@ -187,13 +187,13 @@ def test_full_regime_detection():
 
             # Show regime distribution
             regime_dist = df["simplified_regime"].value_counts()
-            print(f"\n   Regime Distribution:")
+            print("\n   Regime Distribution:")
             for regime, count in regime_dist.items():
                 pct = (count / len(df)) * 100
                 print(f"   - {regime}: {count} ({pct:.1f}%)")
 
             # Show last 5 regimes
-            print(f"\n   Last 5 Regimes:")
+            print("\n   Last 5 Regimes:")
             last_5 = df[["close", "adx", "rsi", "simplified_regime", "full_regime"]].tail(5)
             for idx, row in last_5.iterrows():
                 print(
@@ -211,7 +211,7 @@ def test_full_regime_detection():
                 if pd.notna(regime):
                     assert regime in valid_regimes_set, f"Invalid regime: {regime}"
 
-            print(f"\n✅ Real data validation passed!")
+            print("\nReal data validation passed!")
 
     except Exception as e:
         print(f"⚠️  Real data test failed: {e}")
@@ -259,7 +259,7 @@ def test_event_driven_processing():
 
     # Early regimes might have different thresholds than later ones
     # This proves thresholds are adaptive and build up over time
-    print(f"✅ Adaptive thresholds evolved over time (event-driven)")
+    print("Adaptive thresholds evolved over time (event-driven)")
 
     print("✅ No-lookahead validation passed!\n")
 

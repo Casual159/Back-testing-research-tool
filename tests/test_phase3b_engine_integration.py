@@ -13,10 +13,10 @@ import sys
 
 sys.path.insert(0, "/Users/jakub/Back-testing-research-tool")
 
-from config.config import load_config
-from core.backtest.engine import BacktestEngine
-from core.backtest.strategies.ma_crossover import MovingAverageCrossover
-from core.data.storage import PostgresStorage
+from config.config import load_config  # noqa: E402
+from core.backtest.engine import BacktestEngine  # noqa: E402
+from core.backtest.strategies.ma_crossover import MovingAverageCrossover  # noqa: E402
+from core.data.storage import PostgresStorage  # noqa: E402
 
 
 def test_engine_regime_integration():
@@ -49,10 +49,10 @@ def test_engine_regime_integration():
         initial_capital=10000.0,
         enable_regime_detection=True,  # KEY: Enable regime detection
     )
-    print(f"   ✓ Engine initialized")
-    print(f"   ✓ Regime detection enabled: {engine.enable_regime_detection}")
-    print(f"   ✓ Regime classifier: {engine.regime_classifier is not None}")
-    print(f"   ✓ Data with indicators: {engine.data_with_indicators is not None}")
+    print("   Engine initialized")
+    print(f"   Regime detection enabled: {engine.enable_regime_detection}")
+    print(f"   Regime classifier: {engine.regime_classifier is not None}")
+    print(f"   Data with indicators: {engine.data_with_indicators is not None}")
     print()
 
     # 4. Check regime data was prepared
@@ -91,9 +91,9 @@ def test_engine_regime_integration():
     bar = df.iloc[0]
     market_event = engine._create_market_event(timestamp, bar)
 
-    print(f"   ✓ MarketEvent created")
-    print(f"   ✓ Has metadata: {len(market_event.metadata) > 0}")
-    print(f"   ✓ Has regime: {'regime' in market_event.metadata}")
+    print("   MarketEvent created")
+    print(f"   Has metadata: {len(market_event.metadata) > 0}")
+    print(f"   Has regime: {'regime' in market_event.metadata}")
 
     if "regime" in market_event.metadata:
         regime = market_event.metadata["regime"]
@@ -113,7 +113,7 @@ def test_engine_regime_integration():
     # 6. Test strategy can access regime
     print("6. Testing strategy access to regime information...")
     print("   (Strategy receives MarketEvent with metadata)")
-    print(f"   ✓ Regime accessible via: market_event.metadata['regime']")
+    print("   Regime accessible via: market_event.metadata['regime']")
     print()
 
     # 7. Run small backtest to verify no errors
@@ -127,11 +127,11 @@ def test_engine_regime_integration():
 
     try:
         results = small_engine.run()
-        print(f"   ✓ Backtest completed successfully!")
-        print(f"   ✓ Bars processed: {small_engine.bars_processed}")
-        print(f"   ✓ Signals generated: {small_engine.signals_generated}")
-        print(f"   ✓ Orders executed: {small_engine.orders_executed}")
-        print(f"   ✓ Total trades: {results['portfolio'].total_trades()}")
+        print("   Backtest completed successfully!")
+        print(f"   Bars processed: {small_engine.bars_processed}")
+        print(f"   Signals generated: {small_engine.signals_generated}")
+        print(f"   Orders executed: {small_engine.orders_executed}")
+        print(f"   Total trades: {results['portfolio'].total_trades()}")
     except Exception as e:
         print(f"   ✗ FAIL: Backtest error: {e}")
         import traceback
@@ -166,11 +166,11 @@ def test_engine_regime_integration():
     print("=" * 70)
     print()
     print("Summary:")
-    print(f"  ✓ Engine successfully integrates MarketRegimeClassifier")
-    print(f"  ✓ Regime data added to MarketEvent.metadata")
-    print(f"  ✓ Strategies can access regime via metadata")
-    print(f"  ✓ Backtest runs successfully with regime detection")
-    print(f"  ✓ Ready for regime-aware strategy implementation")
+    print("  Engine successfully integrates MarketRegimeClassifier")
+    print("  Regime data added to MarketEvent.metadata")
+    print("  Strategies can access regime via metadata")
+    print("  Backtest runs successfully with regime detection")
+    print("  Ready for regime-aware strategy implementation")
     print()
 
     return True

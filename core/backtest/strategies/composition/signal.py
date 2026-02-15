@@ -7,13 +7,18 @@ and a condition to evaluate.
 Supports both single-timeframe and multi-timeframe data.
 """
 
-from typing import Any, Dict, Optional, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
 from indicators.technical import TechnicalIndicators
 
 from .condition import Condition
+
+if TYPE_CHECKING:
+    from .multi_timeframe import MultiTimeframeData
 
 
 class IndicatorSignal:

@@ -120,8 +120,6 @@ class MultiTimeframeData:
             Dict mapping primary_timestamp -> higher_tf_timestamp
         """
         alignment = {}
-        primary_minutes = self.TIMEFRAME_MINUTES[self.primary_tf]
-        ratio = higher_tf_minutes // primary_minutes
 
         for primary_ts in self.primary_data.index:
             # Round down to nearest higher TF bar start
@@ -168,7 +166,6 @@ class MultiTimeframeData:
         """
         alignment = {}
         primary_minutes = self.TIMEFRAME_MINUTES[self.primary_tf]
-        ratio = primary_minutes // lower_tf_minutes
 
         for primary_ts in self.primary_data.index:
             # Find all lower TF bars within this primary bar

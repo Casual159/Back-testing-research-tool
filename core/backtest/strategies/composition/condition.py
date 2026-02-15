@@ -10,7 +10,6 @@ Supports various comparison operators:
 from enum import Enum
 from typing import Optional, Union
 
-import numpy as np
 import pandas as pd
 
 

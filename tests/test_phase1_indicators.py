@@ -7,12 +7,12 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent))
 
-import numpy as np
-import pandas as pd
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 
-from config.config import load_config
-from core.data.storage import PostgresStorage
-from core.indicators.technical import TechnicalIndicators, add_all_indicators
+from config.config import load_config  # noqa: E402
+from core.data.storage import PostgresStorage  # noqa: E402
+from core.indicators.technical import TechnicalIndicators, add_all_indicators  # noqa: E402
 
 
 def test_adx_basic():
@@ -22,7 +22,7 @@ def test_adx_basic():
     print("=" * 60)
 
     # Create synthetic trending data
-    dates = pd.date_range("2024-01-01", periods=100, freq="1H")
+    pd.date_range("2024-01-01", periods=100, freq="1H")
 
     # Uptrend with noise
     base_price = 100
@@ -38,7 +38,7 @@ def test_adx_basic():
     # Calculate ADX
     adx = TechnicalIndicators.adx(df["high"], df["low"], df["close"])
 
-    print(f"✅ ADX calculated successfully")
+    print("✅ ADX calculated successfully")
     print(f"   First valid ADX value (bar 28): {adx.iloc[28]:.2f}")
     print(f"   Last ADX value: {adx.iloc[-1]:.2f}")
     print(f"   ADX range: {adx.min():.2f} - {adx.max():.2f}")
@@ -69,7 +69,7 @@ def test_roc_basic():
     # Calculate ROC with period 3
     roc = TechnicalIndicators.roc(close, period=3)
 
-    print(f"✅ ROC calculated successfully")
+    print("✅ ROC calculated successfully")
     print(f"   Close prices: {close.tolist()}")
     print(f"   ROC (period=3): {roc.tolist()}")
 
@@ -77,7 +77,7 @@ def test_roc_basic():
     expected_roc_3 = ((103 - 100) / 100) * 100
     actual_roc_3 = roc.iloc[3]
 
-    print(f"\n   Manual validation:")
+    print("\n   Manual validation:")
     print(f"   Expected ROC[3]: {expected_roc_3:.2f}%")
     print(f"   Actual ROC[3]: {actual_roc_3:.2f}%")
 
@@ -115,7 +115,7 @@ def test_real_data():
             # Calculate all indicators including new ones
             df_with_indicators = add_all_indicators(df)
 
-            print(f"\n✅ All indicators calculated successfully")
+            print("\n✅ All indicators calculated successfully")
             print(f"   Total columns: {len(df_with_indicators.columns)}")
 
             # Check new indicators exist
@@ -131,7 +131,7 @@ def test_real_data():
 
             # Show sample values
             last_row = df_with_indicators.iloc[-1]
-            print(f"\n   Latest values:")
+            print("\n   Latest values:")
             print(f"   - Close: ${last_row['close']:,.2f}")
             print(f"   - ADX: {last_row['adx']:.2f}")
             print(f"   - ROC: {last_row['roc']:.2f}%")
@@ -149,7 +149,7 @@ def test_real_data():
             assert adx_min >= 0, f"ADX min ({adx_min}) should be >= 0"
             assert adx_max <= 100, f"ADX max ({adx_max}) should be <= 100"
 
-            print(f"\n✅ Real data validation passed!")
+            print("\n✅ Real data validation passed!")
             print(f"   ADX range: {adx_min:.2f} - {adx_max:.2f}")
 
     except Exception as e:

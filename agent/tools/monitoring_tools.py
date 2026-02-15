@@ -14,7 +14,7 @@ import httpx
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from anthropic import Anthropic
+from anthropic import Anthropic  # noqa: E402
 
 
 class MonitoringTools:
@@ -22,7 +22,9 @@ class MonitoringTools:
 
     def __init__(
         self,
-        api_base_url: str = os.getenv("API_BASE_URL", f"http://localhost:{os.getenv('PORT', '8000')}"),
+        api_base_url: str = os.getenv(
+            "API_BASE_URL", f"http://localhost:{os.getenv('PORT', '8000')}"
+        ),
         anthropic_api_key: Optional[str] = None,
     ):
         """
@@ -100,16 +102,14 @@ class MonitoringTools:
 
         analysis = {
             "total_errors": len(errors),
-            "error_types": {
-                etype: len(errors) for etype, errors in error_types.items()
-            },
+            "error_types": {etype: len(errors) for etype, errors in error_types.items()},
             "tool_counts": tool_counts,
-            "most_common_type": max(error_types.items(), key=lambda x: len(x[1]))[0]
-            if error_types
-            else None,
-            "most_affected_tool": max(tool_counts.items(), key=lambda x: x[1])[0]
-            if tool_counts
-            else None,
+            "most_common_type": (
+                max(error_types.items(), key=lambda x: len(x[1]))[0] if error_types else None
+            ),
+            "most_affected_tool": (
+                max(tool_counts.items(), key=lambda x: x[1])[0] if tool_counts else None
+            ),
         }
 
         return {"success": True, "analysis": analysis, "grouped_errors": error_types}

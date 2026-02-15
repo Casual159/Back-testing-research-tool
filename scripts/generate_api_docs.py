@@ -51,7 +51,7 @@ def generate_api_docs():
     # Count endpoints
     endpoint_count = len(schema.get("paths", {}))
 
-    print(f"✓ Generated API documentation")
+    print("✓ Generated API documentation")
     print(f"  - Endpoints: {endpoint_count}")
     print(f"  - Output: {output_file}")
     print(f"  - Generated: {schema['info']['x-generated-at']}")

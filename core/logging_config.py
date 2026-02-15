@@ -44,14 +44,12 @@ def setup_logging(log_level: str = "INFO", json_logs: bool = False) -> None:
             structlog.processors.format_exc_info,
             structlog.processors.JSONRenderer(),
         ]
-        renderer = structlog.processors.JSONRenderer()
     else:
         # Development: Human-readable console logs with colors
         processors = shared_processors + [
             structlog.processors.format_exc_info,
             structlog.dev.ConsoleRenderer(colors=True),
         ]
-        renderer = structlog.dev.ConsoleRenderer(colors=True)
 
     # Configure structlog
     structlog.configure(

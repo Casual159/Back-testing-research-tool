@@ -14,7 +14,6 @@ import pandas as pd
 from ...events import MarketEvent, SignalEvent
 from ..base import Strategy
 from .logic_tree import LogicTree
-from .signal import IndicatorSignal
 
 # Valid regime values for validation
 VALID_SIMPLIFIED_REGIMES = ["TREND_UP", "TREND_DOWN", "RANGE", "CHOPPY", "NEUTRAL"]

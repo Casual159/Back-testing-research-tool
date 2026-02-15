@@ -16,14 +16,7 @@ import httpx
 
 from .prompts import get_system_prompt
 from .protocols import AgentProtocol
-from .schemas import (
-    AgentChatResponse,
-    AgentPhase,
-    Conversation,
-    ConversationContext,
-    Message,
-    ToolCall,
-)
+from .schemas import AgentChatResponse, AgentPhase, Conversation, Message, ToolCall
 
 # =============================================================================
 # CONFIGURATION
@@ -45,12 +38,17 @@ OUTPUT_COST_PER_1M = 15.0
 TOOLS = [
     {
         "name": "list_strategies",
-        "description": "List all available trading strategies with their descriptions and parameters.",
+        "description": (
+            "List all available trading strategies with their" " descriptions and parameters."
+        ),
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "get_strategy",
-        "description": "Get detailed information about a specific strategy including parameters and regime recommendations.",
+        "description": (
+            "Get detailed information about a specific strategy"
+            " including parameters and regime recommendations."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -64,7 +62,11 @@ TOOLS = [
     },
     {
         "name": "check_data",
-        "description": "Check if historical data is available for a symbol/timeframe. ALWAYS use this before running a backtest.",
+        "description": (
+            "Check if historical data is available for a"
+            " symbol/timeframe. ALWAYS use this before"
+            " running a backtest."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -87,7 +89,11 @@ TOOLS = [
     },
     {
         "name": "get_market_regime",
-        "description": "Get current market regime classification (TREND_UP, TREND_DOWN, RANGE, CHOPPY, NEUTRAL). Use this to recommend appropriate strategies.",
+        "description": (
+            "Get current market regime classification"
+            " (TREND_UP, TREND_DOWN, RANGE, CHOPPY, NEUTRAL)."
+            " Use this to recommend appropriate strategies."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -139,11 +145,15 @@ This operation may take a few seconds depending on the date range.""",
     },
     {
         "name": "create_strategy",
-        "description": """Create a new trading strategy. Use builtin_class for variants of existing strategies, or define custom entry/exit logic.
-
-Builtin classes: MovingAverageCrossover, RSIReversal, BollingerBands, MACDCross
-
-For custom strategies, define entry_logic and exit_logic as condition trees.""",
+        "description": (
+            "Create a new trading strategy. Use builtin_class"
+            " for variants of existing strategies, or define"
+            " custom entry/exit logic.\n\n"
+            "Builtin classes: MovingAverageCrossover,"
+            " RSIReversal, BollingerBands, MACDCross\n\n"
+            "For custom strategies, define entry_logic and"
+            " exit_logic as condition trees."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -166,7 +176,11 @@ For custom strategies, define entry_logic and exit_logic as condition trees.""",
                 "regime_filter": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Only trade in these regimes: TREND_UP, TREND_DOWN, RANGE, CHOPPY, NEUTRAL",
+                    "description": (
+                        "Only trade in these regimes:"
+                        " TREND_UP, TREND_DOWN, RANGE,"
+                        " CHOPPY, NEUTRAL"
+                    ),
                 },
             },
             "required": ["name"],
@@ -174,9 +188,13 @@ For custom strategies, define entry_logic and exit_logic as condition trees.""",
     },
     {
         "name": "run_backtest",
-        "description": """Run a backtest with a strategy on historical data. Returns performance metrics, trades, and equity curve.
-
-IMPORTANT: Check data availability first with check_data tool.""",
+        "description": (
+            "Run a backtest with a strategy on historical"
+            " data. Returns performance metrics, trades,"
+            " and equity curve.\n\n"
+            "IMPORTANT: Check data availability first"
+            " with check_data tool."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -223,7 +241,11 @@ IMPORTANT: Check data availability first with check_data tool.""",
     },
     {
         "name": "suggest_enhancement",
-        "description": "Record a suggestion for improving the backtesting tool. Use this when you identify missing features that would help analysis.",
+        "description": (
+            "Record a suggestion for improving the"
+            " backtesting tool. Use this when you identify"
+            " missing features that would help analysis."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -1031,7 +1053,12 @@ class BacktestingAgent(AgentProtocol):
                 # Add summary of earlier context
                 summary = {
                     "role": "user",
-                    "content": "[Earlier conversation truncated for context efficiency. The conversation started with the first user message shown above.]",
+                    "content": (
+                        "[Earlier conversation truncated for"
+                        " context efficiency. The conversation"
+                        " started with the first user message"
+                        " shown above.]"
+                    ),
                 }
                 messages = [first_msg, summary] + recent_messages
             else:

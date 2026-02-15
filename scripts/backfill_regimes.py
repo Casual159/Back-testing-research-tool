@@ -11,10 +11,10 @@ import sys
 
 sys.path.insert(0, "/Users/jakub/Back-testing-research-tool")
 
-from config.config import load_config
-from core.data.storage import PostgresStorage
-from core.indicators.regime import MarketRegimeClassifier
-from core.indicators.technical import add_all_indicators
+from config.config import load_config  # noqa: E402
+from core.data.storage import PostgresStorage  # noqa: E402
+from core.indicators.regime import MarketRegimeClassifier  # noqa: E402
+from core.indicators.technical import add_all_indicators  # noqa: E402
 
 
 def backfill_regimes(symbol: str, timeframe: str, storage: PostgresStorage):
@@ -31,28 +31,28 @@ def backfill_regimes(symbol: str, timeframe: str, storage: PostgresStorage):
         print(f"   Deleted {deleted} existing regime records")
 
     # 2. Fetch candle data
-    print(f"\n1. Fetching candle data...")
+    print("\n1. Fetching candle data...")
     df = storage.get_candles(symbol, timeframe)
     print(f"   ✓ Loaded {len(df)} candles")
 
     if len(df) == 0:
-        print(f"   ✗ No candle data found, skipping")
+        print("   ✗ No candle data found, skipping")
         return
 
     # 3. Add technical indicators
-    print(f"\n2. Calculating technical indicators...")
+    print("\n2. Calculating technical indicators...")
     df = add_all_indicators(df)
-    print(f"   ✓ Indicators calculated")
+    print("   ✓ Indicators calculated")
 
     # 4. Classify regimes
-    print(f"\n3. Classifying market regimes...")
+    print("\n3. Classifying market regimes...")
     classifier = MarketRegimeClassifier()
     regimes_df = classifier.classify_dataframe(df)
-    print(f"   ✓ Regimes classified")
+    print("   ✓ Regimes classified")
 
     # Show regime distribution
     regime_dist = regimes_df["simplified_regime"].value_counts()
-    print(f"\n   Regime distribution:")
+    print("\n   Regime distribution:")
     for regime, count in regime_dist.items():
         pct = (count / len(regimes_df)) * 100
         print(f"     {regime:<15} {count:>6} ({pct:>5.1f}%)")
@@ -61,7 +61,7 @@ def backfill_regimes(symbol: str, timeframe: str, storage: PostgresStorage):
     print(f"\n   Average confidence: {avg_confidence:.2%}")
 
     # 5. Store in database
-    print(f"\n4. Storing regime data...")
+    print("\n4. Storing regime data...")
     inserted = storage.insert_regimes(symbol, timeframe, regimes_df)
     print(f"   ✓ Inserted {inserted} regime records")
 

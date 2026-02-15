@@ -34,7 +34,7 @@ def get_config() -> dict:
     global _app_config
     if _app_config is None:
         _app_config = load_config()
-    return _app_config
+    return _app_config  # type: ignore[no-any-return]
 
 
 def get_db_storage(config: dict = Depends(get_config)) -> Generator[PostgresStorage, None, None]:
@@ -110,11 +110,11 @@ def require_api_key(request: Request, config: dict = Depends(get_config)) -> str
     # If no API key is configured, allow (for development)
     if not expected_key:
         logger.warning("no_api_key_configured", message="API key check skipped")
-        return api_key
+        return str(api_key)
 
     # Validate API key
     if api_key != expected_key:
         logger.warning("invalid_api_key", provided_key=api_key[:8] + "...")
         raise HTTPException(status_code=401, detail="Invalid API key")
 
-    return api_key
+    return str(api_key)
