@@ -4,6 +4,7 @@ Loads environment variables and provides centralized config access
 """
 
 import os
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -26,29 +27,31 @@ class Config:
     BINANCE_LIVE_API_SECRET = os.getenv("BINANCE_LIVE_API_SECRET")
 
     # Active credentials (based on BINANCE_TESTNET flag)
-    @classmethod
-    @property
-    def BINANCE_API_KEY(cls):
-        return cls.BINANCE_TESTNET_API_KEY if cls.BINANCE_TESTNET else cls.BINANCE_LIVE_API_KEY
-
-    @classmethod
-    @property
-    def BINANCE_API_SECRET(cls):
-        return (
-            cls.BINANCE_TESTNET_API_SECRET if cls.BINANCE_TESTNET else cls.BINANCE_LIVE_API_SECRET
-        )
+    BINANCE_API_KEY = BINANCE_TESTNET_API_KEY if BINANCE_TESTNET else BINANCE_LIVE_API_KEY
+    BINANCE_API_SECRET = BINANCE_TESTNET_API_SECRET if BINANCE_TESTNET else BINANCE_LIVE_API_SECRET
 
     # Redis
     REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
     REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 
-    # PostgreSQL
-    POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-    POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", 5432))
-    POSTGRES_DB = os.getenv("POSTGRES_DB", "trading_bot")
-    POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+    # PostgreSQL - support DATABASE_URL or individual vars
+    _DATABASE_URL = os.getenv("DATABASE_URL")
+
+    # Parse DATABASE_URL if provided, otherwise use individual vars
+    if _DATABASE_URL:
+        _parsed = urlparse(_DATABASE_URL)
+        POSTGRES_HOST = _parsed.hostname or "localhost"
+        POSTGRES_PORT = _parsed.port or 5432
+        POSTGRES_DB = _parsed.path.lstrip("/") or "trading_bot"
+        POSTGRES_USER = _parsed.username or "postgres"
+        POSTGRES_PASSWORD = _parsed.password
+    else:
+        POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+        POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
+        POSTGRES_DB = os.getenv("POSTGRES_DB", "trading_bot")
+        POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
+        POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 
     # Trading Settings
     TEST_MODE = os.getenv("TEST_MODE", "true").lower() == "true"
