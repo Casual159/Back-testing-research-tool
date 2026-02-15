@@ -29,7 +29,8 @@ from .schemas import (
 # CONFIGURATION
 # =============================================================================
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
+_port = os.getenv("PORT", "8000")
+API_BASE_URL = os.getenv("API_BASE_URL", f"http://localhost:{_port}")
 MAX_ITERATIONS = int(os.getenv("AGENT_MAX_ITERATIONS", "20"))
 
 # Claude pricing (per 1M tokens) - claude-sonnet-4-20250514

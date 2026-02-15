@@ -298,7 +298,10 @@ from typing import Any, Dict, Optional
 
 import httpx
 
-API_BASE_URL = "http://localhost:8000"
+import os
+
+_port = os.getenv("PORT", "8000")
+API_BASE_URL = os.getenv("API_BASE_URL", f"http://localhost:{_port}")
 
 
 async def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
