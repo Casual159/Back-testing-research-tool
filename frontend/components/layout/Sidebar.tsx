@@ -19,7 +19,9 @@ import {
 } from 'lucide-react';
 import { useProject } from '@/lib/contexts';
 import { cn } from '@/lib/utils';
-import { apiEndpoint } from '@/lib/config';
+import { config } from '@/lib/config';
+
+const API_BASE_URL = config.apiUrl;
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar_collapsed';
 
@@ -142,7 +144,7 @@ function SystemStatus() {
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const response = await fetch(apiEndpoint('/'));
+        const response = await fetch(`${API_BASE_URL}/`);
         setStatus(response.ok ? 'ok' : 'error');
       } catch {
         setStatus('error');

@@ -1773,20 +1773,46 @@ def list_projects(status: Optional[str] = None, limit: int = 50):
         with PostgresStorage(config["database"]) as storage:
             if status:
                 query = """
-                    SELECT id, name, description, thesis, status, validation_result,
-                           conversation_count, backtest_count, created_at, updated_at
-                    FROM projects
-                    WHERE status = %s
-                    ORDER BY updated_at DESC
+                    SELECT p.id, p.name, p.description, p.thesis, p.status, p.validation_result,
+                           COALESCE(c.conv_count, 0) AS conversation_count,
+                           COALESCE(b.bt_count, 0) AS backtest_count,
+                           p.created_at, p.updated_at
+                    FROM projects p
+                    LEFT JOIN (
+                        SELECT project_id, COUNT(*) AS conv_count
+                        FROM conversations
+                        GROUP BY project_id
+                    ) c ON c.project_id = p.id
+                    LEFT JOIN (
+                        SELECT project_id, COUNT(*) AS bt_count
+                        FROM research_events
+                        WHERE event_type = 'backtest_run'
+                        GROUP BY project_id
+                    ) b ON b.project_id = p.id
+                    WHERE p.status = %s
+                    ORDER BY p.updated_at DESC
                     LIMIT %s
                 """
                 storage.cursor.execute(query, (status, limit))
             else:
                 query = """
-                    SELECT id, name, description, thesis, status, validation_result,
-                           conversation_count, backtest_count, created_at, updated_at
-                    FROM projects
-                    ORDER BY updated_at DESC
+                    SELECT p.id, p.name, p.description, p.thesis, p.status, p.validation_result,
+                           COALESCE(c.conv_count, 0) AS conversation_count,
+                           COALESCE(b.bt_count, 0) AS backtest_count,
+                           p.created_at, p.updated_at
+                    FROM projects p
+                    LEFT JOIN (
+                        SELECT project_id, COUNT(*) AS conv_count
+                        FROM conversations
+                        GROUP BY project_id
+                    ) c ON c.project_id = p.id
+                    LEFT JOIN (
+                        SELECT project_id, COUNT(*) AS bt_count
+                        FROM research_events
+                        WHERE event_type = 'backtest_run'
+                        GROUP BY project_id
+                    ) b ON b.project_id = p.id
+                    ORDER BY p.updated_at DESC
                     LIMIT %s
                 """
                 storage.cursor.execute(query, (limit,))
@@ -1857,13 +1883,27 @@ def get_project(project_id: str):
 
         with PostgresStorage(config["database"]) as storage:
             query = """
-                SELECT id, name, description, thesis, status, validation_result,
-                       user_preferences, conversation_count, backtest_count,
-                       created_at, updated_at
-                FROM projects
-                WHERE id = %s
+                SELECT p.id, p.name, p.description, p.thesis, p.status, p.validation_result,
+                       p.user_preferences, p.notebook,
+                       COALESCE(c.conv_count, 0) AS conversation_count,
+                       COALESCE(b.bt_count, 0) AS backtest_count,
+                       p.created_at, p.updated_at
+                FROM projects p
+                LEFT JOIN (
+                    SELECT project_id, COUNT(*) AS conv_count
+                    FROM conversations
+                    WHERE project_id = %s
+                    GROUP BY project_id
+                ) c ON c.project_id = p.id
+                LEFT JOIN (
+                    SELECT project_id, COUNT(*) AS bt_count
+                    FROM research_events
+                    WHERE project_id = %s AND event_type = 'backtest_run'
+                    GROUP BY project_id
+                ) b ON b.project_id = p.id
+                WHERE p.id = %s
             """
-            storage.cursor.execute(query, (project_id,))
+            storage.cursor.execute(query, (project_id, project_id, project_id))
             row = storage.cursor.fetchone()
 
             if not row:
@@ -1877,10 +1917,11 @@ def get_project(project_id: str):
                 "status": row[4],
                 "validation_result": row[5],
                 "user_preferences": row[6],
-                "conversation_count": row[7],
-                "backtest_count": row[8],
-                "created_at": row[9].isoformat() if row[9] else None,
-                "updated_at": row[10].isoformat() if row[10] else None,
+                "notebook": row[7] or [],
+                "conversation_count": row[8],
+                "backtest_count": row[9],
+                "created_at": row[10].isoformat() if row[10] else None,
+                "updated_at": row[11].isoformat() if row[11] else None,
             }
     except HTTPException:
         raise
@@ -1915,6 +1956,9 @@ def update_project(project_id: str, request: UpdateProjectRequest):
         if request.validation_result is not None:
             updates.append("validation_result = %s")
             params.append(request.validation_result)
+        if request.notebook is not None:
+            updates.append("notebook = %s")
+            params.append(json.dumps(request.notebook))
 
         if not updates:
             raise HTTPException(status_code=400, detail="No fields to update")
@@ -1949,6 +1993,50 @@ def update_project(project_id: str, request: UpdateProjectRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update project: {str(e)}")
+
+
+@app.post("/api/projects/{project_id}/notebook/blocks")
+def add_notebook_block(project_id: str, block: dict):
+    """
+    Append a block to the project notebook.
+
+    Block types: text, backtest_ref, strategy_ref, agent_note
+    Used by agent to add insights and artifact references.
+    """
+    try:
+        from uuid import UUID, uuid4
+
+        UUID(project_id)
+
+        # Validate block has required fields
+        block_type = block.get("type")
+        if block_type not in ("text", "backtest_ref", "strategy_ref", "agent_note"):
+            raise HTTPException(status_code=400, detail=f"Invalid block type: {block_type}")
+
+        # Add metadata
+        block["id"] = str(uuid4())
+        block["created_at"] = datetime.now().isoformat()
+
+        with PostgresStorage(config["database"]) as storage:
+            query = """
+                UPDATE projects
+                SET notebook = COALESCE(notebook, '[]'::jsonb) || %s::jsonb,
+                    updated_at = NOW()
+                WHERE id = %s
+                RETURNING id
+            """
+            storage.cursor.execute(query, (json.dumps([block]), project_id))
+            result = storage.cursor.fetchone()
+
+            if not result:
+                raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+
+            storage.conn.commit()
+            return {"success": True, "block": block}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to add notebook block: {str(e)}")
 
 
 @app.delete("/api/projects/{project_id}")

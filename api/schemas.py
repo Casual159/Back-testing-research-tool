@@ -365,6 +365,7 @@ class UpdateProjectRequest(BaseModel):
     validation_result: Optional[str] = Field(
         None, pattern=r"^(validated|invalidated|inconclusive)$"
     )
+    notebook: Optional[List[Dict[str, Any]]] = None
 
 
 class CreateEventRequest(BaseModel):

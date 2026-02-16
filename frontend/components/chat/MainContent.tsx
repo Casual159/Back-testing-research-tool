@@ -10,15 +10,15 @@ interface MainContentProps {
 }
 
 export function MainContent({ children, leftMargin = '' }: MainContentProps) {
-  const { isOpen } = useChatContext();
+  const { isOpen, chatWidth } = useChatContext();
 
   return (
     <div
       className={cn(
         'min-h-screen transition-all duration-300 ease-in-out',
         leftMargin,
-        isOpen ? 'sm:mr-[420px]' : ''
       )}
+      style={isOpen ? { marginRight: `${chatWidth}px` } : undefined}
     >
       {children}
     </div>

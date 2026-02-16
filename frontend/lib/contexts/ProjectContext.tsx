@@ -4,6 +4,14 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+export interface NotebookBlock {
+  id: string;
+  type: 'text' | 'backtest_ref' | 'strategy_ref' | 'agent_note';
+  content: string;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -11,6 +19,7 @@ export interface Project {
   thesis: string | null;
   status: 'active' | 'paused' | 'concluded';
   validation_result: 'validated' | 'invalidated' | 'inconclusive' | null;
+  notebook?: NotebookBlock[];
   conversation_count: number;
   backtest_count: number;
   created_at: string;
@@ -53,7 +62,7 @@ interface ProjectContextType {
   // Project actions
   selectProject: (id: string | null) => void;
   createProject: (data: CreateProjectData) => Promise<Project>;
-  updateProject: (id: string, data: Partial<CreateProjectData & { status: string; validation_result: string }>) => Promise<void>;
+  updateProject: (id: string, data: Partial<CreateProjectData & { status: string; validation_result: string; notebook: NotebookBlock[] }>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   refreshProjects: () => Promise<void>;
 
@@ -202,7 +211,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const updateProject = async (
     id: string,
-    data: Partial<CreateProjectData & { status: string; validation_result: string }>
+    data: Partial<CreateProjectData & { status: string; validation_result: string; notebook: NotebookBlock[] }>
   ): Promise<void> => {
     const response = await fetch(`${API_BASE_URL}/api/projects/${id}`, {
       method: 'PATCH',

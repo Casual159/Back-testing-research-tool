@@ -65,6 +65,8 @@ interface ChatContextType {
   conversationId: string | null;
   isLoading: boolean;
   isOpen: boolean;
+  chatWidth: number;
+  setChatWidth: (width: number) => void;
   awaitingConfirmation: boolean;
   confirmationPrompt: string | null;
   currentPhase: string;
@@ -98,6 +100,13 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [chatWidth, setChatWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('chat_sidebar_width');
+      return stored ? parseInt(stored, 10) : 420;
+    }
+    return 420;
+  });
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [confirmationPrompt, setConfirmationPrompt] = useState<string | null>(null);
   const [currentPhase, setCurrentPhase] = useState<string>('CONVERSATION');
@@ -390,6 +399,12 @@ export function ChatProvider({ children }: ChatProviderProps) {
     setIsOpen((prev) => !prev);
   }, []);
 
+  const handleSetChatWidth = useCallback((width: number) => {
+    const clamped = Math.min(Math.max(width, 320), 800);
+    setChatWidth(clamped);
+    localStorage.setItem('chat_sidebar_width', String(clamped));
+  }, []);
+
   const openSidebar = useCallback(() => {
     setIsOpen(true);
   }, []);
@@ -405,6 +420,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
         conversationId,
         isLoading,
         isOpen,
+        chatWidth,
+        setChatWidth: handleSetChatWidth,
         awaitingConfirmation,
         confirmationPrompt,
         currentPhase,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { useChatContext } from './ChatProvider';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
@@ -21,6 +21,8 @@ export function ChatSidebar() {
     messages,
     isLoading,
     isOpen,
+    chatWidth,
+    setChatWidth,
     awaitingConfirmation,
     confirmationPrompt,
     currentPhase,
@@ -34,11 +36,53 @@ export function ChatSidebar() {
   } = useChatContext();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = chatWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [chatWidth]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = dragStartX.current - e.clientX;
+      setChatWidth(dragStartWidth.current + delta);
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging.current) {
+        isDragging.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [setChatWidth]);
 
   return (
     <>
@@ -52,10 +96,17 @@ export function ChatSidebar() {
 
       {/* Sidebar */}
       <div
-        className={`fixed right-0 top-0 h-full w-full sm:w-[420px] bg-neutral-900 border-l border-neutral-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`fixed right-0 top-0 h-full w-full bg-neutral-900 border-l border-neutral-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
+        style={isDesktop ? { width: `${chatWidth}px` } : undefined}
       >
+        {/* Drag handle */}
+        <div
+          onMouseDown={handleMouseDown}
+          className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-purple-500/50 transition-colors hidden sm:block z-10"
+        />
+
         {/* Header - h-14 to match sidebar header */}
         <div className="h-14 border-b border-neutral-800 px-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">

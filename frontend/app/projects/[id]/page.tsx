@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -14,8 +14,9 @@ import {
   Flag,
   Plus
 } from 'lucide-react';
-import { useProject, Project, ResearchEvent, useOnboarding } from '@/lib/contexts';
+import { useProject, Project, NotebookBlock, ResearchEvent, useOnboarding } from '@/lib/contexts';
 import { useChatContext } from '@/components/chat/ChatProvider';
+import { Notebook } from '@/components/projects/Notebook';
 import { cn } from '@/lib/utils';
 
 const eventIcons: Record<string, React.ElementType> = {
@@ -108,6 +109,7 @@ export default function ProjectDetailPage() {
   const { preferences } = useOnboarding();
 
   const [project, setProject] = useState<Project | null>(null);
+  const [notebookBlocks, setNotebookBlocks] = useState<NotebookBlock[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editedThesis, setEditedThesis] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -115,7 +117,9 @@ export default function ProjectDetailPage() {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteSummary, setNoteSummary] = useState('');
 
-  // Load project
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  // Load project from list (basic data)
   useEffect(() => {
     const found = projects.find(p => p.id === projectId);
     if (found) {
@@ -124,6 +128,27 @@ export default function ProjectDetailPage() {
       selectProject(found.id);
     }
   }, [projectId, projects, selectProject]);
+
+  // Fetch full project detail (with notebook) separately
+  useEffect(() => {
+    const fetchDetail = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setNotebookBlocks(data.notebook || []);
+        }
+      } catch (e) {
+        console.error('Failed to fetch project detail:', e);
+      }
+    };
+    fetchDetail();
+  }, [projectId, API_BASE_URL]);
+
+  const handleSaveNotebook = useCallback(async (blocks: NotebookBlock[]) => {
+    await updateProject(projectId, { notebook: blocks });
+    setNotebookBlocks(blocks);
+  }, [projectId, updateProject]);
 
   const handleThesisSave = async () => {
     if (!project) return;
@@ -273,11 +298,14 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
+      {/* Notebook */}
+      <Notebook blocks={notebookBlocks} onSave={handleSaveNotebook} />
+
       {/* Timeline - Full Width */}
       <div>
           <div className="bg-neutral-800/50 rounded-xl border border-neutral-700 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Research Timeline</h2>
+              <h2 className="text-lg font-semibold text-white">Research Log</h2>
               <button
                 onClick={() => setShowAddNote(!showAddNote)}
                 className="flex items-center gap-1 px-3 py-1.5 text-sm text-purple-400 hover:text-purple-300 hover:bg-purple-400/10 rounded-lg transition-colors"

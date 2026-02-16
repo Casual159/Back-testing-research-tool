@@ -174,6 +174,7 @@ function BacktestPageContent() {
     if (dataset) {
       // Set flag to skip automatic availability check
       setDatasetSelected(true);
+      setUserInteracted(true);
 
       setSymbol(dataset.symbol);
       setTimeframe(dataset.timeframe);
@@ -188,10 +189,13 @@ function BacktestPageContent() {
     }
   };
 
-  // Check data availability when params change
+  // Track whether user has interacted with dataset/params
+  const [userInteracted, setUserInteracted] = useState(false);
+
+  // Check data availability when params change (only after user interaction)
   useEffect(() => {
     const checkData = async () => {
-      if (!symbol || !timeframe) return;
+      if (!symbol || !timeframe || !userInteracted) return;
 
       // Skip check if dataset was just selected from dropdown (we know it exists)
       if (datasetSelected) {
@@ -219,7 +223,7 @@ function BacktestPageContent() {
 
     const debounce = setTimeout(checkData, 500);
     return () => clearTimeout(debounce);
-  }, [symbol, timeframe, startDate, endDate, datasetSelected]);
+  }, [symbol, timeframe, startDate, endDate, datasetSelected, userInteracted]);
 
   const handleRunBacktest = async () => {
     if (!selectedStrategy) {
@@ -350,33 +354,35 @@ function BacktestPageContent() {
                 </div>
 
                 {/* Data Availability Check */}
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center gap-2">
-                    {checkingData ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-                    ) : dataAvailable === true ? (
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                    ) : dataAvailable === false ? (
-                      <AlertCircle className="h-4 w-4 text-red-600" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-neutral-400" />
+                {userInteracted && (
+                  <div className="rounded-lg border p-3">
+                    <div className="flex items-center gap-2">
+                      {checkingData ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                      ) : dataAvailable === true ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : dataAvailable === false ? (
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-neutral-400" />
+                      )}
+                      <span className="text-sm">
+                        {checkingData
+                          ? "Checking data..."
+                          : dataAvailable === true
+                          ? "Data available"
+                          : dataAvailable === false
+                          ? "Data not available"
+                          : "Checking..."}
+                      </span>
+                    </div>
+                    {dataAvailable === false && (
+                      <Link href="/data" className="text-xs text-blue-600 hover:underline mt-1 block">
+                        Go to Data Management to fetch data
+                      </Link>
                     )}
-                    <span className="text-sm">
-                      {checkingData
-                        ? "Checking data..."
-                        : dataAvailable === true
-                        ? "Data available"
-                        : dataAvailable === false
-                        ? "Data not available"
-                        : "Unknown data status"}
-                    </span>
                   </div>
-                  {dataAvailable === false && (
-                    <Link href="/data" className="text-xs text-blue-600 hover:underline mt-1 block">
-                      Go to Data Management to fetch data
-                    </Link>
-                  )}
-                </div>
+                )}
 
                 {/* Run Button */}
                 <Button
