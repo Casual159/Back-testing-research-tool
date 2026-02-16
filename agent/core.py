@@ -442,38 +442,228 @@ async def execute_tool(
 
 class ConversationStorage:
     """
-    Singleton in-memory storage for conversations.
+    Singleton conversation storage backed by PostgreSQL.
 
-    This ensures conversations persist across API requests.
-    For production, replace with database-backed storage.
+    Keeps an in-memory cache for active conversations and persists
+    all conversations to the database for cross-restart durability.
     """
 
     _instance: Optional["ConversationStorage"] = None
     _conversations: dict[UUID, Conversation] = {}
+    _db_config: Optional[dict] = None
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
+    @classmethod
+    def configure(cls, db_config: dict) -> None:
+        """Set database config. Call once at startup."""
+        cls._db_config = db_config
+
+    def _get_conn(self):
+        """Create a new psycopg2 connection."""
+        import psycopg2
+
+        if not self._db_config:
+            return None
+        try:
+            return psycopg2.connect(
+                host=self._db_config["host"],
+                port=self._db_config["port"],
+                database=self._db_config["database"],
+                user=self._db_config["user"],
+                password=self._db_config["password"],
+                sslmode=self._db_config.get("sslmode", "prefer"),
+            )
+        except Exception as e:
+            print(f"[ConversationStorage] DB connect failed: {e}")
+            return None
+
+    def _serialize_messages(self, messages: list[Message]) -> str:
+        """Serialize messages list to JSON string for DB storage."""
+        return json.dumps([m.model_dump(mode="json") for m in messages], default=str)
+
+    def _deserialize_messages(self, data) -> list[Message]:
+        """Deserialize messages from DB JSON."""
+        if not data:
+            return []
+        items = data if isinstance(data, list) else json.loads(data)
+        return [Message(**m) for m in items]
+
+    def _serialize_context(self, context: Any) -> str:
+        """Serialize conversation context to JSON string."""
+        if hasattr(context, "model_dump"):
+            return json.dumps(context.model_dump(mode="json"), default=str)
+        return json.dumps({})
+
     async def get(self, conversation_id: UUID) -> Optional[Conversation]:
-        return self._conversations.get(conversation_id)
+        # Check memory cache first
+        if conversation_id in self._conversations:
+            return self._conversations[conversation_id]
+
+        # Fall back to database
+        conn = self._get_conn()
+        if not conn:
+            return None
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """SELECT id, messages, phase, context, total_tokens,
+                          total_cost_usd, tool_calls_count, project_id,
+                          created_at, updated_at
+                   FROM conversations WHERE id = %s""",
+                (str(conversation_id),),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            conv = self._row_to_conversation(row)
+            self._conversations[conv.id] = conv
+            return conv
+        except Exception as e:
+            print(f"[ConversationStorage] DB get failed: {e}")
+            return None
+        finally:
+            conn.close()
+
+    def _row_to_conversation(self, row) -> Conversation:
+        from .schemas import ConversationContext
+
+        return Conversation(
+            id=UUID(str(row[0])),
+            messages=self._deserialize_messages(row[1]),
+            phase=row[2] or "CONVERSATION",
+            context=ConversationContext(**(row[3] if isinstance(row[3], dict) else {})),
+            total_tokens=row[4] or 0,
+            total_cost_usd=float(row[5] or 0),
+            tool_calls_count=row[6] or 0,
+            project_id=UUID(str(row[7])) if row[7] else None,
+            created_at=row[8],
+            updated_at=row[9],
+        )
 
     async def save(self, conversation: Conversation) -> None:
         conversation.updated_at = datetime.utcnow()
         self._conversations[conversation.id] = conversation
 
-    async def list(self, limit: int = 50) -> list[Conversation]:
-        convs = sorted(self._conversations.values(), key=lambda c: c.updated_at, reverse=True)
-        return convs[:limit]
+        # Persist to database
+        conn = self._get_conn()
+        if not conn:
+            return
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """INSERT INTO conversations
+                       (id, messages, phase, context, total_tokens,
+                        total_cost_usd, tool_calls_count, project_id,
+                        created_at, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (id) DO UPDATE SET
+                       messages = EXCLUDED.messages,
+                       phase = EXCLUDED.phase,
+                       context = EXCLUDED.context,
+                       total_tokens = EXCLUDED.total_tokens,
+                       total_cost_usd = EXCLUDED.total_cost_usd,
+                       tool_calls_count = EXCLUDED.tool_calls_count,
+                       project_id = EXCLUDED.project_id,
+                       updated_at = EXCLUDED.updated_at""",
+                (
+                    str(conversation.id),
+                    self._serialize_messages(conversation.messages),
+                    (
+                        conversation.phase.value
+                        if hasattr(conversation.phase, "value")
+                        else str(conversation.phase)
+                    ),
+                    self._serialize_context(conversation.context),
+                    conversation.total_tokens,
+                    conversation.total_cost_usd,
+                    conversation.tool_calls_count,
+                    str(conversation.project_id) if conversation.project_id else None,
+                    conversation.created_at,
+                    conversation.updated_at,
+                ),
+            )
+            conn.commit()
+        except Exception as e:
+            print(f"[ConversationStorage] DB save failed: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
 
-    async def create(self) -> Conversation:
-        conv = Conversation(id=uuid4())
+    async def list_by_project(self, project_id: str, limit: int = 50) -> list[dict]:
+        """List conversations for a project (lightweight summaries)."""
+        conn = self._get_conn()
+        if not conn:
+            return []
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """SELECT id, phase, total_tokens, total_cost_usd,
+                          tool_calls_count, created_at, updated_at,
+                          messages
+                   FROM conversations
+                   WHERE project_id = %s
+                   ORDER BY updated_at DESC
+                   LIMIT %s""",
+                (project_id, limit),
+            )
+            rows = cur.fetchall()
+            result = []
+            for row in rows:
+                # Extract first user message as preview
+                msgs = row[7] if isinstance(row[7], list) else json.loads(row[7]) if row[7] else []
+                preview = ""
+                for m in msgs:
+                    if m.get("role") == "user":
+                        preview = (m.get("content") or "")[:120]
+                        break
+                result.append(
+                    {
+                        "id": str(row[0]),
+                        "phase": row[1],
+                        "total_tokens": row[2] or 0,
+                        "total_cost_usd": float(row[3] or 0),
+                        "tool_calls_count": row[4] or 0,
+                        "created_at": row[5].isoformat() if row[5] else None,
+                        "updated_at": row[6].isoformat() if row[6] else None,
+                        "preview": preview,
+                        "message_count": len(msgs),
+                    }
+                )
+            return result
+        except Exception as e:
+            print(f"[ConversationStorage] DB list failed: {e}")
+            return []
+        finally:
+            conn.close()
+
+    async def get_full(self, conversation_id: str) -> Optional[dict]:
+        """Get full conversation with serialized messages for API response."""
+        conv = await self.get(UUID(conversation_id))
+        if not conv:
+            return None
+        return {
+            "id": str(conv.id),
+            "messages": [m.model_dump(mode="json") for m in conv.messages],
+            "phase": conv.phase.value if hasattr(conv.phase, "value") else str(conv.phase),
+            "project_id": str(conv.project_id) if conv.project_id else None,
+            "total_tokens": conv.total_tokens,
+            "total_cost_usd": conv.total_cost_usd,
+            "tool_calls_count": conv.tool_calls_count,
+            "created_at": conv.created_at.isoformat() if conv.created_at else None,
+            "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
+        }
+
+    async def create(self, project_id: Optional[UUID] = None) -> Conversation:
+        conv = Conversation(id=uuid4(), project_id=project_id)
         self._conversations[conv.id] = conv
         return conv
 
     def clear(self) -> None:
-        """Clear all conversations (useful for testing)."""
+        """Clear in-memory cache (useful for testing)."""
         self._conversations.clear()
 
 
@@ -497,7 +687,12 @@ class BacktestingAgent(AgentProtocol):
         self.storage = ConversationStorage()
         self.model = "claude-sonnet-4-20250514"
 
-    async def chat_stream(self, message: str, conversation_id: Optional[UUID] = None):
+    async def chat_stream(
+        self,
+        message: str,
+        conversation_id: Optional[UUID] = None,
+        project_id: Optional[UUID] = None,
+    ):
         """
         Process a user message with streaming response.
 
@@ -514,9 +709,13 @@ class BacktestingAgent(AgentProtocol):
             if conversation_id:
                 conversation = await self.storage.get(conversation_id)
                 if not conversation:
-                    conversation = await self.storage.create()
+                    conversation = await self.storage.create(project_id=project_id)
             else:
-                conversation = await self.storage.create()
+                conversation = await self.storage.create(project_id=project_id)
+
+            # Ensure project_id is set (in case loaded from DB without it)
+            if project_id and not conversation.project_id:
+                conversation.project_id = project_id
 
             # Emit conversation ID first
             yield {"type": "conversation_id", "id": str(conversation.id)}

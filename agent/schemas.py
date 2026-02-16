@@ -133,6 +133,9 @@ class Conversation(BaseModel):
     phase: AgentPhase = AgentPhase.CONVERSATION
     context: ConversationContext = Field(default_factory=ConversationContext)
 
+    # Project linkage
+    project_id: Optional[UUID] = None
+
     # Usage tracking
     total_tokens: int = 0
     total_cost_usd: float = 0.0

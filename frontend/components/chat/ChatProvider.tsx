@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { useProject } from '@/lib/contexts';
 import { apiEndpoint } from '@/lib/config';
 
@@ -60,6 +60,18 @@ interface StreamEvent {
   pct?: number;
 }
 
+export interface ConversationSummary {
+  id: string;
+  phase: string;
+  total_tokens: number;
+  total_cost_usd: number;
+  tool_calls_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+  preview: string;
+  message_count: number;
+}
+
 interface ChatContextType {
   messages: Message[];
   conversationId: string | null;
@@ -72,10 +84,12 @@ interface ChatContextType {
   currentPhase: string;
   totalCost: number;
   totalTokens: number;
+  conversationHistory: ConversationSummary[];
   sendMessage: (content: string) => Promise<void>;
   handleConfirm: () => void;
   handleCancel: () => void;
   startNewConversation: () => void;
+  loadConversation: (id: string) => Promise<void>;
   toggleSidebar: () => void;
   openSidebar: () => void;
   closeSidebar: () => void;
@@ -120,6 +134,31 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const streamingMessageIdRef = useRef<string | null>(null);
   // Counter for unique tool IDs
   const toolIdCounterRef = useRef(0);
+
+  // Conversation history
+  const [conversationHistory, setConversationHistory] = useState<ConversationSummary[]>([]);
+
+  // Refresh conversation history
+  const refreshConversationHistory = useCallback(async () => {
+    if (!currentProject?.id) return;
+    try {
+      const res = await fetch(apiEndpoint(`/projects/${currentProject.id}/conversations`));
+      if (res.ok) {
+        setConversationHistory(await res.json());
+      }
+    } catch (e) {
+      console.error('Failed to refresh conversation history:', e);
+    }
+  }, [currentProject?.id]);
+
+  // Fetch conversation history when project changes
+  useEffect(() => {
+    if (!currentProject?.id) {
+      setConversationHistory([]);
+      return;
+    }
+    refreshConversationHistory();
+  }, [currentProject?.id, refreshConversationHistory]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isLoading) return;
@@ -325,9 +364,10 @@ export function ChatProvider({ children }: ChatProviderProps) {
                     )
                   );
 
-                  // Refresh timeline events (in case tools created new events)
+                  // Refresh timeline events and conversation history
                   if (currentProject?.id) {
                     refreshEvents();
+                    refreshConversationHistory();
                   }
                   break;
 
@@ -374,7 +414,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
       setIsLoading(false);
       streamingMessageIdRef.current = null;
     }
-  }, [conversationId, isLoading, currentProject?.id, refreshEvents]);
+  }, [conversationId, isLoading, currentProject?.id, refreshEvents, refreshConversationHistory]);
 
   const handleConfirm = useCallback(() => {
     sendMessage('Yes, proceed');
@@ -393,6 +433,55 @@ export function ChatProvider({ children }: ChatProviderProps) {
     setTotalCost(0);
     setTotalTokens(0);
     toolIdCounterRef.current = 0;
+  }, []);
+
+  // Load a past conversation
+  const loadConversation = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(apiEndpoint(`/conversations/${id}`));
+      if (!res.ok) throw new Error('Failed to load conversation');
+      const data = await res.json();
+
+      // Convert backend messages to frontend Message format
+      const loadedMessages: Message[] = [];
+      for (const msg of data.messages || []) {
+        const blocks: MessageBlock[] = [];
+        if (msg.content) {
+          blocks.push({ type: 'text', content: msg.content });
+        }
+        if (msg.tool_calls) {
+          for (const tc of msg.tool_calls) {
+            blocks.push({
+              type: 'tool',
+              id: `tool-loaded-${loadedMessages.length}-${blocks.length}`,
+              name: tc.tool_name,
+              args: tc.arguments || {},
+              status: 'completed',
+              result: tc.result,
+            } as ToolBlock);
+          }
+        }
+        if (blocks.length > 0) {
+          loadedMessages.push({
+            id: `loaded-${loadedMessages.length}`,
+            role: msg.role as 'user' | 'assistant',
+            blocks,
+            timestamp: new Date(msg.timestamp),
+          });
+        }
+      }
+
+      setMessages(loadedMessages);
+      setConversationId(data.id);
+      setCurrentPhase(data.phase || 'CONVERSATION');
+      setTotalTokens(data.total_tokens || 0);
+      setTotalCost(data.total_cost_usd || 0);
+      setAwaitingConfirmation(false);
+      setConfirmationPrompt(null);
+      toolIdCounterRef.current = 0;
+    } catch (e) {
+      console.error('Failed to load conversation:', e);
+    }
   }, []);
 
   const toggleSidebar = useCallback(() => {
@@ -427,10 +516,12 @@ export function ChatProvider({ children }: ChatProviderProps) {
         currentPhase,
         totalCost,
         totalTokens,
+        conversationHistory,
         sendMessage,
         handleConfirm,
         handleCancel,
         startNewConversation,
+        loadConversation,
         toggleSidebar,
         openSidebar,
         closeSidebar,

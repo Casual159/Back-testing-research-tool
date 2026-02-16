@@ -95,6 +95,14 @@ app.add_middleware(
 # Load config
 config = load_config()
 
+# Configure conversation storage with DB access
+try:
+    from agent.core import ConversationStorage
+
+    ConversationStorage.configure(config["database"])
+except Exception as e:
+    print(f"[WARNING] Could not configure ConversationStorage DB: {e}")
+
 # =============================================================================
 # PARAMETER NORMALIZATION FOR STRATEGIES
 # =============================================================================
@@ -977,10 +985,12 @@ def run_backtest(request: BacktestRequest):
         try:
             with PostgresStorage(config["database"]) as storage:
                 # Check which columns exist in backtest_reports
-                storage.cursor.execute("""
+                storage.cursor.execute(
+                    """
                     SELECT column_name FROM information_schema.columns
                     WHERE table_name = 'backtest_reports'
-                """)
+                """
+                )
                 existing_cols = {row[0] for row in storage.cursor.fetchall()}
 
                 # Define all desired columns and their values
@@ -1307,10 +1317,11 @@ async def agent_chat_stream(request: AgentChatRequest):
     agent = create_agent()
     conv_id = UUID(request.conversation_id) if request.conversation_id else None
     project_id = request.project_id
+    proj_uuid = UUID(project_id) if project_id else None
 
     async def event_generator():
         try:
-            async for event in agent.chat_stream(request.message, conv_id):
+            async for event in agent.chat_stream(request.message, conv_id, project_id=proj_uuid):
                 # Intercept tool_result events to create timeline events
                 if event.get("type") == "tool_result":
                     tool_name = event.get("tool")
@@ -1345,6 +1356,32 @@ async def agent_chat_stream(request: AgentChatRequest):
             "X-Accel-Buffering": "no",  # Disable nginx buffering
         },
     )
+
+
+# =============================================================================
+# CONVERSATION ENDPOINTS
+# =============================================================================
+
+
+@app.get("/api/projects/{project_id}/conversations")
+async def list_project_conversations(project_id: str, limit: int = 50):
+    """List conversations for a project."""
+    from agent.core import ConversationStorage
+
+    storage = ConversationStorage()
+    return await storage.list_by_project(project_id, limit)
+
+
+@app.get("/api/conversations/{conversation_id}")
+async def get_conversation(conversation_id: str):
+    """Get full conversation with messages."""
+    from agent.core import ConversationStorage
+
+    storage = ConversationStorage()
+    result = await storage.get_full(conversation_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return result
 
 
 # =============================================================================
@@ -1461,10 +1498,12 @@ def save_report(request: dict):
 
         with PostgresStorage(config["database"]) as storage:
             # Check which columns exist in backtest_reports
-            storage.cursor.execute("""
+            storage.cursor.execute(
+                """
                 SELECT column_name FROM information_schema.columns
                 WHERE table_name = 'backtest_reports'
-            """)
+            """
+            )
             existing_columns = {row[0] for row in storage.cursor.fetchall()}
 
             # Define all desired columns and their values

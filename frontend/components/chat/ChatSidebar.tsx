@@ -28,10 +28,12 @@ export function ChatSidebar() {
     currentPhase,
     totalCost,
     totalTokens,
+    conversationHistory,
     sendMessage,
     handleConfirm,
     handleCancel,
     startNewConversation,
+    loadConversation,
     closeSidebar,
   } = useChatContext();
 
@@ -169,6 +171,36 @@ export function ChatSidebar() {
                   Current market regime?
                 </button>
               </div>
+
+              {/* Past conversations */}
+              {conversationHistory.length > 0 && (
+                <div className="w-full mt-6 border-t border-neutral-800 pt-4">
+                  <h4 className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2 px-1">Recent Conversations</h4>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {conversationHistory.map((conv) => (
+                      <button
+                        key={conv.id}
+                        onClick={() => loadConversation(conv.id)}
+                        className="w-full px-3 py-2 rounded-lg bg-neutral-800/50 hover:bg-neutral-700/50 text-left transition-colors group"
+                      >
+                        <p className="text-sm text-neutral-300 truncate group-hover:text-white">
+                          {conv.preview || 'Conversation'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-neutral-600">
+                            {conv.message_count} msgs
+                          </span>
+                          {conv.updated_at && (
+                            <span className="text-xs text-neutral-600">
+                              {new Date(conv.updated_at).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="py-2">
