@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { config } from '@/lib/config';
+
+const API_BASE_URL = config.apiUrl;
 
 export interface NotebookBlock {
   id: string;
@@ -92,7 +94,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE_URL}/api/projects`);
+      const response = await fetch(`${API_BASE_URL}/projects`);
       if (!response.ok) {
         throw new Error('Failed to fetch projects');
       }
@@ -128,7 +130,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const fetchEvents = useCallback(async (projectId: string) => {
     try {
       setEventsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/events`);
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/events`);
       if (!response.ok) {
         throw new Error('Failed to fetch events');
       }
@@ -173,7 +175,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   };
 
   const createProject = async (data: CreateProjectData): Promise<Project> => {
-    const response = await fetch(`${API_BASE_URL}/api/projects`, {
+    const response = await fetch(`${API_BASE_URL}/projects`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -198,7 +200,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
 
     // If not found in list yet, fetch it directly
-    const projectResponse = await fetch(`${API_BASE_URL}/api/projects/${result.project.id}`);
+    const projectResponse = await fetch(`${API_BASE_URL}/projects/${result.project.id}`);
     const project = await projectResponse.json();
     setCurrentProject(project);
     localStorage.setItem(CURRENT_PROJECT_KEY, project.id);
@@ -213,7 +215,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     id: string,
     data: Partial<CreateProjectData & { status: string; validation_result: string; notebook: NotebookBlock[] }>
   ): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/api/projects/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -228,14 +230,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
     // Update current project if it's the one being updated
     if (currentProject?.id === id) {
-      const projectResponse = await fetch(`${API_BASE_URL}/api/projects/${id}`);
+      const projectResponse = await fetch(`${API_BASE_URL}/projects/${id}`);
       const project = await projectResponse.json();
       setCurrentProject(project);
     }
   };
 
   const deleteProject = async (id: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/api/projects/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
       method: 'DELETE'
     });
 
@@ -258,7 +260,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       throw new Error('No project selected');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/projects/${currentProject.id}/events`, {
+    const response = await fetch(`${API_BASE_URL}/projects/${currentProject.id}/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)

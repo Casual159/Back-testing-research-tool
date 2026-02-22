@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -235,6 +235,139 @@ class DataFetchRequest_DEPRECATED(BaseModel):
 def read_root():
     """Health check endpoint"""
     return {"status": "running", "service": "Backtesting Research Tool API", "version": "1.0.0"}
+
+
+# =============================================================================
+# AUTH ENDPOINTS
+# =============================================================================
+
+
+class SyncUserRequest(BaseModel):
+    email: str
+    name: Optional[str] = None
+    image: Optional[str] = None
+    provider: str = "credentials"
+    provider_account_id: Optional[str] = None
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+@app.post("/api/auth/sync-user")
+def sync_user(request: SyncUserRequest):
+    """
+    Create or update user record from NextAuth sign-in callback.
+    Called server-to-server by NextAuth on every login.
+    """
+    import bcrypt as _bcrypt  # noqa: F811
+
+    with PostgresStorage(config["database"]) as storage:
+        storage.cursor.execute(
+            """
+            INSERT INTO users (email, name, image_url, provider, provider_account_id, email_verified)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (email) DO UPDATE SET
+                name = COALESCE(EXCLUDED.name, users.name),
+                image_url = COALESCE(EXCLUDED.image_url, users.image_url),
+                updated_at = NOW()
+            RETURNING id, email, name, image_url
+            """,
+            (
+                request.email,
+                request.name,
+                request.image,
+                request.provider,
+                request.provider_account_id,
+                request.provider == "google",
+            ),
+        )
+        row = storage.cursor.fetchone()
+        storage.conn.commit()
+
+        return {
+            "id": str(row[0]),
+            "email": row[1],
+            "name": row[2],
+            "image": row[3],
+        }
+
+
+@app.post("/api/auth/register")
+def register_user(request: RegisterRequest):
+    """Register a new user with email/password."""
+    import bcrypt as _bcrypt
+
+    with PostgresStorage(config["database"]) as storage:
+        # Check if email already exists
+        storage.cursor.execute("SELECT 1 FROM users WHERE email = %s", (request.email,))
+        if storage.cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        # Hash password
+        password_hash = _bcrypt.hashpw(request.password.encode(), _bcrypt.gensalt()).decode()
+
+        storage.cursor.execute(
+            """
+            INSERT INTO users (email, name, password_hash, provider, email_verified)
+            VALUES (%s, %s, %s, 'credentials', FALSE)
+            RETURNING id, email, name
+            """,
+            (request.email, request.name, password_hash),
+        )
+        row = storage.cursor.fetchone()
+        storage.conn.commit()
+
+        return {
+            "id": str(row[0]),
+            "email": row[1],
+            "name": row[2],
+        }
+
+
+@app.post("/api/auth/login")
+def login_user(request: LoginRequest):
+    """Validate credentials for NextAuth Credentials provider."""
+    import bcrypt as _bcrypt
+
+    with PostgresStorage(config["database"]) as storage:
+        storage.cursor.execute(
+            """
+            SELECT id, email, name, image_url, password_hash
+            FROM users WHERE email = %s AND provider = 'credentials'
+            """,
+            (request.email,),
+        )
+        row = storage.cursor.fetchone()
+
+        if not row or not row[4]:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        if not _bcrypt.checkpw(request.password.encode(), row[4].encode()):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        return {
+            "id": str(row[0]),
+            "email": row[1],
+            "name": row[2],
+            "image": row[3],
+        }
+
+
+@app.get("/api/auth/me")
+def get_me(request: Request):
+    """Return the currently authenticated user."""
+    from api.dependencies import get_current_user
+
+    user = get_current_user(request)
+    return user
 
 
 @app.get("/api/data/stats")
@@ -1390,20 +1523,36 @@ async def get_conversation(conversation_id: str):
 
 
 @app.get("/api/reports")
-def list_reports(limit: int = 50):
+def list_reports(request: Request, limit: int = 50):
     """List saved backtest reports."""
+    from api.dependencies import get_optional_user
+
+    user = get_optional_user(request)
     try:
         with PostgresStorage(config["database"]) as storage:
-            query = """
-                SELECT
-                    id, strategy_name, symbol, timeframe,
-                    start_date, end_date, total_return_pct,
-                    sharpe_ratio, total_trades, created_at
-                FROM backtest_reports
-                ORDER BY created_at DESC
-                LIMIT %s
-            """
-            storage.cursor.execute(query, (limit,))
+            if user:
+                query = """
+                    SELECT
+                        id, strategy_name, symbol, timeframe,
+                        start_date, end_date, total_return_pct,
+                        sharpe_ratio, total_trades, created_at
+                    FROM backtest_reports
+                    WHERE user_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                """
+                storage.cursor.execute(query, (user["id"], limit))
+            else:
+                query = """
+                    SELECT
+                        id, strategy_name, symbol, timeframe,
+                        start_date, end_date, total_return_pct,
+                        sharpe_ratio, total_trades, created_at
+                    FROM backtest_reports
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                """
+                storage.cursor.execute(query, (limit,))
             rows = storage.cursor.fetchall()
 
             return [
@@ -1426,8 +1575,11 @@ def list_reports(limit: int = 50):
 
 
 @app.get("/api/reports/{report_id}")
-def get_report(report_id: str):
+def get_report(report_id: str, request: Request):
     """Get full backtest report by ID."""
+    from api.dependencies import get_optional_user
+
+    user = get_optional_user(request)
     try:
         from uuid import UUID
 
@@ -1435,12 +1587,20 @@ def get_report(report_id: str):
         UUID(report_id)
 
         with PostgresStorage(config["database"]) as storage:
-            query = """
-                SELECT *
-                FROM backtest_reports
-                WHERE id = %s
-            """
-            storage.cursor.execute(query, (report_id,))
+            if user:
+                query = """
+                    SELECT *
+                    FROM backtest_reports
+                    WHERE id = %s AND user_id = %s
+                """
+                storage.cursor.execute(query, (report_id, user["id"]))
+            else:
+                query = """
+                    SELECT *
+                    FROM backtest_reports
+                    WHERE id = %s
+                """
+                storage.cursor.execute(query, (report_id,))
             row = storage.cursor.fetchone()
 
             if not row:
@@ -1484,12 +1644,15 @@ def get_report(report_id: str):
 
 
 @app.post("/api/reports")
-def save_report(request: dict):
+def save_report(request: dict, req: Request):
     """
     Save backtest results as a persistent report.
 
     Used by agent tool: save_report
     """
+    from api.dependencies import get_optional_user
+
+    user = get_optional_user(req)
     try:
         backtest_results = request.get("backtest_results", {})
         ai_summary = request.get("ai_summary")
@@ -1526,6 +1689,7 @@ def save_report(request: dict):
                 ("ai_summary", ai_summary),
                 ("ai_recommendations", json.dumps(ai_recommendations)),
                 ("ai_concerns", json.dumps(ai_concerns)),
+                ("user_id", user["id"] if user else None),
             ]
 
             # Only insert columns that exist in the table
@@ -1800,61 +1964,54 @@ def resolve_error(error_id: str, resolution_notes: str = None):
 
 
 @app.get("/api/projects")
-def list_projects(status: Optional[str] = None, limit: int = 50):
+def list_projects(request: Request, status: Optional[str] = None, limit: int = 50):
     """
-    List all projects.
+    List all projects (scoped to authenticated user).
 
     Query params:
     - status: Filter by status (active, paused, concluded)
     - limit: Max number of projects to return
     """
+    from api.dependencies import get_optional_user
+
+    user = get_optional_user(request)
     try:
         with PostgresStorage(config["database"]) as storage:
+            # Build WHERE conditions
+            conditions = []
+            params: list = []
+            if user:
+                conditions.append("p.user_id = %s")
+                params.append(user["id"])
             if status:
-                query = """
-                    SELECT p.id, p.name, p.description, p.thesis, p.status, p.validation_result,
-                           COALESCE(c.conv_count, 0) AS conversation_count,
-                           COALESCE(b.bt_count, 0) AS backtest_count,
-                           p.created_at, p.updated_at
-                    FROM projects p
-                    LEFT JOIN (
-                        SELECT project_id, COUNT(*) AS conv_count
-                        FROM conversations
-                        GROUP BY project_id
-                    ) c ON c.project_id = p.id
-                    LEFT JOIN (
-                        SELECT project_id, COUNT(*) AS bt_count
-                        FROM research_events
-                        WHERE event_type = 'backtest_run'
-                        GROUP BY project_id
-                    ) b ON b.project_id = p.id
-                    WHERE p.status = %s
-                    ORDER BY p.updated_at DESC
-                    LIMIT %s
-                """
-                storage.cursor.execute(query, (status, limit))
-            else:
-                query = """
-                    SELECT p.id, p.name, p.description, p.thesis, p.status, p.validation_result,
-                           COALESCE(c.conv_count, 0) AS conversation_count,
-                           COALESCE(b.bt_count, 0) AS backtest_count,
-                           p.created_at, p.updated_at
-                    FROM projects p
-                    LEFT JOIN (
-                        SELECT project_id, COUNT(*) AS conv_count
-                        FROM conversations
-                        GROUP BY project_id
-                    ) c ON c.project_id = p.id
-                    LEFT JOIN (
-                        SELECT project_id, COUNT(*) AS bt_count
-                        FROM research_events
-                        WHERE event_type = 'backtest_run'
-                        GROUP BY project_id
-                    ) b ON b.project_id = p.id
-                    ORDER BY p.updated_at DESC
-                    LIMIT %s
-                """
-                storage.cursor.execute(query, (limit,))
+                conditions.append("p.status = %s")
+                params.append(status)
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+            params.append(limit)
+
+            query = f"""
+                SELECT p.id, p.name, p.description, p.thesis, p.status, p.validation_result,
+                       COALESCE(c.conv_count, 0) AS conversation_count,
+                       COALESCE(b.bt_count, 0) AS backtest_count,
+                       p.created_at, p.updated_at
+                FROM projects p
+                LEFT JOIN (
+                    SELECT project_id, COUNT(*) AS conv_count
+                    FROM conversations
+                    GROUP BY project_id
+                ) c ON c.project_id = p.id
+                LEFT JOIN (
+                    SELECT project_id, COUNT(*) AS bt_count
+                    FROM research_events
+                    WHERE event_type = 'backtest_run'
+                    GROUP BY project_id
+                ) b ON b.project_id = p.id
+                {where_clause}
+                ORDER BY p.updated_at DESC
+                LIMIT %s
+            """  # nosec B608 - conditions built from validated inputs
+            storage.cursor.execute(query, params)
 
             rows = storage.cursor.fetchall()
 
@@ -1878,13 +2035,16 @@ def list_projects(status: Optional[str] = None, limit: int = 50):
 
 
 @app.post("/api/projects")
-def create_project(request: CreateProjectRequest):
+def create_project(request: CreateProjectRequest, req: Request):
     """Create a new project."""
+    from api.dependencies import get_optional_user
+
+    user = get_optional_user(req)
     try:
         with PostgresStorage(config["database"]) as storage:
             query = """
-                INSERT INTO projects (name, description, thesis, user_preferences)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO projects (name, description, thesis, user_preferences, user_id)
+                VALUES (%s, %s, %s, %s, %s)
                 RETURNING id, name, created_at
             """
             storage.cursor.execute(
@@ -1894,6 +2054,7 @@ def create_project(request: CreateProjectRequest):
                     request.description,
                     request.thesis,
                     json.dumps(request.user_preferences) if request.user_preferences else "{}",
+                    user["id"] if user else None,
                 ),
             )
 
@@ -1913,15 +2074,19 @@ def create_project(request: CreateProjectRequest):
 
 
 @app.get("/api/projects/{project_id}")
-def get_project(project_id: str):
+def get_project(project_id: str, request: Request):
     """Get project details by ID."""
+    from api.dependencies import get_optional_user
+
+    user = get_optional_user(request)
     try:
         from uuid import UUID
 
         UUID(project_id)  # Validate UUID format
 
         with PostgresStorage(config["database"]) as storage:
-            query = """
+            user_filter = "AND p.user_id = %s" if user else ""
+            query = f"""
                 SELECT p.id, p.name, p.description, p.thesis, p.status, p.validation_result,
                        p.user_preferences, p.notebook,
                        COALESCE(c.conv_count, 0) AS conversation_count,
@@ -1940,9 +2105,12 @@ def get_project(project_id: str):
                     WHERE project_id = %s AND event_type = 'backtest_run'
                     GROUP BY project_id
                 ) b ON b.project_id = p.id
-                WHERE p.id = %s
-            """
-            storage.cursor.execute(query, (project_id, project_id, project_id))
+                WHERE p.id = %s {user_filter}
+            """  # nosec B608
+            query_params = [project_id, project_id, project_id]
+            if user:
+                query_params.append(user["id"])
+            storage.cursor.execute(query, query_params)
             row = storage.cursor.fetchone()
 
             if not row:
@@ -1969,8 +2137,11 @@ def get_project(project_id: str):
 
 
 @app.patch("/api/projects/{project_id}")
-def update_project(project_id: str, request: UpdateProjectRequest):
+def update_project(project_id: str, request: UpdateProjectRequest, req: Request):
     """Update project details."""
+    from api.dependencies import get_optional_user
+
+    user = get_optional_user(req)
     try:
         from uuid import UUID
 
@@ -2005,11 +2176,16 @@ def update_project(project_id: str, request: UpdateProjectRequest):
         updates.append("updated_at = NOW()")
         params.append(project_id)
 
+        user_filter = ""
+        if user:
+            user_filter = "AND user_id = %s"
+            params.append(user["id"])
+
         with PostgresStorage(config["database"]) as storage:
             query = f"""
                 UPDATE projects
                 SET {', '.join(updates)}
-                WHERE id = %s
+                WHERE id = %s {user_filter}
                 RETURNING id, name, updated_at
             """  # nosec B608
             storage.cursor.execute(query, params)
@@ -2079,8 +2255,11 @@ def add_notebook_block(project_id: str, block: dict):
 
 
 @app.delete("/api/projects/{project_id}")
-def delete_project(project_id: str):
+def delete_project(project_id: str, request: Request):
     """Delete a project and all its events."""
+    from api.dependencies import get_optional_user
+
+    user = get_optional_user(request)
     try:
         from uuid import UUID
 
@@ -2088,8 +2267,12 @@ def delete_project(project_id: str):
 
         with PostgresStorage(config["database"]) as storage:
             # Events are deleted via CASCADE
-            query = "DELETE FROM projects WHERE id = %s RETURNING id, name"
-            storage.cursor.execute(query, (project_id,))
+            if user:
+                query = "DELETE FROM projects WHERE id = %s AND user_id = %s RETURNING id, name"
+                storage.cursor.execute(query, (project_id, user["id"]))
+            else:
+                query = "DELETE FROM projects WHERE id = %s RETURNING id, name"
+                storage.cursor.execute(query, (project_id,))
             result = storage.cursor.fetchone()
 
             if not result:
@@ -2219,12 +2402,15 @@ def create_project_event(project_id: str, request: CreateEventRequest):
 
 
 @app.post("/api/onboarding/preferences")
-def save_onboarding_preferences(request: OnboardingPreferencesRequest):
+def save_onboarding_preferences(request: OnboardingPreferencesRequest, req: Request):
     """
     Save onboarding preferences and optionally create first project.
 
     Returns project ID if first project was created.
     """
+    from api.dependencies import get_optional_user
+
+    user = get_optional_user(req)
     try:
         preferences = {
             "experience_level": request.experience_level,
@@ -2238,8 +2424,8 @@ def save_onboarding_preferences(request: OnboardingPreferencesRequest):
         if request.first_project_name:
             with PostgresStorage(config["database"]) as storage:
                 query = """
-                    INSERT INTO projects (name, thesis, user_preferences)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO projects (name, thesis, user_preferences, user_id)
+                    VALUES (%s, %s, %s, %s)
                     RETURNING id
                 """
                 storage.cursor.execute(
@@ -2248,6 +2434,7 @@ def save_onboarding_preferences(request: OnboardingPreferencesRequest):
                         request.first_project_name,
                         request.first_project_thesis,
                         json.dumps(preferences),
+                        user["id"] if user else None,
                     ),
                 )
                 result = storage.cursor.fetchone()

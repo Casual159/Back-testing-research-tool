@@ -5,7 +5,8 @@ These dependencies are used across API endpoints to provide
 common services like database connections, configuration, etc.
 """
 
-from typing import Generator
+import os
+from typing import Generator, Optional
 
 from fastapi import Depends, HTTPException, Request
 
@@ -118,3 +119,42 @@ def require_api_key(request: Request, config: dict = Depends(get_config)) -> str
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     return str(api_key)
+
+
+def get_current_user(request: Request) -> dict:
+    """
+    Get current authenticated user from proxy headers.
+
+    The Next.js API proxy validates the NextAuth session and forwards
+    X-User-Id, X-User-Email, X-Proxy-Secret headers to FastAPI.
+
+    Raises:
+        HTTPException: 401 if proxy secret is missing/invalid or no user ID
+    """
+    proxy_secret = request.headers.get("X-Proxy-Secret")
+    expected_secret = os.environ.get("PROXY_SECRET")
+
+    if expected_secret and proxy_secret != expected_secret:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    user_id = request.headers.get("X-User-Id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    return {
+        "id": user_id,
+        "email": request.headers.get("X-User-Email", ""),
+    }
+
+
+def get_optional_user(request: Request) -> Optional[dict]:
+    """
+    Like get_current_user but returns None for unauthenticated requests.
+
+    Used for endpoints that work both authenticated (user-scoped)
+    and unauthenticated (MCP/agent internal calls).
+    """
+    try:
+        return get_current_user(request)
+    except HTTPException:
+        return None

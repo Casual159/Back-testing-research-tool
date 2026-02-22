@@ -15,9 +15,10 @@ import {
   Beaker,
   Plus,
   ChevronDown,
-  RotateCcw
+  LogOut,
+  User
 } from 'lucide-react';
-import { useProject } from '@/lib/contexts';
+import { useProject, useAuth } from '@/lib/contexts';
 import { cn } from '@/lib/utils';
 import { config } from '@/lib/config';
 
@@ -144,7 +145,7 @@ function SystemStatus() {
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/`);
+        const response = await fetch(`${API_BASE_URL}/data/stats`);
         setStatus(response.ok ? 'ok' : 'error');
       } catch {
         setStatus('error');
@@ -166,6 +167,43 @@ function SystemStatus() {
     <div className="flex items-center gap-2 px-3 py-2 text-xs text-neutral-500">
       <div className={cn('w-2 h-2 rounded-full', statusColors[status])} />
       <span>System {status === 'ok' ? 'OK' : status}</span>
+    </div>
+  );
+}
+
+function UserSection({ isCollapsed }: { isCollapsed: boolean }) {
+  const { user, logout } = useAuth();
+
+  if (!user) return null;
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-800 transition-colors group">
+      {user.image ? (
+        <img
+          src={user.image}
+          alt={user.name || 'User'}
+          className="w-7 h-7 rounded-full flex-shrink-0"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+          <User className="w-4 h-4 text-white" />
+        </div>
+      )}
+      {!isCollapsed && (
+        <>
+          <span className="text-sm text-neutral-300 truncate flex-1">
+            {user.name || user.email}
+          </span>
+          <button
+            onClick={logout}
+            className="p-1 rounded hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -256,14 +294,6 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="border-t border-neutral-800 py-2 px-2 space-y-1">
-        {/* Dev: Test Onboarding */}
-        <NavItem
-          href="/onboarding"
-          icon={RotateCcw}
-          label="Test Onboarding"
-          isCollapsed={isCollapsed}
-          isActive={pathname === '/onboarding'}
-        />
         <NavItem
           href="/settings"
           icon={Settings}
@@ -272,6 +302,7 @@ export function Sidebar() {
           isActive={pathname === '/settings'}
         />
         {!isCollapsed && <SystemStatus />}
+        <UserSection isCollapsed={isCollapsed} />
       </div>
     </aside>
   );

@@ -2,12 +2,16 @@
 
 import { ReactNode, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Sidebar } from './Sidebar';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ChatProvider, ChatSidebar, ChatToggleButton, MainContent } from '@/components/chat';
-import { OnboardingProvider, ProjectProvider, useOnboarding } from '@/lib/contexts';
+import { AuthProvider, OnboardingProvider, ProjectProvider, useOnboarding } from '@/lib/contexts';
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar_collapsed';
+
+/** Routes that render without the app shell (no sidebar, no breadcrumbs) */
+const PUBLIC_ROUTES = ['/', '/login', '/register'];
 
 interface ShellContentProps {
   children: ReactNode;
@@ -99,7 +103,32 @@ function OnboardingGuard({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-export function Shell({ children }: { children: ReactNode }) {
+/**
+ * AuthGate: renders public pages without the shell,
+ * authenticated pages with the full app shell.
+ */
+function AuthGate({ children }: { children: ReactNode }) {
+  const { status } = useSession();
+  const pathname = usePathname();
+
+  const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
+
+  // Public routes: render children directly (no shell)
+  // The page component itself decides what to show (e.g., landing vs dashboard)
+  if (isPublicRoute && status !== 'authenticated') {
+    return <>{children}</>;
+  }
+
+  // Loading state
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-neutral-900 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Authenticated: render with full shell
   return (
     <OnboardingProvider>
       <ProjectProvider>
@@ -108,5 +137,13 @@ export function Shell({ children }: { children: ReactNode }) {
         </OnboardingGuard>
       </ProjectProvider>
     </OnboardingProvider>
+  );
+}
+
+export function Shell({ children }: { children: ReactNode }) {
+  return (
+    <AuthProvider>
+      <AuthGate>{children}</AuthGate>
+    </AuthProvider>
   );
 }

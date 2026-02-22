@@ -117,7 +117,7 @@ export default function ProjectDetailPage() {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteSummary, setNoteSummary] = useState('');
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API_BASE_URL = '/api/backend';
 
   // Load project from list (basic data)
   useEffect(() => {
@@ -133,7 +133,7 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     const fetchDetail = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}`);
+        const res = await fetch(`${API_BASE_URL}/projects/${projectId}`);
         if (res.ok) {
           const data = await res.json();
           setNotebookBlocks(data.notebook || []);
