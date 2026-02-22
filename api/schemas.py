@@ -297,6 +297,10 @@ class BacktestResponse(BaseModel):
     equity_curve: List[Dict[str, Any]]
     trades: List[TradeResult]
 
+    # Optional fields
+    report_id: Optional[str] = None
+    regime_stats: Optional[Dict[str, Any]] = None
+
 
 # =============================================================================
 # AGENT SCHEMAS

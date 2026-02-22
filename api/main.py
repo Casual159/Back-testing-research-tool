@@ -61,7 +61,7 @@ from core.data.storage import PostgresStorage  # noqa: E402
 from core.indicators.regime import detect_market_regimes  # noqa: E402
 
 # from core.data.strategy_storage import StrategyStorage  # Deprecated - using new strategies table
-from core.indicators.technical import add_all_indicators  # noqa: E402
+from core.indicators.technical import add_all_indicators, calculate_indicators  # noqa: E402
 
 app = FastAPI(
     title="Backtesting Research Tool API",
@@ -517,11 +517,19 @@ def get_data_range(symbol: str, timeframe: str):
 
 
 @app.get("/api/data/candles/{symbol}/{timeframe}")
-def get_candles(symbol: str, timeframe: str) -> list:
-    """Get all candles for a symbol/timeframe for chart visualization"""
+def get_candles(
+    symbol: str,
+    timeframe: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> list:
+    """Get candles for a symbol/timeframe with optional date range filtering"""
     try:
+        start_time = datetime.fromisoformat(start_date) if start_date else None
+        end_time = datetime.fromisoformat(end_date) if end_date else None
+
         with PostgresStorage(config["database"]) as storage:
-            df = storage.get_candles(symbol, timeframe)
+            df = storage.get_candles(symbol, timeframe, start_time=start_time, end_time=end_time)
 
             if df.empty:
                 raise HTTPException(
@@ -547,6 +555,52 @@ def get_candles(symbol: str, timeframe: str) -> list:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get candles: {str(e)}")
+
+
+@app.get("/api/data/indicators/{symbol}/{timeframe}")
+def get_indicators(
+    symbol: str,
+    timeframe: str,
+    indicators: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> list:
+    """Compute and return indicator values for given candle data"""
+    try:
+        start_time = datetime.fromisoformat(start_date) if start_date else None
+        end_time = datetime.fromisoformat(end_date) if end_date else None
+
+        with PostgresStorage(config["database"]) as storage:
+            df = storage.get_candles(symbol, timeframe, start_time=start_time, end_time=end_time)
+
+            if df.empty:
+                raise HTTPException(
+                    status_code=404, detail=f"No data found for {symbol} {timeframe}"
+                )
+
+            # Parse requested indicators (comma-separated) or compute all
+            indicator_list = indicators.split(",") if indicators else None
+            df_with_indicators = calculate_indicators(df, indicator_list)
+
+            # Build response: time + requested indicator columns
+            base_cols = {"open_time", "open", "high", "low", "close", "volume"}
+            indicator_cols = [c for c in df_with_indicators.columns if c not in base_cols]
+
+            result = []
+            for _, row in df_with_indicators.iterrows():
+                entry: Dict[str, Any] = {
+                    "time": int(row["open_time"].timestamp()),
+                }
+                for col in indicator_cols:
+                    val = row[col]
+                    entry[col] = None if pd.isna(val) else float(val)
+                result.append(entry)
+
+            return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to compute indicators: {str(e)}")
 
 
 @app.delete("/api/data/{symbol}/{timeframe}")
@@ -923,7 +977,7 @@ def delete_strategy(name: str):
 
 
 @app.post("/api/backtest", response_model=BacktestResponse)
-def run_backtest(request: BacktestRequest):
+def run_backtest(request: BacktestRequest, http_request: Request = None):
     """
     Run a backtest with specified strategy on historical data.
 
@@ -935,6 +989,11 @@ def run_backtest(request: BacktestRequest):
 
     Returns metrics and trade data for AI analysis.
     """
+    # Extract user for multi-tenant report saving
+    from api.dependencies import get_optional_user
+
+    user = get_optional_user(http_request) if http_request else None
+
     try:
         # 1. Get strategy from database (new strategies table)
         with PostgresStorage(config["database"]) as storage:
@@ -1144,6 +1203,7 @@ def run_backtest(request: BacktestRequest):
                     ("equity_curve", json.dumps(equity_curve)),
                     ("trades", json.dumps([t.model_dump() for t in trades_list])),
                     ("regime_performance", json.dumps(regime_stats) if regime_stats else None),
+                    ("user_id", user["id"] if user else None),
                 ]
 
                 # Only insert columns that exist in the table

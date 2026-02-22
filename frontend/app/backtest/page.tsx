@@ -10,6 +10,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { apiEndpoint } from "@/lib/config";
+import BacktestChart, { CandleData, IndicatorId } from "@/components/backtest/BacktestChart";
+import IndicatorPanel from "@/components/backtest/IndicatorPanel";
+import { useIndicators } from "@/hooks/useIndicators";
+import { usePlaybackEngine } from "@/hooks/usePlaybackEngine";
+import PlaybackControls from "@/components/backtest/PlaybackControls";
+import PlaybackEquityCurve from "@/components/backtest/PlaybackEquityCurve";
 
 interface Strategy {
   name: string;
@@ -98,6 +104,10 @@ function BacktestPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [dataAvailable, setDataAvailable] = useState<boolean | null>(null);
   const [checkingData, setCheckingData] = useState(false);
+  const [candleData, setCandleData] = useState<CandleData[]>([]);
+  const [enabledIndicators, setEnabledIndicators] = useState<IndicatorId[]>([]);
+  const indicators = useIndicators(symbol, timeframe, startDate, endDate);
+  const playback = usePlaybackEngine(candleData.length);
 
   // Load strategies on mount
   useEffect(() => {
@@ -225,6 +235,13 @@ function BacktestPageContent() {
     return () => clearTimeout(debounce);
   }, [symbol, timeframe, startDate, endDate, datasetSelected, userInteracted]);
 
+  const handleIndicatorsChange = (newEnabled: IndicatorId[]) => {
+    setEnabledIndicators(newEnabled);
+    if (newEnabled.length > 0) {
+      indicators.fetchIndicators(newEnabled);
+    }
+  };
+
   const handleRunBacktest = async () => {
     if (!selectedStrategy) {
       setError("Please select a strategy");
@@ -256,6 +273,22 @@ function BacktestPageContent() {
       }
 
       setResult(data);
+
+      // Fetch candle data for chart visualization
+      try {
+        const params = new URLSearchParams();
+        if (startDate) params.set("start_date", startDate);
+        if (endDate) params.set("end_date", endDate);
+        const candleRes = await fetch(
+          apiEndpoint(`/data/candles/${symbol}/${timeframe}?${params}`)
+        );
+        if (candleRes.ok) {
+          const candles = await candleRes.json();
+          setCandleData(candles);
+        }
+      } catch {
+        // Chart is optional - don't fail the whole page
+      }
     } catch (err) {
       setError(`Backtest failed: ${err}`);
     } finally {
@@ -417,6 +450,47 @@ function BacktestPageContent() {
           <div className="lg:col-span-2">
             {result ? (
               <div className="space-y-6">
+                {/* Candlestick Chart with Trade Markers */}
+                {candleData.length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <CardTitle className="text-lg">
+                            {result.symbol} {result.timeframe} — {result.strategy_name}
+                          </CardTitle>
+                          <CardDescription>
+                            {candleData.length.toLocaleString()} candles · {result.trades.length} trades
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <IndicatorPanel
+                        enabled={enabledIndicators}
+                        onChange={handleIndicatorsChange}
+                        loading={indicators.loading}
+                      />
+                    </CardHeader>
+                    <CardContent className="px-2 pb-2 space-y-3">
+                      <BacktestChart
+                        candles={candleData}
+                        trades={result.trades}
+                        playbackIndex={playback.playbackIndex}
+                        indicatorData={indicators.data ?? undefined}
+                        enabledIndicators={enabledIndicators}
+                      />
+                      <PlaybackControls
+                        state={playback.state}
+                        onPlay={playback.play}
+                        onPause={playback.pause}
+                        onStop={playback.stop}
+                        onSeek={playback.seek}
+                        onSetSpeed={playback.setSpeed}
+                        candleTimes={candleData.map((c) => c.time)}
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Metrics Cards */}
                 <div className="grid gap-4 md:grid-cols-3">
                   <MetricCard
@@ -479,9 +553,10 @@ function BacktestPageContent() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <EquityCurveChart
+                    <PlaybackEquityCurve
                       data={result.equity_curve}
                       initialCapital={initialCapital}
+                      playbackIndex={playback.playbackIndex}
                     />
                   </CardContent>
                 </Card>
@@ -612,113 +687,6 @@ function MetricCard({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function EquityCurveChart({
-  data,
-  initialCapital
-}: {
-  data: { time: string; value: number }[];
-  initialCapital: number;
-}) {
-  if (!data || data.length === 0) {
-    return (
-      <div className="h-64 flex items-center justify-center text-neutral-400">
-        No equity curve data
-      </div>
-    );
-  }
-
-  // Simple SVG line chart
-  const values = data.map((d) => d.value);
-  const minValue = Math.min(...values) * 0.95;
-  const maxValue = Math.max(...values) * 1.05;
-  const range = maxValue - minValue;
-
-  const width = 800;
-  const height = 256;
-  const padding = 40;
-
-  const points = data.map((d, index) => {
-    const x = padding + (index / (data.length - 1)) * (width - padding * 2);
-    const y = height - padding - ((d.value - minValue) / range) * (height - padding * 2);
-    return `${x},${y}`;
-  }).join(" ");
-
-  // Determine color based on final value vs initial
-  const finalValue = values[values.length - 1];
-  const isProfit = finalValue >= initialCapital;
-  const lineColor = isProfit ? "#22c55e" : "#ef4444";
-  const fillColor = isProfit ? "rgba(34, 197, 94, 0.1)" : "rgba(239, 68, 68, 0.1)";
-
-  // Create fill polygon
-  const fillPoints = `${padding},${height - padding} ${points} ${width - padding},${height - padding}`;
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-64">
-      {/* Grid lines */}
-      {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
-        <line
-          key={pct}
-          x1={padding}
-          y1={padding + pct * (height - padding * 2)}
-          x2={width - padding}
-          y2={padding + pct * (height - padding * 2)}
-          stroke="#404040"
-          strokeDasharray="4"
-        />
-      ))}
-
-      {/* Initial capital reference line */}
-      <line
-        x1={padding}
-        y1={height - padding - ((initialCapital - minValue) / range) * (height - padding * 2)}
-        x2={width - padding}
-        y2={height - padding - ((initialCapital - minValue) / range) * (height - padding * 2)}
-        stroke="#94a3b8"
-        strokeDasharray="8"
-        strokeWidth="1"
-      />
-
-      {/* Fill area */}
-      <polygon points={fillPoints} fill={fillColor} />
-
-      {/* Line */}
-      <polyline
-        points={points}
-        fill="none"
-        stroke={lineColor}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Y-axis labels */}
-      <text x={padding - 5} y={padding} fontSize="10" textAnchor="end" fill="#666">
-        ${maxValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-      </text>
-      <text x={padding - 5} y={height - padding} fontSize="10" textAnchor="end" fill="#666">
-        ${minValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-      </text>
-      <text
-        x={padding - 5}
-        y={height - padding - ((initialCapital - minValue) / range) * (height - padding * 2)}
-        fontSize="10"
-        textAnchor="end"
-        fill="#94a3b8"
-      >
-        ${initialCapital.toLocaleString()}
-      </text>
-
-      {/* Start/End labels */}
-      <text x={padding} y={height - 10} fontSize="10" textAnchor="start" fill="#666">
-        Start
-      </text>
-      <text x={width - padding} y={height - 10} fontSize="10" textAnchor="end" fill="#666">
-        End
-      </text>
-    </svg>
   );
 }
 
