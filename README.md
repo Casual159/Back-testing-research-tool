@@ -68,6 +68,15 @@ A comprehensive platform for researching, backtesting, and analyzing trading str
 - Efficient bulk downloads (80%+ bandwidth savings)
 - PostgreSQL storage with time-series optimization
 
+### DevOps Automation
+- **Railway deployment automation** - Deploy to staging/production with one command
+- **AI-powered error analysis** - Claude analyzes production errors and suggests fixes
+- **Database migration management** - Automated Alembic migrations
+- **Health monitoring** - API health checks and log analysis
+- **MCP integration** - Use with Claude Code for conversational DevOps
+
+See [DEVOPS_AGENT_README.md](DEVOPS_AGENT_README.md:1) for details.
+
 ---
 
 ## Quick Start
@@ -169,5 +178,17 @@ createdb trading_bot
 
 ## Documentation
 
+### Getting Started
 - [QUICKSTART.md](QUICKSTART.md) - Detailed setup guide
+- [DEVELOPER_SETUP.md](DEVELOPER_SETUP.md:1) - Developer tools and best practices
+
+### Deployment & DevOps
+- [DEVOPS_AGENT_README.md](DEVOPS_AGENT_README.md:1) - DevOps automation with Railway
+- [RAILWAY_QUICK_FIXES.md](RAILWAY_QUICK_FIXES.md:1) - 🔥 Common deployment issues & instant fixes
+- [RAILWAY_TROUBLESHOOTING.md](RAILWAY_TROUBLESHOOTING.md:1) - Complete troubleshooting guide
+
+### Database
+- [ALEMBIC_GUIDE.md](ALEMBIC_GUIDE.md:1) - Database migration guide
+
+### Architecture
 - [Backtesting_Obsidian/](Backtesting_Obsidian/) - Full project documentation
