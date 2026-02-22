@@ -354,6 +354,12 @@ export default function BacktestChart({
       .filter((d) => d.rsi !== null && d.rsi !== undefined)
       .map((d) => ({ time: d.time as Time, value: d.rsi as number }));
     rsiSeriesRef.current.setData(data);
+
+    // Sync visible range from main chart
+    if (mainChartRef.current && rsiChartRef.current) {
+      const range = mainChartRef.current.timeScale().getVisibleLogicalRange();
+      if (range) rsiChartRef.current.timeScale().setVisibleLogicalRange(range);
+    }
   }, [indicatorData, visibleCount, showRsi]);
 
   // ── MACD sub-chart ────────────────────────────────────────────────
@@ -440,6 +446,12 @@ export default function BacktestChart({
               : indicatorColors.macd_histogram_neg,
           }))
       );
+    }
+
+    // Sync visible range from main chart
+    if (mainChartRef.current && macdChartRef.current) {
+      const range = mainChartRef.current.timeScale().getVisibleLogicalRange();
+      if (range) macdChartRef.current.timeScale().setVisibleLogicalRange(range);
     }
   }, [indicatorData, visibleCount, showMacd]);
 
