@@ -157,7 +157,7 @@ export default function DataPage() {
                     type="text"
                     value={symbol}
                     onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white placeholder:text-neutral-500"
                     placeholder="BTCUSDT"
                   />
                 </div>
@@ -167,7 +167,7 @@ export default function DataPage() {
                   <select
                     value={timeframe}
                     onChange={(e) => setTimeframe(e.target.value)}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
                   >
                     <option value="1m">1 minute</option>
                     <option value="5m">5 minutes</option>
@@ -184,7 +184,7 @@ export default function DataPage() {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
                   />
                 </div>
 
@@ -195,7 +195,7 @@ export default function DataPage() {
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="flex-1 rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+                      className="flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
                     />
                     <Button
                       type="button"

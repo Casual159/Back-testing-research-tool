@@ -298,7 +298,7 @@ function BacktestPageContent() {
                   <select
                     value={selectedStrategy}
                     onChange={(e) => setSelectedStrategy(e.target.value)}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
                   >
                     <option value="">Select a strategy...</option>
                     {strategies.map((s) => (
@@ -315,7 +315,7 @@ function BacktestPageContent() {
                   <select
                     value={selectedDataset}
                     onChange={(e) => handleDatasetChange(e.target.value)}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
                   >
                     <option value="">Select a dataset...</option>
                     {datasets.map((ds) => {
@@ -347,7 +347,7 @@ function BacktestPageContent() {
                     type="number"
                     value={initialCapital}
                     onChange={(e) => setInitialCapital(Number(e.target.value))}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
                     min={100}
                     step={1000}
                   />
@@ -497,7 +497,7 @@ function BacktestPageContent() {
                   <CardContent>
                     <div className="max-h-80 overflow-auto">
                       <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-white dark:bg-neutral-900">
+                        <thead className="sticky top-0 bg-card">
                           <tr className="border-b">
                             <th className="py-2 text-left font-medium">Entry</th>
                             <th className="py-2 text-left font-medium">Exit</th>
@@ -665,7 +665,7 @@ function EquityCurveChart({
           y1={padding + pct * (height - padding * 2)}
           x2={width - padding}
           y2={padding + pct * (height - padding * 2)}
-          stroke="#e5e5e5"
+          stroke="#404040"
           strokeDasharray="4"
         />
       ))}

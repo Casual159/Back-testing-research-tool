@@ -59,12 +59,12 @@ function formatPercent(value: number | null): string {
 }
 
 function getReturnColor(value: number | null): string {
-  if (value === null) return 'text-gray-400';
+  if (value === null) return 'text-neutral-400';
   return value >= 0 ? 'text-green-400' : 'text-red-400';
 }
 
 function getSharpeColor(value: number | null): string {
-  if (value === null) return 'text-gray-400';
+  if (value === null) return 'text-neutral-400';
   if (value >= 2) return 'text-green-400';
   if (value >= 1) return 'text-yellow-400';
   return 'text-red-400';
@@ -129,8 +129,8 @@ export default function ResultsPage() {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`px-2 py-1 text-xs rounded border transition-colors bg-gray-900 ${
-        value ? 'border-blue-500 text-white' : 'border-gray-700 text-gray-400'
+      className={`px-2 py-1 text-xs rounded border transition-colors bg-neutral-800 ${
+        value ? 'border-purple-500 text-white' : 'border-neutral-600 text-neutral-400'
       }`}
     >
       <option value="">{label}</option>
@@ -176,36 +176,34 @@ export default function ResultsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="space-y-6">
       {/* Header */}
-      <header className="border-b border-gray-800 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-gray-400 hover:text-white">
-              &larr; Back
-            </Link>
-            <h1 className="text-xl font-semibold">Backtest Reports</h1>
-          </div>
-          <Link
-            href="/chat"
-            className="text-sm px-4 py-2 rounded bg-blue-600 hover:bg-blue-700"
-          >
-            New Analysis
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-neutral-400 hover:text-white text-sm">
+            &larr; Back
           </Link>
+          <h1 className="text-2xl font-bold text-white">Backtest Reports</h1>
         </div>
-      </header>
+        <Link
+          href="/chat"
+          className="text-sm px-4 py-2 rounded bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+        >
+          New Analysis
+        </Link>
+      </div>
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div>
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+            <div className="animate-spin h-8 w-8 border-2 border-purple-500 border-t-transparent rounded-full" />
           </div>
         ) : error ? (
           <div className="text-center py-12">
             <p className="text-red-400 mb-4">{error}</p>
             <button
               onClick={fetchReports}
-              className="px-4 py-2 rounded bg-gray-800 hover:bg-gray-700"
+              className="px-4 py-2 rounded bg-neutral-800 hover:bg-neutral-700 text-white"
             >
               Retry
             </button>
@@ -214,12 +212,12 @@ export default function ResultsPage() {
           <div className="text-center py-12">
             <div className="text-6xl mb-4">📭</div>
             <h2 className="text-xl font-semibold mb-2">No reports yet</h2>
-            <p className="text-gray-400 mb-6">
+            <p className="text-neutral-400 mb-6">
               Run a backtest with the research agent to save reports here.
             </p>
             <Link
               href="/chat"
-              className="inline-block px-4 py-2 rounded bg-blue-600 hover:bg-blue-700"
+              className="inline-block px-4 py-2 rounded bg-primary hover:bg-primary/80 text-primary-foreground font-medium"
             >
               Start Research
             </Link>
@@ -227,7 +225,7 @@ export default function ResultsPage() {
         ) : (
           <div className="space-y-6">
             {/* Filters bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-neutral-800 rounded-lg p-4 border border-neutral-700">
               <div className="flex flex-wrap items-center gap-2">
                 <FilterSelect
                   label="Ticker"
@@ -257,13 +255,13 @@ export default function ResultsPage() {
                 {activeFiltersCount > 0 && (
                   <button
                     onClick={clearFilters}
-                    className="px-2 py-1 text-xs text-gray-400 hover:text-white"
+                    className="px-2 py-1 text-xs text-neutral-400 hover:text-white"
                   >
                     Clear
                   </button>
                 )}
               </div>
-              <span className="text-sm text-gray-400">
+              <span className="text-sm text-neutral-400">
                 {filteredReports.length} / {reports.length}
               </span>
             </div>
@@ -276,8 +274,8 @@ export default function ResultsPage() {
                   onClick={() => fetchReportDetail(report.id)}
                   className={`text-left p-4 rounded-lg border transition-colors ${
                     selectedReport?.id === report.id
-                      ? 'bg-gray-800 border-blue-500'
-                      : 'bg-gray-900 border-gray-800 hover:border-gray-700'
+                      ? 'bg-neutral-700 border-purple-500'
+                      : 'bg-neutral-800 border-neutral-700 hover:border-neutral-600'
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
@@ -286,12 +284,12 @@ export default function ResultsPage() {
                       {formatPercent(report.total_return_pct)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                  <div className="flex items-center gap-2 text-xs text-neutral-400 mb-1">
                     <span className="font-medium">{report.symbol}</span>
                     <span>&bull;</span>
                     <span>{report.timeframe}</span>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center justify-between text-xs text-neutral-500">
                     <span>{report.total_trades} trades</span>
                     <span>{formatDate(report.created_at)}</span>
                   </div>
@@ -304,11 +302,11 @@ export default function ResultsPage() {
               {selectedReport ? (
                 <div className="space-y-6">
                   {/* Header */}
-                  <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
+                  <div className="bg-neutral-800 rounded-lg p-6 border border-neutral-700">
                     <div className="flex items-start justify-between mb-4">
                       <div>
                         <h2 className="text-xl font-semibold">{selectedReport.strategy_name}</h2>
-                        <p className="text-gray-400 text-sm">
+                        <p className="text-neutral-400 text-sm">
                           {selectedReport.symbol} &bull; {selectedReport.timeframe} &bull;{' '}
                           {formatDate(selectedReport.start_date)} - {formatDate(selectedReport.end_date)}
                         </p>
@@ -321,35 +319,35 @@ export default function ResultsPage() {
                     {/* Metrics grid */}
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
                       <div>
-                        <div className="text-xs text-gray-400">Sharpe</div>
+                        <div className="text-xs text-neutral-400">Sharpe</div>
                         <div className={`text-lg font-semibold ${getSharpeColor(selectedReport.sharpe_ratio)}`}>
                           {selectedReport.sharpe_ratio?.toFixed(2) ?? '-'}
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-400">Max DD</div>
+                        <div className="text-xs text-neutral-400">Max DD</div>
                         <div className="text-lg font-semibold text-red-400">
                           {selectedReport.max_drawdown_pct?.toFixed(2) ?? '-'}%
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-400">Win Rate</div>
+                        <div className="text-xs text-neutral-400">Win Rate</div>
                         <div className="text-lg font-semibold">
                           {selectedReport.win_rate_pct?.toFixed(1) ?? '-'}%
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-400">Profit Factor</div>
+                        <div className="text-xs text-neutral-400">Profit Factor</div>
                         <div className="text-lg font-semibold">
                           {selectedReport.profit_factor?.toFixed(2) ?? '-'}
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-400">Trades</div>
+                        <div className="text-xs text-neutral-400">Trades</div>
                         <div className="text-lg font-semibold">{selectedReport.total_trades}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-400">Capital</div>
+                        <div className="text-xs text-neutral-400">Capital</div>
                         <div className="text-lg font-semibold">
                           ${selectedReport.initial_capital?.toLocaleString() ?? '-'}
                         </div>
@@ -359,13 +357,13 @@ export default function ResultsPage() {
 
                   {/* AI Analysis */}
                   {(selectedReport.ai_summary || selectedReport.ai_recommendations?.length > 0) && (
-                    <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
+                    <div className="bg-neutral-800 rounded-lg p-6 border border-neutral-700">
                       <h3 className="font-semibold mb-3 flex items-center gap-2">
-                        <span className="text-blue-400">🤖</span> AI Analysis
+                        <span className="text-purple-400">🤖</span> AI Analysis
                       </h3>
 
                       {selectedReport.ai_summary && (
-                        <p className="text-gray-300 text-sm mb-4">{selectedReport.ai_summary}</p>
+                        <p className="text-neutral-300 text-sm mb-4">{selectedReport.ai_summary}</p>
                       )}
 
                       {selectedReport.ai_recommendations?.length > 0 && (
@@ -373,7 +371,7 @@ export default function ResultsPage() {
                           <h4 className="text-sm font-medium text-green-400 mb-2">Recommendations</h4>
                           <ul className="space-y-1">
                             {selectedReport.ai_recommendations.map((rec, i) => (
-                              <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
+                              <li key={i} className="text-sm text-neutral-300 flex items-start gap-2">
                                 <span className="text-green-400">✓</span>
                                 {rec}
                               </li>
@@ -387,7 +385,7 @@ export default function ResultsPage() {
                           <h4 className="text-sm font-medium text-yellow-400 mb-2">Concerns</h4>
                           <ul className="space-y-1">
                             {selectedReport.ai_concerns.map((concern, i) => (
-                              <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
+                              <li key={i} className="text-sm text-neutral-300 flex items-start gap-2">
                                 <span className="text-yellow-400">⚠</span>
                                 {concern}
                               </li>
@@ -400,7 +398,7 @@ export default function ResultsPage() {
 
                   {/* Equity curve */}
                   {selectedReport.equity_curve?.length > 0 && (
-                    <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
+                    <div className="bg-neutral-800 rounded-lg p-6 border border-neutral-700">
                       <h3 className="font-semibold mb-3">Equity Curve</h3>
                       <div className="h-48 flex items-end gap-px">
                         {selectedReport.equity_curve.slice(-100).map((point, i) => {
@@ -421,7 +419,7 @@ export default function ResultsPage() {
                           );
                         })}
                       </div>
-                      <div className="flex justify-between text-xs text-gray-500 mt-2">
+                      <div className="flex justify-between text-xs text-neutral-500 mt-2">
                         <span>{formatDate(selectedReport.start_date)}</span>
                         <span>{formatDate(selectedReport.end_date)}</span>
                       </div>
@@ -430,12 +428,12 @@ export default function ResultsPage() {
 
                   {/* Trades table */}
                   {selectedReport.trades?.length > 0 && (
-                    <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
+                    <div className="bg-neutral-800 rounded-lg p-6 border border-neutral-700">
                       <h3 className="font-semibold mb-3">Recent Trades</h3>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="text-gray-400 text-xs">
+                            <tr className="text-neutral-400 text-xs">
                               <th className="text-left py-2">Entry</th>
                               <th className="text-left py-2">Exit</th>
                               <th className="text-right py-2">Entry Price</th>
@@ -445,9 +443,9 @@ export default function ResultsPage() {
                           </thead>
                           <tbody>
                             {selectedReport.trades.slice(0, 20).map((trade, i) => (
-                              <tr key={i} className="border-t border-gray-800">
-                                <td className="py-2 text-gray-300">{formatDate(trade.entry_time)}</td>
-                                <td className="py-2 text-gray-300">{formatDate(trade.exit_time)}</td>
+                              <tr key={i} className="border-t border-neutral-700">
+                                <td className="py-2 text-neutral-300">{formatDate(trade.entry_time)}</td>
+                                <td className="py-2 text-neutral-300">{formatDate(trade.exit_time)}</td>
                                 <td className="py-2 text-right">${trade.entry_price?.toFixed(2)}</td>
                                 <td className="py-2 text-right">${trade.exit_price?.toFixed(2)}</td>
                                 <td className={`py-2 text-right ${getReturnColor(trade.pnl_pct)}`}>
@@ -458,7 +456,7 @@ export default function ResultsPage() {
                           </tbody>
                         </table>
                         {selectedReport.trades.length > 20 && (
-                          <p className="text-xs text-gray-500 mt-2">
+                          <p className="text-xs text-neutral-500 mt-2">
                             Showing 20 of {selectedReport.trades.length} trades
                           </p>
                         )}
@@ -467,7 +465,7 @@ export default function ResultsPage() {
                   )}
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-64 text-gray-500">
+                <div className="flex items-center justify-center h-64 text-neutral-500">
                   Select a report to view details
                 </div>
               )}
