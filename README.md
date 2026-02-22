@@ -178,17 +178,12 @@ createdb trading_bot
 
 ## Documentation
 
-### Getting Started
-- [QUICKSTART.md](QUICKSTART.md) - Detailed setup guide
-- [DEVELOPER_SETUP.md](DEVELOPER_SETUP.md:1) - Developer tools and best practices
+All documentation lives in [Backtesting_Obsidian/](Backtesting_Obsidian/) (Obsidian vault):
 
-### Deployment & DevOps
-- [DEVOPS_AGENT_README.md](DEVOPS_AGENT_README.md:1) - DevOps automation with Railway
-- [RAILWAY_QUICK_FIXES.md](RAILWAY_QUICK_FIXES.md:1) - 🔥 Common deployment issues & instant fixes
-- [RAILWAY_TROUBLESHOOTING.md](RAILWAY_TROUBLESHOOTING.md:1) - Complete troubleshooting guide
-
-### Database
-- [ALEMBIC_GUIDE.md](ALEMBIC_GUIDE.md:1) - Database migration guide
-
-### Architecture
-- [Backtesting_Obsidian/](Backtesting_Obsidian/) - Full project documentation
+- **01-Architecture/** - Auth, dependency injection, agent implementation
+- **02-Components/** - Data layer, agent
+- **04-Workflows/** - Quickstart, developer setup, Alembic, pre-commit
+- **05-Reference/** - Strategy landscape, risk management, AI tools, MCP servers
+- **06-Deployment/** - Railway, Vercel, DevOps agent, troubleshooting
+- **33-Product/** - Product charter, user stories, UI specs
+- **99-Meta/** - Session notes, acceptance criteria

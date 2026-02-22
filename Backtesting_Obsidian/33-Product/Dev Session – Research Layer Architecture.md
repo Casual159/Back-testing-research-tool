@@ -17,7 +17,7 @@ Navazuje na [[Research Layer – User Stories]] a [[Research-First Vision]]. Cí
 - ReAct pattern s Claude API (sonnet-4)
 - 11 tools (strategies, backtest, data, reports...)
 - 6-fázový workflow: STRATEGY_DESIGN → VALIDATION → DATA → EXECUTION → ANALYSIS → COMPLETE
-- **In-memory** conversation storage (netrvalé) ← TODO
+- ~~In-memory conversation storage~~ → **PostgreSQL persistence** (implementováno 2026-02-16)
 - SSE streaming + MCP integrace
 
 ### Frontend
@@ -237,9 +237,10 @@ AI: "Návrh exploration space:
 
 ## Implementační plán
 
-### Fáze 1: Persistence (základ)
-- [ ] Přesunout conversations z in-memory do PostgreSQL
-- [ ] Conversation = Research Session (s metadaty)
+### Fáze 1: Persistence (základ) --- DONE
+- [x] Přesunout conversations z in-memory do PostgreSQL *(2026-02-16)*
+- [x] Conversation = Research Session s `project_id` linkage
+- [x] Notebook (JSONB bloky: text, backtest_ref, strategy_ref, agent_note)
 
 ### Fáze 2: UI Mockup
 - [ ] `/research` page s mock daty
