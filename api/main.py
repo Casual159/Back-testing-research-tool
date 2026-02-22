@@ -583,7 +583,7 @@ def get_indicators(
             df_with_indicators = calculate_indicators(df, indicator_list)
 
             # Build response: time + requested indicator columns
-            base_cols = {"open", "high", "low", "close", "volume"}
+            base_cols = {"open", "high", "low", "close", "volume", "close_time", "quote_volume", "trades"}
             indicator_cols = [c for c in df_with_indicators.columns if c not in base_cols]
 
             result = []
