@@ -314,308 +314,293 @@ function BacktestPageContent() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Configuration Panel */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle>Configuration</CardTitle>
-                <CardDescription>
-                  Select strategy and data parameters
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Strategy Selection */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Strategy</label>
-                  <select
-                    value={selectedStrategy}
-                    onChange={(e) => setSelectedStrategy(e.target.value)}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
-                  >
-                    <option value="">Select a strategy...</option>
-                    {strategies.map((s) => (
-                      <option key={s.name} value={s.name}>
-                        {s.name} ({s.strategy_type})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Dataset Selection */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Dataset</label>
-                  <select
-                    value={selectedDataset}
-                    onChange={(e) => handleDatasetChange(e.target.value)}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
-                  >
-                    <option value="">Select a dataset...</option>
-                    {datasets.map((ds) => {
-                      const key = `${ds.symbol}|${ds.timeframe}`;
-                      const firstDate = new Date(ds.first_candle).toISOString().split('T')[0];
-                      const lastDate = new Date(ds.last_candle).toISOString().split('T')[0];
-                      const label = `${ds.symbol} ${ds.timeframe} (${ds.candle_count} bars) ${firstDate} → ${lastDate}`;
-                      return (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      );
-                    })}
-                    <option value="fetch-new" className="font-semibold text-blue-600">
-                      + Fetch new data...
-                    </option>
-                  </select>
-                  {selectedDataset && selectedDataset !== "fetch-new" && (
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                      {symbol} {timeframe}: {startDate} → {endDate}
-                    </p>
-                  )}
-                </div>
-
-                {/* Initial Capital */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Initial Capital ($)</label>
-                  <input
-                    type="number"
-                    value={initialCapital}
-                    onChange={(e) => setInitialCapital(Number(e.target.value))}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
-                    min={100}
-                    step={1000}
-                  />
-                </div>
-
-                {/* Data Availability Check */}
-                {userInteracted && (
-                  <div className="rounded-lg border p-3">
-                    <div className="flex items-center gap-2">
-                      {checkingData ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-                      ) : dataAvailable === true ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                      ) : dataAvailable === false ? (
-                        <AlertCircle className="h-4 w-4 text-red-600" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4 text-neutral-400" />
-                      )}
-                      <span className="text-sm">
-                        {checkingData
-                          ? "Checking data..."
-                          : dataAvailable === true
-                          ? "Data available"
-                          : dataAvailable === false
-                          ? "Data not available"
-                          : "Checking..."}
-                      </span>
-                    </div>
-                    {dataAvailable === false && (
-                      <Link href="/data" className="text-xs text-blue-600 hover:underline mt-1 block">
-                        Go to Data Management to fetch data
-                      </Link>
-                    )}
-                  </div>
-                )}
-
-                {/* Run Button */}
-                <Button
-                  onClick={handleRunBacktest}
-                  disabled={loading || !selectedStrategy || dataAvailable === false}
-                  className="w-full"
+        {/* Configuration Bar — inline at top */}
+        <Card className="mb-6">
+          <CardContent className="py-4">
+            <div className="flex flex-wrap items-end gap-4">
+              {/* Strategy */}
+              <div className="space-y-1 min-w-[200px] flex-1">
+                <label className="text-xs font-medium text-neutral-400">Strategy</label>
+                <select
+                  value={selectedStrategy}
+                  onChange={(e) => setSelectedStrategy(e.target.value)}
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
                 >
-                  {loading ? (
-                    <>
-                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Running...
-                    </>
-                  ) : (
-                    <>
-                      <PlayCircle className="mr-2 h-4 w-4" />
-                      Run Backtest
-                    </>
-                  )}
-                </Button>
-
-                {/* Error Display */}
-                {error && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-                    {error}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Results Panel */}
-          <div className="lg:col-span-2">
-            {result ? (
-              <div className="space-y-6">
-                {/* Candlestick Chart with Trade Markers */}
-                {candleData.length > 0 && (
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <CardTitle className="text-lg">
-                            {result.symbol} {result.timeframe} — {result.strategy_name}
-                          </CardTitle>
-                          <CardDescription>
-                            {candleData.length.toLocaleString()} candles · {result.trades.length} trades
-                          </CardDescription>
-                        </div>
-                      </div>
-                      <IndicatorPanel
-                        enabled={enabledIndicators}
-                        onChange={handleIndicatorsChange}
-                        loading={indicators.loading}
-                      />
-                    </CardHeader>
-                    <CardContent className="px-2 pb-2 space-y-3">
-                      <BacktestChart
-                        candles={candleData}
-                        trades={result.trades}
-                        playbackIndex={playback.playbackIndex}
-                        indicatorData={indicators.data ?? undefined}
-                        enabledIndicators={enabledIndicators}
-                      />
-                      <PlaybackControls
-                        state={playback.state}
-                        onPlay={playback.play}
-                        onPause={playback.pause}
-                        onStop={playback.stop}
-                        onSeek={playback.seek}
-                        onSetSpeed={playback.setSpeed}
-                        candleTimes={candleData.map((c) => c.time)}
-                      />
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Metrics Cards */}
-                <div className="grid gap-4 md:grid-cols-3">
-                  <MetricCard
-                    title="Total Return"
-                    value={`${result.total_return_pct >= 0 ? "+" : ""}${result.total_return_pct.toFixed(2)}%`}
-                    icon={result.total_return_pct >= 0 ? TrendingUp : TrendingDown}
-                    iconColor={result.total_return_pct >= 0 ? "text-green-600" : "text-red-600"}
-                    valueColor={result.total_return_pct >= 0 ? "text-green-600" : "text-red-600"}
-                  />
-                  <MetricCard
-                    title="Sharpe Ratio"
-                    value={result.sharpe_ratio.toFixed(2)}
-                    subtitle={interpretSharpe(result.sharpe_ratio).label}
-                    icon={BarChart3}
-                    iconColor="text-blue-600"
-                    valueColor={interpretSharpe(result.sharpe_ratio).color}
-                  />
-                  <MetricCard
-                    title="Max Drawdown"
-                    value={`${result.max_drawdown_pct.toFixed(2)}%`}
-                    subtitle={interpretDrawdown(result.max_drawdown_pct).label}
-                    icon={TrendingDown}
-                    iconColor="text-orange-600"
-                    valueColor={interpretDrawdown(result.max_drawdown_pct).color}
-                  />
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-3">
-                  <MetricCard
-                    title="Win Rate"
-                    value={`${result.win_rate_pct.toFixed(1)}%`}
-                    subtitle={interpretWinRate(result.win_rate_pct).label}
-                    icon={Target}
-                    iconColor="text-purple-600"
-                    valueColor={interpretWinRate(result.win_rate_pct).color}
-                  />
-                  <MetricCard
-                    title="Total Trades"
-                    value={String(result.total_trades)}
-                    subtitle={result.total_trades < 10 ? "Low sample size" : "Statistically valid"}
-                    icon={Activity}
-                    iconColor="text-cyan-600"
-                  />
-                  <MetricCard
-                    title="Profit Factor"
-                    value={result.profit_factor.toFixed(2)}
-                    subtitle={result.profit_factor > 1.5 ? "Good edge" : result.profit_factor > 1 ? "Marginal" : "Losing"}
-                    icon={BarChart3}
-                    iconColor="text-emerald-600"
-                    valueColor={result.profit_factor > 1.5 ? "text-emerald-600" : result.profit_factor > 1 ? "text-orange-600" : "text-red-600"}
-                  />
-                </div>
-
-                {/* Equity Curve */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Equity Curve</CardTitle>
-                    <CardDescription>
-                      Portfolio value over time (${initialCapital.toLocaleString()} initial)
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <PlaybackEquityCurve
-                      data={result.equity_curve}
-                      initialCapital={initialCapital}
-                      playbackIndex={playback.playbackIndex}
-                    />
-                  </CardContent>
-                </Card>
-
-                {/* Trade List */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Trade History</CardTitle>
-                    <CardDescription>
-                      {result.trades.length} trades executed
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-80 overflow-auto">
-                      <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-card">
-                          <tr className="border-b">
-                            <th className="py-2 text-left font-medium">Entry</th>
-                            <th className="py-2 text-left font-medium">Exit</th>
-                            <th className="py-2 text-right font-medium">Entry Price</th>
-                            <th className="py-2 text-right font-medium">Exit Price</th>
-                            <th className="py-2 text-right font-medium">P&L</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {result.trades.map((trade, idx) => (
-                            <tr key={idx} className="border-b last:border-0">
-                              <td className="py-2 text-neutral-600 dark:text-neutral-400">
-                                {new Date(trade.entry_time).toLocaleDateString()}
-                              </td>
-                              <td className="py-2 text-neutral-600 dark:text-neutral-400">
-                                {new Date(trade.exit_time).toLocaleDateString()}
-                              </td>
-                              <td className="py-2 text-right">${trade.entry_price.toLocaleString()}</td>
-                              <td className="py-2 text-right">${trade.exit_price.toLocaleString()}</td>
-                              <td className={`py-2 text-right font-medium ${trade.pnl >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                {trade.pnl >= 0 ? "+" : ""}{trade.pnl_pct.toFixed(2)}%
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
+                  <option value="">Select a strategy...</option>
+                  {strategies.map((s) => (
+                    <option key={s.name} value={s.name}>
+                      {s.name} ({s.strategy_type})
+                    </option>
+                  ))}
+                </select>
               </div>
-            ) : (
-              <Card className="h-full flex items-center justify-center py-20">
-                <CardContent className="text-center">
-                  <BarChart3 className="mx-auto h-16 w-16 text-neutral-300 mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Results Yet</h3>
-                  <p className="text-neutral-600 dark:text-neutral-400">
-                    Configure parameters and run a backtest to see results
-                  </p>
+
+              {/* Dataset */}
+              <div className="space-y-1 min-w-[260px] flex-[2]">
+                <label className="text-xs font-medium text-neutral-400">Dataset</label>
+                <select
+                  value={selectedDataset}
+                  onChange={(e) => handleDatasetChange(e.target.value)}
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
+                >
+                  <option value="">Select a dataset...</option>
+                  {datasets.map((ds) => {
+                    const key = `${ds.symbol}|${ds.timeframe}`;
+                    const firstDate = new Date(ds.first_candle).toISOString().split('T')[0];
+                    const lastDate = new Date(ds.last_candle).toISOString().split('T')[0];
+                    const label = `${ds.symbol} ${ds.timeframe} (${ds.candle_count} bars) ${firstDate} → ${lastDate}`;
+                    return (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                  <option value="fetch-new" className="font-semibold text-blue-600">
+                    + Fetch new data...
+                  </option>
+                </select>
+              </div>
+
+              {/* Initial Capital */}
+              <div className="space-y-1 w-[130px]">
+                <label className="text-xs font-medium text-neutral-400">Capital ($)</label>
+                <input
+                  type="number"
+                  value={initialCapital}
+                  onChange={(e) => setInitialCapital(Number(e.target.value))}
+                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
+                  min={100}
+                  step={1000}
+                />
+              </div>
+
+              {/* Data status indicator */}
+              {userInteracted && (
+                <div className="flex items-center gap-1.5 pb-1">
+                  {checkingData ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                  ) : dataAvailable === true ? (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  ) : dataAvailable === false ? (
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-neutral-400" />
+                  )}
+                  <span className="text-xs whitespace-nowrap">
+                    {checkingData
+                      ? "Checking..."
+                      : dataAvailable === true
+                      ? "Data OK"
+                      : dataAvailable === false
+                      ? "No data"
+                      : ""}
+                  </span>
+                </div>
+              )}
+
+              {/* Run Button */}
+              <Button
+                onClick={handleRunBacktest}
+                disabled={loading || !selectedStrategy || dataAvailable === false}
+                className="h-[38px]"
+              >
+                {loading ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Running...
+                  </>
+                ) : (
+                  <>
+                    <PlayCircle className="mr-2 h-4 w-4" />
+                    Run Backtest
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Second row: dataset info + errors */}
+            {(selectedDataset && selectedDataset !== "fetch-new") && (
+              <p className="text-xs text-neutral-500 mt-2">
+                {symbol} {timeframe}: {startDate} → {endDate}
+              </p>
+            )}
+            {dataAvailable === false && (
+              <Link href="/data" className="text-xs text-blue-600 hover:underline mt-1 inline-block">
+                Go to Data Management to fetch data
+              </Link>
+            )}
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300 mt-3">
+                {error}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Results — full width */}
+        {result ? (
+          <div className="space-y-6">
+            {/* Candlestick Chart with Trade Markers */}
+            {candleData.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-lg">
+                        {result.symbol} {result.timeframe} — {result.strategy_name}
+                      </CardTitle>
+                      <CardDescription>
+                        {candleData.length.toLocaleString()} candles · {result.trades.length} trades
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <IndicatorPanel
+                    enabled={enabledIndicators}
+                    onChange={handleIndicatorsChange}
+                    loading={indicators.loading}
+                  />
+                </CardHeader>
+                <CardContent className="px-2 pb-2 space-y-3">
+                  <BacktestChart
+                    candles={candleData}
+                    trades={result.trades}
+                    playbackIndex={playback.playbackIndex}
+                    indicatorData={indicators.data ?? undefined}
+                    enabledIndicators={enabledIndicators}
+                  />
+                  <PlaybackControls
+                    state={playback.state}
+                    onPlay={playback.play}
+                    onPause={playback.pause}
+                    onStop={playback.stop}
+                    onSeek={playback.seek}
+                    onSetSpeed={playback.setSpeed}
+                    candleTimes={candleData.map((c) => c.time)}
+                  />
                 </CardContent>
               </Card>
             )}
+
+            {/* Metrics Cards */}
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+              <MetricCard
+                title="Total Return"
+                value={`${result.total_return_pct >= 0 ? "+" : ""}${result.total_return_pct.toFixed(2)}%`}
+                icon={result.total_return_pct >= 0 ? TrendingUp : TrendingDown}
+                iconColor={result.total_return_pct >= 0 ? "text-green-600" : "text-red-600"}
+                valueColor={result.total_return_pct >= 0 ? "text-green-600" : "text-red-600"}
+              />
+              <MetricCard
+                title="Sharpe Ratio"
+                value={result.sharpe_ratio.toFixed(2)}
+                subtitle={interpretSharpe(result.sharpe_ratio).label}
+                icon={BarChart3}
+                iconColor="text-blue-600"
+                valueColor={interpretSharpe(result.sharpe_ratio).color}
+              />
+              <MetricCard
+                title="Max Drawdown"
+                value={`${result.max_drawdown_pct.toFixed(2)}%`}
+                subtitle={interpretDrawdown(result.max_drawdown_pct).label}
+                icon={TrendingDown}
+                iconColor="text-orange-600"
+                valueColor={interpretDrawdown(result.max_drawdown_pct).color}
+              />
+              <MetricCard
+                title="Win Rate"
+                value={`${result.win_rate_pct.toFixed(1)}%`}
+                subtitle={interpretWinRate(result.win_rate_pct).label}
+                icon={Target}
+                iconColor="text-purple-600"
+                valueColor={interpretWinRate(result.win_rate_pct).color}
+              />
+              <MetricCard
+                title="Total Trades"
+                value={String(result.total_trades)}
+                subtitle={result.total_trades < 10 ? "Low sample size" : "Statistically valid"}
+                icon={Activity}
+                iconColor="text-cyan-600"
+              />
+              <MetricCard
+                title="Profit Factor"
+                value={result.profit_factor.toFixed(2)}
+                subtitle={result.profit_factor > 1.5 ? "Good edge" : result.profit_factor > 1 ? "Marginal" : "Losing"}
+                icon={BarChart3}
+                iconColor="text-emerald-600"
+                valueColor={result.profit_factor > 1.5 ? "text-emerald-600" : result.profit_factor > 1 ? "text-orange-600" : "text-red-600"}
+              />
+            </div>
+
+            {/* Equity Curve */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Equity Curve</CardTitle>
+                <CardDescription>
+                  Portfolio value over time (${initialCapital.toLocaleString()} initial)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PlaybackEquityCurve
+                  data={result.equity_curve}
+                  initialCapital={initialCapital}
+                  playbackIndex={playback.playbackIndex}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Trade List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Trade History</CardTitle>
+                <CardDescription>
+                  {result.trades.length} trades executed
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="max-h-80 overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-card">
+                      <tr className="border-b">
+                        <th className="py-2 text-left font-medium">Entry</th>
+                        <th className="py-2 text-left font-medium">Exit</th>
+                        <th className="py-2 text-right font-medium">Entry Price</th>
+                        <th className="py-2 text-right font-medium">Exit Price</th>
+                        <th className="py-2 text-right font-medium">P&L</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.trades.map((trade, idx) => (
+                        <tr key={idx} className="border-b last:border-0">
+                          <td className="py-2 text-neutral-600 dark:text-neutral-400">
+                            {new Date(trade.entry_time).toLocaleDateString()}
+                          </td>
+                          <td className="py-2 text-neutral-600 dark:text-neutral-400">
+                            {new Date(trade.exit_time).toLocaleDateString()}
+                          </td>
+                          <td className="py-2 text-right">${trade.entry_price.toLocaleString()}</td>
+                          <td className="py-2 text-right">${trade.exit_price.toLocaleString()}</td>
+                          <td className={`py-2 text-right font-medium ${trade.pnl >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {trade.pnl >= 0 ? "+" : ""}{trade.pnl_pct.toFixed(2)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
+        ) : (
+          <Card className="flex items-center justify-center py-20">
+            <CardContent className="text-center">
+              <BarChart3 className="mx-auto h-16 w-16 text-neutral-300 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Results Yet</h3>
+              <p className="text-neutral-600 dark:text-neutral-400">
+                Configure parameters and run a backtest to see results
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Fetch Data Dialog */}
         {showFetchDialog && (
