@@ -272,6 +272,10 @@ class PostgresStorage:
 
         try:
             df = pd.read_sql_query(query, self.conn, params=tuple(params))
+            # Set open_time as DatetimeIndex so backtest engine gets proper timestamps
+            if not df.empty and "open_time" in df.columns:
+                df["open_time"] = pd.to_datetime(df["open_time"])
+                df = df.set_index("open_time")
             logger.info(f"Retrieved {len(df)} candles for {symbol} {timeframe}")
             return df
         except Exception as e:

@@ -538,10 +538,10 @@ def get_candles(
 
             # Convert DataFrame to list of candle objects
             candles = []
-            for _, row in df.iterrows():
+            for idx, row in df.iterrows():
                 candles.append(
                     {
-                        "time": int(row["open_time"].timestamp()),  # Convert to Unix timestamp
+                        "time": int(idx.timestamp()),  # Convert to Unix timestamp
                         "open": float(row["open"]),
                         "high": float(row["high"]),
                         "low": float(row["low"]),
@@ -583,13 +583,13 @@ def get_indicators(
             df_with_indicators = calculate_indicators(df, indicator_list)
 
             # Build response: time + requested indicator columns
-            base_cols = {"open_time", "open", "high", "low", "close", "volume"}
+            base_cols = {"open", "high", "low", "close", "volume"}
             indicator_cols = [c for c in df_with_indicators.columns if c not in base_cols]
 
             result = []
-            for _, row in df_with_indicators.iterrows():
+            for idx, row in df_with_indicators.iterrows():
                 entry: Dict[str, Any] = {
-                    "time": int(row["open_time"].timestamp()),
+                    "time": int(idx.timestamp()),
                 }
                 for col in indicator_cols:
                     val = row[col]
@@ -703,12 +703,12 @@ def get_regime_data(symbol: str, timeframe: str):
 
             # 5. Format for frontend
             result = []
-            for _, row in df.iterrows():
+            for idx, row in df.iterrows():
                 simplified = row.get("simplified_regime")
 
                 result.append(
                     {
-                        "time": int(row["open_time"].timestamp()),
+                        "time": int(idx.timestamp()),
                         "regime": simplified if not pd.isna(simplified) else "NEUTRAL",
                         "full_regime": row.get("full_regime", ""),
                         "trend_state": row.get("trend_state", ""),
