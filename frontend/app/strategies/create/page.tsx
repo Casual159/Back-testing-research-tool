@@ -231,7 +231,7 @@ export default function CreateStrategyPage() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+                    className="w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
                     placeholder="My RSI Strategy"
                   />
                 </div>
@@ -272,7 +272,7 @@ export default function CreateStrategyPage() {
                     <select
                       value={entryOperator}
                       onChange={(e) => setEntryOperator(e.target.value as "AND" | "OR")}
-                      className="rounded-md border border-neutral-300 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
                     >
                       <option value="AND">AND (all must be true)</option>
                       <option value="OR">OR (any can be true)</option>
@@ -317,7 +317,7 @@ export default function CreateStrategyPage() {
                     <select
                       value={exitOperator}
                       onChange={(e) => setExitOperator(e.target.value as "AND" | "OR")}
-                      className="rounded-md border border-neutral-300 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
                     >
                       <option value="AND">AND (all must be true)</option>
                       <option value="OR">OR (any can be true)</option>
@@ -350,8 +350,8 @@ export default function CreateStrategyPage() {
                       key={regime}
                       className={`px-3 py-2 rounded-md border cursor-pointer transition-colors ${
                         regimeFilter.includes(regime)
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 hover:border-blue-400"
+                          ? "bg-purple-600 text-white border-purple-600"
+                          : "bg-neutral-800 text-neutral-300 border-neutral-600 hover:border-purple-400"
                       }`}
                     >
                       <input
@@ -493,7 +493,7 @@ function SignalBuilder({
                 indicator_component: config.outputs.length > 1 ? config.outputs[0] : undefined,
               });
             }}
-            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
           >
             {Object.entries(INDICATORS).map(([key, config]) => (
               <option key={key} value={key}>
@@ -510,7 +510,7 @@ function SignalBuilder({
             <select
               value={signal.indicator_component || indicatorConfig.outputs[0]}
               onChange={(e) => onChange({ indicator_component: e.target.value })}
-              className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+              className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
             >
               {indicatorConfig.outputs.map((output) => (
                 <option key={output} value={output}>
@@ -535,7 +535,7 @@ function SignalBuilder({
                   parameters: { ...signal.parameters, [key]: Number(e.target.value) },
                 })
               }
-              className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+              className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
             />
           </div>
         ))}
@@ -550,7 +550,7 @@ function SignalBuilder({
             onChange={(e) =>
               onChange({ condition: { ...signal.condition, operator: e.target.value } })
             }
-            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
           >
             {CONDITION_OPERATORS.map((op) => (
               <option key={op.value} value={op.value}>
@@ -574,7 +574,7 @@ function SignalBuilder({
                 },
               });
             }}
-            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
             placeholder="30, 70, signal, price..."
           />
         </div>

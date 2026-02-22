@@ -233,7 +233,7 @@ function StrategyCard({
               {Object.entries(strategy.parameters).slice(0, 3).map(([key, value]) => (
                 <span
                   key={key}
-                  className="px-2 py-0.5 text-xs bg-neutral-100 dark:bg-neutral-700 rounded"
+                  className="px-2 py-0.5 text-xs bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200 rounded"
                 >
                   {key}: {String(value)}
                 </span>

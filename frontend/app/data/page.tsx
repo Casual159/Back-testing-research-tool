@@ -314,7 +314,7 @@ export default function DataPage() {
                 {stats.map((stat, index) => (
                   <div
                     key={index}
-                    className="rounded-lg border p-4 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+                    className="rounded-lg border p-4 hover:bg-neutral-800 transition-colors"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
