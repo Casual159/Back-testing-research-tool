@@ -1,0 +1,58 @@
+{
+  "strategy_name": "sma_crossover_trending",
+  "data_generator": "generate_trending",
+  "data_params": {
+    "n_bars": 500,
+    "drift_per_bar": 0.0003,
+    "seed": 42
+  },
+  "engine_params": {
+    "initial_capital": 10000.0,
+    "commission_rate": 0.001
+  },
+  "metrics": {
+    "initial_capital": 10000.0,
+    "final_value": 9692.072708064808,
+    "total_return": -3.0792729193519155,
+    "annual_return": -43.51484606498472,
+    "sharpe_ratio": -0.24339088488998775,
+    "max_drawdown": -10.015930256513478,
+    "max_drawdown_duration": 448,
+    "total_trades": 21,
+    "winning_trades": 6,
+    "losing_trades": 15,
+    "win_rate": 28.57142857142857,
+    "total_profit": 931.4980861296948,
+    "total_loss": 1644.3061510318917,
+    "profit_factor": 0.5664991799398968,
+    "avg_win": 155.2496810216158,
+    "avg_loss": -109.62041006879278,
+    "avg_trade": -33.943241185818884,
+    "max_win_streak": 2,
+    "max_loss_streak": 7,
+    "avg_trade_duration": 14.476190476190476
+  },
+  "tolerance": {
+    "total_return": 0.1,
+    "sharpe_ratio": 0.01,
+    "max_drawdown": 0.1,
+    "total_trades": 0,
+    "win_rate": 0.1,
+    "profit_factor": 0.01,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "avg_win": 0.5,
+    "avg_loss": 0.5,
+    "avg_trade": 0.5,
+    "max_win_streak": 0,
+    "max_loss_streak": 0,
+    "avg_trade_duration": 0.5,
+    "annual_return": 0.5,
+    "max_drawdown_duration": 1,
+    "total_profit": 1.0,
+    "total_loss": 1.0,
+    "initial_capital": 0,
+    "final_value": 1.0
+  },
+  "generated_at": "2026-02-28T01:30:50.122947"
+}

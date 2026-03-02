@@ -45,4 +45,4 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=core --cov=agent --cov=api --cov-report=term-missing"
+addopts = "-v"

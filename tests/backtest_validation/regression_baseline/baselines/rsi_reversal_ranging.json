@@ -1,0 +1,58 @@
+{
+  "strategy_name": "rsi_reversal_ranging",
+  "data_generator": "generate_ranging",
+  "data_params": {
+    "n_bars": 500,
+    "center_price": 100.0,
+    "seed": 42
+  },
+  "engine_params": {
+    "initial_capital": 10000.0,
+    "commission_rate": 0.001
+  },
+  "metrics": {
+    "initial_capital": 10000.0,
+    "final_value": 12057.3472821106,
+    "total_return": 20.573472821106005,
+    "annual_return": 2946.9157607627803,
+    "sharpe_ratio": 1.9203872508434958,
+    "max_drawdown": -2.3430217040126506,
+    "max_drawdown_duration": 43,
+    "total_trades": 9,
+    "winning_trades": 9,
+    "losing_trades": 0,
+    "win_rate": 100.0,
+    "total_profit": 1874.842322071851,
+    "total_loss": 0,
+    "profit_factor": Infinity,
+    "avg_win": 208.315813563539,
+    "avg_loss": 0.0,
+    "avg_trade": 208.315813563539,
+    "max_win_streak": 9,
+    "max_loss_streak": 0,
+    "avg_trade_duration": 22.333333333333332
+  },
+  "tolerance": {
+    "total_return": 0.1,
+    "sharpe_ratio": 0.01,
+    "max_drawdown": 0.1,
+    "total_trades": 0,
+    "win_rate": 0.1,
+    "profit_factor": 0.01,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "avg_win": 0.5,
+    "avg_loss": 0.5,
+    "avg_trade": 0.5,
+    "max_win_streak": 0,
+    "max_loss_streak": 0,
+    "avg_trade_duration": 0.5,
+    "annual_return": 0.5,
+    "max_drawdown_duration": 1,
+    "total_profit": 1.0,
+    "total_loss": 1.0,
+    "initial_capital": 0,
+    "final_value": 1.0
+  },
+  "generated_at": "2026-02-28T01:30:50.148669"
+}

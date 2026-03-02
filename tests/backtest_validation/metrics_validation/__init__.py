@@ -1,0 +1,1 @@
+"""Financial metric correctness validation."""
