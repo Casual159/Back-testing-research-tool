@@ -50,7 +50,7 @@ export const authConfig: NextAuthConfig = {
     async signIn({ user, account }) {
       // Sync user to our PostgreSQL database on every sign-in
       try {
-        await fetch(`${BACKEND_URL}/api/auth/sync-user`, {
+        const res = await fetch(`${BACKEND_URL}/api/auth/sync-user`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -61,6 +61,11 @@ export const authConfig: NextAuthConfig = {
             provider_account_id: account?.providerAccountId,
           }),
         });
+        if (res.ok) {
+          const dbUser = await res.json();
+          // Override NextAuth's internal ID with our DB UUID
+          user.id = dbUser.id;
+        }
       } catch (e) {
         console.error("Failed to sync user:", e);
       }
