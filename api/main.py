@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -34,6 +34,9 @@ from api.middleware import (  # noqa: E402
     LoggingMiddleware,
     RequestIDMiddleware,
 )
+
+# Billing enforcement
+from api.rate_limiter import require_active_account  # noqa: E402
 
 # Import schemas (new validated models)
 from api.schemas import (  # noqa: E402
@@ -254,6 +257,7 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     name: Optional[str] = None
+    invite_code: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
@@ -267,12 +271,13 @@ def sync_user(request: SyncUserRequest):
     Create or update user record from NextAuth sign-in callback.
     Called server-to-server by NextAuth on every login.
     """
-    import bcrypt as _bcrypt  # noqa: F811
+    import bcrypt as _bcrypt  # noqa: F811, F401
 
     with PostgresStorage(config["database"]) as storage:
         storage.cursor.execute(
             """
-            INSERT INTO users (email, name, image_url, provider, provider_account_id, email_verified)
+            INSERT INTO users (email, name, image_url, provider,
+                              provider_account_id, email_verified)
             VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (email) DO UPDATE SET
                 name = COALESCE(EXCLUDED.name, users.name),
@@ -302,7 +307,7 @@ def sync_user(request: SyncUserRequest):
 
 @app.post("/api/auth/register")
 def register_user(request: RegisterRequest):
-    """Register a new user with email/password."""
+    """Register a new user with email/password. Requires invite code for activation."""
     import bcrypt as _bcrypt
 
     with PostgresStorage(config["database"]) as storage:
@@ -311,24 +316,58 @@ def register_user(request: RegisterRequest):
         if storage.cursor.fetchone():
             raise HTTPException(status_code=400, detail="Email already registered")
 
+        # Validate invite code if provided
+        invite_id = None
+        account_status = "pending"
+        if request.invite_code:
+            storage.cursor.execute(
+                """
+                SELECT id, email FROM invites
+                WHERE code = %s AND used_by IS NULL
+                  AND (expires_at IS NULL OR expires_at > NOW())
+                """,
+                (request.invite_code,),
+            )
+            invite_row = storage.cursor.fetchone()
+            if not invite_row:
+                raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+            # Check email lock
+            if invite_row[1] and invite_row[1] != request.email:
+                raise HTTPException(
+                    status_code=400, detail="This invite code is for a different email"
+                )
+            invite_id = invite_row[0]
+            account_status = "active"
+
         # Hash password
         password_hash = _bcrypt.hashpw(request.password.encode(), _bcrypt.gensalt()).decode()
 
         storage.cursor.execute(
             """
-            INSERT INTO users (email, name, password_hash, provider, email_verified)
-            VALUES (%s, %s, %s, 'credentials', FALSE)
+            INSERT INTO users (email, name, password_hash, provider, email_verified,
+                               account_status, invite_id)
+            VALUES (%s, %s, %s, 'credentials', FALSE, %s, %s)
             RETURNING id, email, name
             """,
-            (request.email, request.name, password_hash),
+            (request.email, request.name, password_hash, account_status, invite_id),
         )
         row = storage.cursor.fetchone()
+        user_id = str(row[0])
+
+        # Mark invite as used
+        if invite_id:
+            storage.cursor.execute(
+                "UPDATE invites SET used_by = %s, used_at = NOW() WHERE id = %s",
+                (user_id, invite_id),
+            )
+
         storage.conn.commit()
 
         return {
-            "id": str(row[0]),
+            "id": user_id,
             "email": row[1],
             "name": row[2],
+            "account_status": account_status,
         }
 
 
@@ -363,11 +402,477 @@ def login_user(request: LoginRequest):
 
 @app.get("/api/auth/me")
 def get_me(request: Request):
-    """Return the currently authenticated user."""
+    """Return the currently authenticated user with billing info."""
     from api.dependencies import get_current_user
 
     user = get_current_user(request)
+
+    # Enrich with billing info
+    with PostgresStorage(config["database"]) as storage:
+        storage.cursor.execute(
+            """
+            SELECT credits_balance, account_status
+            FROM users WHERE id = %s
+            """,
+            (user["id"],),
+        )
+        row = storage.cursor.fetchone()
+        if row:
+            user["credits_balance"] = float(row[0])
+            user["account_status"] = row[1]
+
     return user
+
+
+# =============================================================================
+# BILLING & USAGE ENDPOINTS
+# =============================================================================
+
+ADMIN_USER_IDS = set(
+    uid.strip() for uid in os.environ.get("ADMIN_USER_IDS", "").split(",") if uid.strip()
+)
+
+
+def _require_admin(request: Request) -> dict:
+    """Require authenticated user who is an admin."""
+    from api.dependencies import get_current_user
+
+    user = get_current_user(request)
+    if ADMIN_USER_IDS and user["id"] not in ADMIN_USER_IDS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
+# --- Admin endpoints ---
+
+
+@app.post("/api/admin/invites")
+def create_invite(
+    request: Request, email: Optional[str] = None, expires_hours: Optional[int] = None
+):
+    """Generate an invite code. Optionally lock to a specific email."""
+    import secrets
+
+    _require_admin(request)
+
+    code = secrets.token_urlsafe(16)[:16]  # 16-char URL-safe code
+    admin = _require_admin(request)
+
+    with PostgresStorage(config["database"]) as storage:
+        expires_at = None
+        if expires_hours:
+            from datetime import timedelta, timezone
+
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=expires_hours)
+
+        storage.cursor.execute(
+            """
+            INSERT INTO invites (code, created_by, email, expires_at)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id, code, created_at
+            """,
+            (code, admin["id"], email, expires_at),
+        )
+        row = storage.cursor.fetchone()
+        storage.conn.commit()
+
+        return {
+            "id": str(row[0]),
+            "code": row[1],
+            "email": email,
+            "expires_at": expires_at.isoformat() if expires_at else None,
+            "created_at": row[2].isoformat() if row[2] else None,
+        }
+
+
+@app.get("/api/admin/invites")
+def list_invites(request: Request):
+    """List all invite codes with their usage status."""
+    _require_admin(request)
+
+    with PostgresStorage(config["database"]) as storage:
+        storage.cursor.execute(
+            """
+            SELECT i.id, i.code, i.email, i.created_at, i.expires_at,
+                   i.used_at, u.email as used_by_email
+            FROM invites i
+            LEFT JOIN users u ON i.used_by = u.id
+            ORDER BY i.created_at DESC
+            """
+        )
+        rows = storage.cursor.fetchall()
+        return [
+            {
+                "id": str(r[0]),
+                "code": r[1],
+                "email_lock": r[2],
+                "created_at": r[3].isoformat() if r[3] else None,
+                "expires_at": r[4].isoformat() if r[4] else None,
+                "used_at": r[5].isoformat() if r[5] else None,
+                "used_by": r[6],
+            }
+            for r in rows
+        ]
+
+
+@app.get("/api/admin/users")
+def list_users_admin(request: Request):
+    """List all users with billing info and usage stats."""
+    _require_admin(request)
+
+    with PostgresStorage(config["database"]) as storage:
+        storage.cursor.execute(
+            """
+            SELECT u.id, u.email, u.name, u.provider, u.account_status,
+                   u.credits_balance, u.created_at,
+                   (SELECT COUNT(*) FROM usage_events ue WHERE ue.user_id = u.id) as total_events,
+                   (SELECT COALESCE(SUM(cost_usd), 0)
+                    FROM usage_events ue
+                    WHERE ue.user_id = u.id) as total_cost
+            FROM users u
+            ORDER BY u.created_at DESC
+            """
+        )
+        rows = storage.cursor.fetchall()
+        return [
+            {
+                "id": str(r[0]),
+                "email": r[1],
+                "name": r[2],
+                "provider": r[3],
+                "account_status": r[4],
+                "credits_balance": float(r[5]),
+                "created_at": r[6].isoformat() if r[6] else None,
+                "total_events": r[7],
+                "total_cost_usd": float(r[8]),
+            }
+            for r in rows
+        ]
+
+
+@app.post("/api/admin/users/{user_id}/credits")
+def admin_adjust_credits(
+    user_id: str, request: Request, amount: float = 0, description: str = "Admin grant"
+):
+    """Manually add or remove credits for a user."""
+    _require_admin(request)
+
+    from api.usage import add_credits
+
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+
+    new_balance = add_credits(
+        db_config=config["database"],
+        user_id=user_id,
+        amount=amount,
+        description=description,
+        tx_type="grant",
+    )
+
+    if new_balance is None:
+        raise HTTPException(status_code=404, detail="User not found or operation failed")
+
+    return {"user_id": user_id, "credits_added": amount, "new_balance": new_balance}
+
+
+@app.post("/api/admin/users/{user_id}/activate")
+def admin_activate_user(user_id: str, request: Request):
+    """Manually activate a pending user account."""
+    _require_admin(request)
+
+    with PostgresStorage(config["database"]) as storage:
+        storage.cursor.execute(
+            """
+            UPDATE users SET account_status = 'active', updated_at = NOW()
+            WHERE id = %s
+            RETURNING id, email, account_status
+            """,
+            (user_id,),
+        )
+        row = storage.cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        storage.conn.commit()
+        return {"id": str(row[0]), "email": row[1], "account_status": row[2]}
+
+
+# --- User billing endpoints ---
+
+
+@app.get("/api/user/plan")
+def get_user_plan(request: Request):
+    """Get current user's billing info: balance, account status."""
+    from api.dependencies import get_current_user
+
+    user = get_current_user(request)
+
+    with PostgresStorage(config["database"]) as storage:
+        storage.cursor.execute(
+            "SELECT credits_balance, account_status FROM users WHERE id = %s",
+            (user["id"],),
+        )
+        row = storage.cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {
+            "credits_balance": float(row[0]),
+            "account_status": row[1],
+        }
+
+
+@app.get("/api/usage/me")
+def get_my_usage(request: Request):
+    """Get current user's usage summary for the current billing period."""
+    from api.dependencies import get_current_user
+    from api.usage import get_user_usage_current_period
+
+    user = get_current_user(request)
+    return get_user_usage_current_period(config["database"], user["id"])
+
+
+@app.get("/api/usage/history")
+def get_usage_history(request: Request, limit: int = 50):
+    """Get current user's recent usage events and credit transactions."""
+    from api.dependencies import get_current_user
+
+    user = get_current_user(request)
+
+    with PostgresStorage(config["database"]) as storage:
+        # Get recent usage events
+        storage.cursor.execute(
+            """
+            SELECT id, event_type, endpoint, input_tokens, output_tokens,
+                   cost_usd, metadata, created_at
+            FROM usage_events
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (user["id"], limit),
+        )
+        events = [
+            {
+                "id": str(r[0]),
+                "event_type": r[1],
+                "endpoint": r[2],
+                "input_tokens": r[3],
+                "output_tokens": r[4],
+                "cost_usd": float(r[5]),
+                "metadata": r[6],
+                "created_at": r[7].isoformat(),
+            }
+            for r in storage.cursor.fetchall()
+        ]
+
+        # Get recent credit transactions
+        storage.cursor.execute(
+            """
+            SELECT id, amount, type, balance_after, description, created_at
+            FROM credit_transactions
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (user["id"], limit),
+        )
+        transactions = [
+            {
+                "id": str(r[0]),
+                "amount": float(r[1]),
+                "type": r[2],
+                "balance_after": float(r[3]),
+                "description": r[4],
+                "created_at": r[5].isoformat(),
+            }
+            for r in storage.cursor.fetchall()
+        ]
+
+        return {"events": events, "transactions": transactions}
+
+
+@app.post("/api/invite/redeem")
+def redeem_invite(request: Request, invite_code: str = ""):
+    """Redeem an invite code for a pending user account."""
+    from api.dependencies import get_current_user
+
+    user = get_current_user(request)
+
+    if not invite_code:
+        raise HTTPException(status_code=400, detail="Invite code is required")
+
+    with PostgresStorage(config["database"]) as storage:
+        # Check account is pending
+        storage.cursor.execute(
+            "SELECT account_status FROM users WHERE id = %s",
+            (user["id"],),
+        )
+        user_row = storage.cursor.fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found")
+        if user_row[0] == "active":
+            return {"message": "Account is already active", "account_status": "active"}
+
+        # Validate invite
+        storage.cursor.execute(
+            """
+            SELECT id, email FROM invites
+            WHERE code = %s AND used_by IS NULL
+              AND (expires_at IS NULL OR expires_at > NOW())
+            """,
+            (invite_code,),
+        )
+        invite_row = storage.cursor.fetchone()
+        if not invite_row:
+            raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+        if invite_row[1] and invite_row[1] != user.get("email"):
+            raise HTTPException(status_code=400, detail="This invite code is for a different email")
+
+        invite_id = invite_row[0]
+
+        # Activate user
+        storage.cursor.execute(
+            """
+            UPDATE users SET account_status = 'active', invite_id = %s, updated_at = NOW()
+            WHERE id = %s
+            """,
+            (invite_id, user["id"]),
+        )
+
+        # Mark invite as used
+        storage.cursor.execute(
+            "UPDATE invites SET used_by = %s, used_at = NOW() WHERE id = %s",
+            (user["id"], invite_id),
+        )
+
+        storage.conn.commit()
+        return {"message": "Account activated", "account_status": "active"}
+
+
+# --- Stripe billing endpoints ---
+
+
+class CheckoutRequest(BaseModel):
+    amount: float  # USD amount, e.g. 2.0, 5.0, 10.0
+
+
+@app.post("/api/billing/create-checkout-session")
+def create_checkout_session(body: CheckoutRequest, request: Request):
+    """Create a Stripe Checkout session for credit top-up."""
+    import stripe
+
+    from api.dependencies import get_current_user
+
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY")
+    if not stripe_key:
+        raise HTTPException(status_code=503, detail="Stripe is not configured")
+
+    stripe.api_key = stripe_key
+    user = get_current_user(request)
+
+    if body.amount < 1.0 or body.amount > 100.0:
+        raise HTTPException(status_code=400, detail="Amount must be between $1 and $100")
+
+    # Get or create Stripe customer
+    with PostgresStorage(config["database"]) as storage:
+        storage.cursor.execute(
+            "SELECT stripe_customer_id, email FROM users WHERE id = %s",
+            (user["id"],),
+        )
+        row = storage.cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        stripe_customer_id = row[0]
+        email = row[1]
+
+        if not stripe_customer_id:
+            customer = stripe.Customer.create(
+                email=email,
+                metadata={"user_id": user["id"]},
+            )
+            stripe_customer_id = customer.id
+            storage.cursor.execute(
+                "UPDATE users SET stripe_customer_id = %s WHERE id = %s",
+                (stripe_customer_id, user["id"]),
+            )
+            storage.conn.commit()
+
+    # Determine frontend URL for redirect
+    frontend_url = os.environ.get("CORS_ORIGIN", "http://localhost:3000")
+
+    session = stripe.checkout.Session.create(
+        customer=stripe_customer_id,
+        payment_method_types=["card"],
+        line_items=[
+            {
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": int(body.amount * 100),  # cents
+                    "product_data": {
+                        "name": f"Research Lab Credits (${body.amount:.2f})",
+                        "description": "Prepaid credits for agent chat and backtesting",
+                    },
+                },
+                "quantity": 1,
+            }
+        ],
+        mode="payment",
+        success_url=f"{frontend_url}/settings?checkout=success",
+        cancel_url=f"{frontend_url}/settings?checkout=cancelled",
+        metadata={"user_id": user["id"], "credits_amount": str(body.amount)},
+    )
+
+    return {"checkout_url": session.url, "session_id": session.id}
+
+
+@app.post("/api/billing/webhook")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhook events (checkout.session.completed)."""
+    import stripe
+
+    from api.usage import add_credits
+
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY")
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
+
+    if not stripe_key:
+        raise HTTPException(status_code=503, detail="Stripe not configured")
+
+    stripe.api_key = stripe_key
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
+    if webhook_secret and sig_header:
+        try:
+            event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+        except stripe.SignatureVerificationError:
+            raise HTTPException(status_code=400, detail="Invalid signature")
+    else:
+        # No webhook secret configured — parse raw (test mode only)
+        event = json.loads(payload)
+
+    if event.get("type") == "checkout.session.completed":
+        session = event["data"]["object"]
+        user_id = session.get("metadata", {}).get("user_id")
+        credits_amount = float(session.get("metadata", {}).get("credits_amount", 0))
+
+        if user_id and credits_amount > 0:
+            new_balance = add_credits(
+                config["database"],
+                user_id,
+                credits_amount,
+                f"Stripe top-up: ${credits_amount:.2f}",
+                tx_type="topup",
+                reference_id=session.get("id"),
+            )
+            logger.info(
+                f"stripe_topup: user={user_id} amount=${credits_amount} "
+                f"new_balance={new_balance}"
+            )
+
+    return {"received": True}
 
 
 @app.get("/api/data/stats")
@@ -396,7 +901,11 @@ def get_data_stats() -> list:
 
 
 @app.post("/api/data/fetch/stream")
-async def fetch_data_stream(request: DataFetchRequest):
+async def fetch_data_stream(
+    body: DataFetchRequest,
+    http_request: Request = None,
+    _auth: None = Depends(require_active_account()),
+):
     """
     Streaming version of fetch_data that emits progress events via SSE.
 
@@ -405,18 +914,21 @@ async def fetch_data_stream(request: DataFetchRequest):
     - {"type": "done", "candles_fetched": N, "candles_inserted": M}
     - {"type": "error", "message": "..."}
     """
+    from api.dependencies import get_optional_user
+
+    user = get_optional_user(http_request) if http_request else None
 
     async def event_generator():
         try:
-            start_date = datetime.fromisoformat(request.start_date)
-            end_date = datetime.fromisoformat(request.end_date) if request.end_date else None
+            start_date = datetime.fromisoformat(body.start_date)
+            end_date = datetime.fromisoformat(body.end_date) if body.end_date else None
 
             fetcher = BinanceBulkFetcher()
             final_df = None
 
             for event in fetcher.fetch_historical_with_progress(
-                symbol=request.symbol,
-                timeframe=request.timeframe,
+                symbol=body.symbol,
+                timeframe=body.timeframe,
                 start_date=start_date,
                 end_date=end_date,
             ):
@@ -430,7 +942,7 @@ async def fetch_data_stream(request: DataFetchRequest):
             if final_df is not None and not final_df.empty:
                 with PostgresStorage(config["database"]) as storage:
                     storage.create_tables()
-                    inserted = storage.insert_candles(final_df, request.symbol, request.timeframe)
+                    inserted = storage.insert_candles(final_df, body.symbol, body.timeframe)
 
             done_event = {
                 "type": "done",
@@ -438,6 +950,25 @@ async def fetch_data_stream(request: DataFetchRequest):
                 "candles_fetched": len(final_df) if final_df is not None else 0,
                 "candles_inserted": inserted,
             }
+
+            # Record usage event (data fetches are free, tracked for analytics)
+            if user:
+                from api.usage import record_usage_event
+
+                record_usage_event(
+                    db_config=config["database"],
+                    user_id=user["id"],
+                    event_type="data_fetch",
+                    endpoint="/api/data/fetch/stream",
+                    cost_usd=0,
+                    metadata={
+                        "symbol": body.symbol,
+                        "timeframe": body.timeframe,
+                        "candles_fetched": done_event["candles_fetched"],
+                        "candles_inserted": inserted,
+                    },
+                )
+
             yield f"data: {json.dumps(done_event)}\n\n"
 
         except Exception as e:
@@ -583,7 +1114,16 @@ def get_indicators(
             df_with_indicators = calculate_indicators(df, indicator_list)
 
             # Build response: time + requested indicator columns
-            base_cols = {"open", "high", "low", "close", "volume", "close_time", "quote_volume", "trades"}
+            base_cols = {
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "close_time",
+                "quote_volume",
+                "trades",
+            }
             indicator_cols = [c for c in df_with_indicators.columns if c not in base_cols]
 
             result = []
@@ -977,7 +1517,11 @@ def delete_strategy(name: str):
 
 
 @app.post("/api/backtest", response_model=BacktestResponse)
-def run_backtest(request: BacktestRequest, http_request: Request = None):
+def run_backtest(
+    request: BacktestRequest,
+    http_request: Request = None,
+    _auth: None = Depends(require_active_account()),
+):
     """
     Run a backtest with specified strategy on historical data.
 
@@ -1228,7 +1772,26 @@ def run_backtest(request: BacktestRequest, http_request: Request = None):
             # Log but don't fail the backtest if saving fails
             print(f"Warning: Failed to auto-save report: {save_err}")
 
-        # 9. Return response
+        # 9. Record usage event (backtests are CPU-only, cost=0)
+        if user:
+            from api.usage import record_usage_event
+
+            record_usage_event(
+                db_config=config["database"],
+                user_id=user["id"],
+                event_type="backtest",
+                endpoint="/api/backtest",
+                cost_usd=0,
+                metadata={
+                    "strategy": request.strategy_name,
+                    "symbol": request.symbol,
+                    "timeframe": request.timeframe,
+                    "total_trades": total_trades,
+                    "report_id": report_id,
+                },
+            )
+
+        # 10. Return response
         return BacktestResponse(
             success=True,
             strategy_name=request.strategy_name,
@@ -1439,7 +2002,11 @@ def create_research_event_from_tool(project_id: str, tool_name: str, tool_result
 
 
 @app.post("/api/agent/chat")
-async def agent_chat(request: AgentChatRequest):
+async def agent_chat(
+    body: AgentChatRequest,
+    http_request: Request = None,
+    _auth: None = Depends(require_active_account()),
+):
     """
     Chat with the backtesting research agent.
 
@@ -1455,11 +2022,34 @@ async def agent_chat(request: AgentChatRequest):
         from uuid import UUID
 
         from agent import create_agent
+        from api.dependencies import get_optional_user
+        from api.usage import deduct_credits, record_usage_event
 
         agent = create_agent()
+        user = get_optional_user(http_request) if http_request else None
 
-        conv_id = UUID(request.conversation_id) if request.conversation_id else None
-        response = await agent.chat(request.message, conv_id)
+        conv_id = UUID(body.conversation_id) if body.conversation_id else None
+        response = await agent.chat(body.message, conv_id, user_id=user["id"] if user else None)
+
+        # Record usage and deduct credits for authenticated users
+        if user and response.cost_usd > 0:
+            event_id = record_usage_event(
+                db_config=config["database"],
+                user_id=user["id"],
+                event_type="agent_chat",
+                endpoint="/api/agent/chat",
+                input_tokens=response.tokens_used,
+                output_tokens=0,
+                cost_usd=response.cost_usd,
+                metadata={"conversation_id": str(response.conversation_id)},
+            )
+            deduct_credits(
+                db_config=config["database"],
+                user_id=user["id"],
+                cost_usd=response.cost_usd,
+                usage_event_id=event_id,
+                description=f"Agent chat: ${response.cost_usd:.4f}",
+            )
 
         return {
             "message": response.message,
@@ -1490,7 +2080,11 @@ async def agent_chat(request: AgentChatRequest):
 
 
 @app.post("/api/agent/chat/stream")
-async def agent_chat_stream(request: AgentChatRequest):
+async def agent_chat_stream(
+    body: AgentChatRequest,
+    http_request: Request = None,
+    _auth: None = Depends(require_active_account()),
+):
     """
     Chat with the backtesting research agent using Server-Sent Events (SSE).
 
@@ -1506,15 +2100,22 @@ async def agent_chat_stream(request: AgentChatRequest):
     from uuid import UUID
 
     from agent import create_agent
+    from api.dependencies import get_optional_user
+    from api.usage import deduct_credits, record_usage_event
 
     agent = create_agent()
-    conv_id = UUID(request.conversation_id) if request.conversation_id else None
-    project_id = request.project_id
+    conv_id = UUID(body.conversation_id) if body.conversation_id else None
+    project_id = body.project_id
     proj_uuid = UUID(project_id) if project_id else None
+
+    # Resolve user for usage tracking (None for MCP/internal calls)
+    user = get_optional_user(http_request) if http_request else None
 
     async def event_generator():
         try:
-            async for event in agent.chat_stream(request.message, conv_id, project_id=proj_uuid):
+            async for event in agent.chat_stream(
+                body.message, conv_id, project_id=proj_uuid, user_id=user["id"] if user else None
+            ):
                 # Intercept tool_result events to create timeline events
                 if event.get("type") == "tool_result":
                     tool_name = event.get("tool")
@@ -1531,6 +2132,32 @@ async def agent_chat_stream(request: AgentChatRequest):
                             project_id, tool_name, tool_result
                         )
                         print(f"[DEBUG] Created research event: {event_id}")
+
+                # Intercept done event for usage tracking
+                if event.get("type") == "done" and user:
+                    cost_usd = event.get("cost_usd", 0)
+                    tokens_used = event.get("tokens_used", 0)
+                    event_id = record_usage_event(
+                        db_config=config["database"],
+                        user_id=user["id"],
+                        event_type="agent_chat",
+                        endpoint="/api/agent/chat/stream",
+                        input_tokens=tokens_used,  # combined for now
+                        output_tokens=0,
+                        cost_usd=cost_usd,
+                        metadata={
+                            "conversation_id": event.get("conversation_id"),
+                            "project_id": project_id,
+                        },
+                    )
+                    if cost_usd > 0:
+                        deduct_credits(
+                            db_config=config["database"],
+                            user_id=user["id"],
+                            cost_usd=cost_usd,
+                            usage_event_id=event_id,
+                            description=f"Agent chat: ${cost_usd:.4f}",
+                        )
 
                 # Format as SSE
                 yield f"data: {json.dumps(event, default=str)}\n\n"
@@ -1597,7 +2224,7 @@ def list_reports(request: Request, limit: int = 50):
                         start_date, end_date, total_return_pct,
                         sharpe_ratio, total_trades, created_at
                     FROM backtest_reports
-                    WHERE user_id = %s
+                    WHERE user_id = %s OR user_id IS NULL
                     ORDER BY created_at DESC
                     LIMIT %s
                 """
@@ -1651,7 +2278,7 @@ def get_report(report_id: str, request: Request):
                 query = """
                     SELECT *
                     FROM backtest_reports
-                    WHERE id = %s AND user_id = %s
+                    WHERE id = %s AND (user_id = %s OR user_id IS NULL)
                 """
                 storage.cursor.execute(query, (report_id, user["id"]))
             else:

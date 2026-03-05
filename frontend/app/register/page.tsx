@@ -10,6 +10,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -34,7 +35,7 @@ export default function RegisterPage() {
       const res = await fetch('/api/backend/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({ email, password, name, invite_code: inviteCode || undefined }),
       });
 
       if (!res.ok) {
@@ -162,6 +163,23 @@ export default function RegisterPage() {
               className="w-full px-4 py-2.5 rounded-lg bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
               placeholder="Repeat password"
             />
+          </div>
+
+          <div>
+            <label htmlFor="inviteCode" className="block text-sm font-medium text-neutral-300 mb-1">
+              Invite Code <span className="text-neutral-500">(optional)</span>
+            </label>
+            <input
+              id="inviteCode"
+              type="text"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+              placeholder="Enter invite code"
+            />
+            <p className="mt-1 text-xs text-neutral-500">
+              Have an invite code? Enter it to activate your account immediately.
+            </p>
           </div>
 
           <button

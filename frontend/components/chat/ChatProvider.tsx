@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { useProject } from '@/lib/contexts';
 import { apiEndpoint } from '@/lib/config';
+import { useUsage } from '@/lib/hooks/useUsage';
 
 // =============================================================================
 // Types - Block-based message structure
@@ -84,6 +85,7 @@ interface ChatContextType {
   currentPhase: string;
   totalCost: number;
   totalTokens: number;
+  creditBalance: number | null;
   conversationHistory: ConversationSummary[];
   sendMessage: (content: string) => Promise<void>;
   handleConfirm: () => void;
@@ -129,6 +131,9 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
   // Get current project for timeline events
   const { currentProject, refreshEvents } = useProject();
+
+  // Credit balance from billing system
+  const { plan, refresh: refreshBalance } = useUsage();
 
   // Ref to track the current assistant message ID during streaming
   const streamingMessageIdRef = useRef<string | null>(null);
@@ -199,6 +204,18 @@ export function ChatProvider({ children }: ChatProviderProps) {
       });
 
       if (!response.ok) {
+        if (response.status === 402) {
+          const err = await response.json().catch(() => null);
+          throw new Error(
+            err?.detail?.message || 'Insufficient credits. Please top up your balance to continue.'
+          );
+        }
+        if (response.status === 403) {
+          const err = await response.json().catch(() => null);
+          throw new Error(
+            err?.detail?.message || 'Your account is not active. Please contact the administrator.'
+          );
+        }
         throw new Error(`API error: ${response.status}`);
       }
 
@@ -364,11 +381,12 @@ export function ChatProvider({ children }: ChatProviderProps) {
                     )
                   );
 
-                  // Refresh timeline events and conversation history
+                  // Refresh timeline events, conversation history, and balance
                   if (currentProject?.id) {
                     refreshEvents();
                     refreshConversationHistory();
                   }
+                  refreshBalance();
                   break;
 
                 case 'error':
@@ -414,7 +432,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
       setIsLoading(false);
       streamingMessageIdRef.current = null;
     }
-  }, [conversationId, isLoading, currentProject?.id, refreshEvents, refreshConversationHistory]);
+  }, [conversationId, isLoading, currentProject?.id, refreshEvents, refreshConversationHistory, refreshBalance]);
 
   const handleConfirm = useCallback(() => {
     sendMessage('Yes, proceed');
@@ -516,6 +534,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
         currentPhase,
         totalCost,
         totalTokens,
+        creditBalance: plan?.credits_balance ?? null,
         conversationHistory,
         sendMessage,
         handleConfirm,

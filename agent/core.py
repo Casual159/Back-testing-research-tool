@@ -318,12 +318,23 @@ Use the report ID from list_reports to fetch specific reports.""",
 
 
 async def execute_tool(
-    tool_name: str, arguments: dict[str, Any], conversation_id: Optional[UUID] = None
+    tool_name: str,
+    arguments: dict[str, Any],
+    conversation_id: Optional[UUID] = None,
+    user_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Execute a tool by calling the API."""
     from urllib.parse import quote
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    # Pass user context so API endpoints can associate results with the user
+    headers = {}
+    if user_id:
+        headers["X-User-Id"] = user_id
+        proxy_secret = os.getenv("PROXY_SECRET")
+        if proxy_secret:
+            headers["X-Proxy-Secret"] = proxy_secret
+
+    async with httpx.AsyncClient(timeout=120.0, headers=headers) as client:
         try:
             if tool_name == "list_strategies":
                 response = await client.get(f"{API_BASE_URL}/api/strategies")
@@ -692,6 +703,7 @@ class BacktestingAgent(AgentProtocol):
         message: str,
         conversation_id: Optional[UUID] = None,
         project_id: Optional[UUID] = None,
+        user_id: Optional[str] = None,
     ):
         """
         Process a user message with streaming response.
@@ -816,7 +828,9 @@ class BacktestingAgent(AgentProtocol):
                                 result = {"error": True, "detail": "No result from fetch"}
                         else:
                             # Execute tool normally
-                            result = await execute_tool(block.name, block.input, conversation.id)
+                            result = await execute_tool(
+                                block.name, block.input, conversation.id, user_id=user_id
+                            )
 
                         # Check if error
                         is_error = isinstance(result, dict) and result.get("error")
@@ -1100,7 +1114,9 @@ class BacktestingAgent(AgentProtocol):
         # For other tools, return as-is (they're usually small)
         return result
 
-    async def chat(self, message: str, conversation_id: Optional[UUID] = None) -> AgentChatResponse:
+    async def chat(
+        self, message: str, conversation_id: Optional[UUID] = None, user_id: Optional[str] = None
+    ) -> AgentChatResponse:
         """Process a user message and return agent response (non-streaming)."""
 
         # Get or create conversation
@@ -1172,7 +1188,9 @@ class BacktestingAgent(AgentProtocol):
             tool_results = []
             for block in response.content:
                 if block.type == "tool_use":
-                    result = await execute_tool(block.name, block.input, conversation.id)
+                    result = await execute_tool(
+                        block.name, block.input, conversation.id, user_id=user_id
+                    )
 
                     # Truncate result for context efficiency
                     truncated_result = self._truncate_for_context(block.name, result)

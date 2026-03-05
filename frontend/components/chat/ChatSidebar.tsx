@@ -28,6 +28,7 @@ export function ChatSidebar() {
     currentPhase,
     totalCost,
     totalTokens,
+    creditBalance,
     conversationHistory,
     sendMessage,
     handleConfirm,
@@ -129,6 +130,13 @@ export function ChatSidebar() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {creditBalance !== null && (
+              <span className={`text-xs font-medium ${
+                creditBalance > 2 ? 'text-green-400' : creditBalance > 0.5 ? 'text-yellow-400' : 'text-red-400'
+              }`}>
+                ${creditBalance.toFixed(2)}
+              </span>
+            )}
             <span className="text-xs text-neutral-500">
               {totalTokens > 0 && `${(totalTokens / 1000).toFixed(1)}k`}
               {totalCost > 0 && ` · $${totalCost.toFixed(3)}`}
@@ -228,6 +236,18 @@ export function ChatSidebar() {
             </div>
           )}
         </div>
+
+        {/* Low balance warning */}
+        {creditBalance !== null && creditBalance < 0.5 && creditBalance > 0 && (
+          <div className="shrink-0 px-4 py-2 bg-yellow-900/20 border-t border-yellow-700/50 text-yellow-400 text-xs">
+            Low balance (${creditBalance.toFixed(2)}) — top up in Settings to avoid interruption.
+          </div>
+        )}
+        {creditBalance !== null && creditBalance <= 0 && (
+          <div className="shrink-0 px-4 py-2 bg-red-900/20 border-t border-red-700/50 text-red-400 text-xs">
+            No credits remaining. Top up in Settings to continue using the agent.
+          </div>
+        )}
 
         {/* Input area */}
         <div className="shrink-0 border-t border-neutral-800">
