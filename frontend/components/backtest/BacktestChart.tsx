@@ -225,36 +225,89 @@ export default function BacktestChart({
     };
   }, [candles.length > 0 ? candles[0].time : 0, height]); // Re-create only when dataset changes
 
-  // ── Update visible data (candles + volume + markers) ──────────────
+  // ── Update ALL chart data atomically (candles + indicators) ──────
+  // Batched into a single effect so all setData() calls happen before
+  // the browser paints, preventing sub-charts from lagging behind.
   useEffect(() => {
-    if (!candleSeriesRef.current || !volumeSeriesRef.current) return;
+    // Main chart: candles + volume + markers
+    if (candleSeriesRef.current && volumeSeriesRef.current) {
+      const candleData = visibleCandles.map((c) => ({
+        time: c.time as Time,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }));
 
-    const candleData = visibleCandles.map((c) => ({
-      time: c.time as Time,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-    }));
+      const volumeData = visibleCandles.map((c) => ({
+        time: c.time as Time,
+        value: c.volume,
+        color: c.close >= c.open ? chartColors.volumeUp : chartColors.volumeDown,
+      }));
 
-    const volumeData = visibleCandles.map((c) => ({
-      time: c.time as Time,
-      value: c.volume,
-      color: c.close >= c.open ? chartColors.volumeUp : chartColors.volumeDown,
-    }));
+      candleSeriesRef.current.setData(candleData);
+      volumeSeriesRef.current.setData(volumeData);
 
-    candleSeriesRef.current.setData(candleData);
-    volumeSeriesRef.current.setData(volumeData);
+      const markers = tradesToMarkers(trades, currentTime);
+      candleSeriesRef.current.setMarkers(markers);
 
-    // Trade markers
-    const markers = tradesToMarkers(trades, currentTime);
-    candleSeriesRef.current.setMarkers(markers);
-
-    // Fit on first render only
-    if (playbackIndex === null && mainChartRef.current) {
-      mainChartRef.current.timeScale().fitContent();
+      if (playbackIndex === null && mainChartRef.current) {
+        mainChartRef.current.timeScale().fitContent();
+      }
     }
-  }, [visibleCandles.length, currentTime, trades]);
+
+    // RSI sub-chart
+    if (rsiSeriesRef.current && indicatorData) {
+      const data = indicatorData
+        .slice(0, visibleCount)
+        .filter((d) => d.rsi !== null && d.rsi !== undefined)
+        .map((d) => ({ time: d.time as Time, value: d.rsi as number }));
+      rsiSeriesRef.current.setData(data);
+
+      if (mainChartRef.current && rsiChartRef.current) {
+        const range = mainChartRef.current.timeScale().getVisibleLogicalRange();
+        if (range) rsiChartRef.current.timeScale().setVisibleLogicalRange(range);
+      }
+    }
+
+    // MACD sub-chart
+    if (indicatorData) {
+      const visible = indicatorData.slice(0, visibleCount);
+
+      if (macdLineRef.current) {
+        macdLineRef.current.setData(
+          visible
+            .filter((d) => d.macd !== null && d.macd !== undefined)
+            .map((d) => ({ time: d.time as Time, value: d.macd as number }))
+        );
+      }
+      if (macdSignalRef.current) {
+        macdSignalRef.current.setData(
+          visible
+            .filter((d) => d.macd_signal !== null && d.macd_signal !== undefined)
+            .map((d) => ({ time: d.time as Time, value: d.macd_signal as number }))
+        );
+      }
+      if (macdHistRef.current) {
+        macdHistRef.current.setData(
+          visible
+            .filter((d) => d.macd_histogram !== null && d.macd_histogram !== undefined)
+            .map((d) => ({
+              time: d.time as Time,
+              value: d.macd_histogram as number,
+              color: (d.macd_histogram as number) >= 0
+                ? indicatorColors.macd_histogram_pos
+                : indicatorColors.macd_histogram_neg,
+            }))
+        );
+      }
+
+      if (mainChartRef.current && macdChartRef.current) {
+        const range = mainChartRef.current.timeScale().getVisibleLogicalRange();
+        if (range) macdChartRef.current.timeScale().setVisibleLogicalRange(range);
+      }
+    }
+  }, [visibleCount, currentTime, trades, indicatorData, showRsi, showMacd]);
 
   // ── Overlay indicators (SMA, EMA, BB on main chart) ───────────────
   useEffect(() => {
@@ -346,21 +399,6 @@ export default function BacktestChart({
     }
   }, [showRsi]);
 
-  // Update RSI data
-  useEffect(() => {
-    if (!rsiSeriesRef.current || !indicatorData) return;
-    const data = indicatorData
-      .slice(0, visibleCount)
-      .filter((d) => d.rsi !== null && d.rsi !== undefined)
-      .map((d) => ({ time: d.time as Time, value: d.rsi as number }));
-    rsiSeriesRef.current.setData(data);
-
-    // Sync visible range from main chart
-    if (mainChartRef.current && rsiChartRef.current) {
-      const range = mainChartRef.current.timeScale().getVisibleLogicalRange();
-      if (range) rsiChartRef.current.timeScale().setVisibleLogicalRange(range);
-    }
-  }, [indicatorData, visibleCount, showRsi]);
 
   // ── MACD sub-chart ────────────────────────────────────────────────
   useEffect(() => {
@@ -414,46 +452,6 @@ export default function BacktestChart({
     }
   }, [showMacd]);
 
-  // Update MACD data
-  useEffect(() => {
-    if (!indicatorData) return;
-
-    const visible = indicatorData.slice(0, visibleCount);
-
-    if (macdLineRef.current) {
-      macdLineRef.current.setData(
-        visible
-          .filter((d) => d.macd !== null && d.macd !== undefined)
-          .map((d) => ({ time: d.time as Time, value: d.macd as number }))
-      );
-    }
-    if (macdSignalRef.current) {
-      macdSignalRef.current.setData(
-        visible
-          .filter((d) => d.macd_signal !== null && d.macd_signal !== undefined)
-          .map((d) => ({ time: d.time as Time, value: d.macd_signal as number }))
-      );
-    }
-    if (macdHistRef.current) {
-      macdHistRef.current.setData(
-        visible
-          .filter((d) => d.macd_histogram !== null && d.macd_histogram !== undefined)
-          .map((d) => ({
-            time: d.time as Time,
-            value: d.macd_histogram as number,
-            color: (d.macd_histogram as number) >= 0
-              ? indicatorColors.macd_histogram_pos
-              : indicatorColors.macd_histogram_neg,
-          }))
-      );
-    }
-
-    // Sync visible range from main chart
-    if (mainChartRef.current && macdChartRef.current) {
-      const range = mainChartRef.current.timeScale().getVisibleLogicalRange();
-      if (range) macdChartRef.current.timeScale().setVisibleLogicalRange(range);
-    }
-  }, [indicatorData, visibleCount, showMacd]);
 
   // ── Time scale sync helper ────────────────────────────────────────
   const syncTimeScales = useCallback(
