@@ -2268,11 +2268,6 @@ def get_report(report_id: str, request: Request):
 
     user = get_optional_user(request)
     try:
-        from uuid import UUID
-
-        # Validate UUID format
-        UUID(report_id)
-
         with PostgresStorage(config["database"]) as storage:
             if user:
                 query = """
@@ -2297,12 +2292,16 @@ def get_report(report_id: str, request: Request):
             columns = [desc[0] for desc in storage.cursor.description]
             report = dict(zip(columns, row))
 
-            # Convert UUID and datetime fields
+            # Convert UUID fields to string
             report["id"] = str(report["id"])
-            if report.get("conversation_id"):
-                report["conversation_id"] = str(report["conversation_id"])
-            if report.get("created_at"):
-                report["created_at"] = report["created_at"].isoformat()
+            for uuid_field in ("conversation_id", "project_id", "user_id"):
+                if report.get(uuid_field):
+                    report[uuid_field] = str(report[uuid_field])
+
+            # Convert datetime/date fields
+            for dt_field in ("created_at", "start_date", "end_date"):
+                if report.get(dt_field) and hasattr(report[dt_field], "isoformat"):
+                    report[dt_field] = report[dt_field].isoformat()
 
             # Convert decimal fields to float
             decimal_fields = [
@@ -2322,6 +2321,21 @@ def get_report(report_id: str, request: Request):
             for field in decimal_fields:
                 if report.get(field) is not None:
                     report[field] = float(report[field])
+
+            # Ensure JSONB array fields are never None
+            for arr_field in ("equity_curve", "trades", "ai_recommendations", "ai_concerns"):
+                if report.get(arr_field) is None:
+                    report[arr_field] = []
+
+            # Ensure JSONB object fields are never None
+            for obj_field in (
+                "strategy_config",
+                "drawdown_curve",
+                "monthly_returns",
+                "regime_performance",
+            ):
+                if report.get(obj_field) is None:
+                    report[obj_field] = {}
 
             return report
     except HTTPException:

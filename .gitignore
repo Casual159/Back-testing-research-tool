@@ -68,3 +68,6 @@ reports/
 # Obsidian workspace (personal settings - ignore)
 # Keep markdown docs (tracked in git)
 Backtesting_Obsidian/.obsidian/
+
+# Internal docs (billing, architecture notes)
+docs/internal/
