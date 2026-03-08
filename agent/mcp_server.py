@@ -431,6 +431,56 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
 
             elif tool_name == "run_backtest":
                 response = await client.post(f"{API_BASE_URL}/api/backtest", json=arguments)
+                if response.status_code == 200:
+                    data = response.json()
+                    trades = data.get("trades", [])
+                    equity = data.get("equity_curve", [])
+                    # Summarize trades for agent context
+                    winning = [t for t in trades if t.get("pnl", 0) > 0]
+                    losing = [t for t in trades if t.get("pnl", 0) <= 0]
+                    top_trades = sorted(trades, key=lambda t: t.get("pnl_pct", 0), reverse=True)
+                    summary = {
+                        "success": data.get("success"),
+                        "strategy_name": data.get("strategy_name"),
+                        "symbol": data.get("symbol"),
+                        "timeframe": data.get("timeframe"),
+                        "start_date": data.get("start_date"),
+                        "end_date": data.get("end_date"),
+                        "total_return_pct": data.get("total_return_pct"),
+                        "sharpe_ratio": data.get("sharpe_ratio"),
+                        "max_drawdown_pct": data.get("max_drawdown_pct"),
+                        "win_rate_pct": data.get("win_rate_pct"),
+                        "total_trades": data.get("total_trades"),
+                        "profit_factor": data.get("profit_factor"),
+                        "regime_stats": data.get("regime_stats"),
+                        "trade_summary": {
+                            "total": len(trades),
+                            "winners": len(winning),
+                            "losers": len(losing),
+                            "best_trade_pct": top_trades[0].get("pnl_pct") if top_trades else None,
+                            "worst_trade_pct": (
+                                top_trades[-1].get("pnl_pct") if top_trades else None
+                            ),
+                            "avg_win_pct": (
+                                sum(t["pnl_pct"] for t in winning) / len(winning) if winning else 0
+                            ),
+                            "avg_loss_pct": (
+                                sum(t["pnl_pct"] for t in losing) / len(losing) if losing else 0
+                            ),
+                            "avg_duration_hours": (
+                                sum(t.get("duration_hours", 0) for t in trades) / len(trades)
+                                if trades
+                                else 0
+                            ),
+                        },
+                        "equity_summary": {
+                            "start_value": equity[0]["value"] if equity else None,
+                            "end_value": equity[-1]["value"] if equity else None,
+                            "data_points": len(equity),
+                        },
+                        "report_id": data.get("report_id"),
+                    }
+                    return summary
 
             elif tool_name == "create_strategy":
                 response = await client.post(f"{API_BASE_URL}/api/strategies", json=arguments)

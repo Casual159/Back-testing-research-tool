@@ -269,7 +269,14 @@ function BacktestPageContent() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || "Backtest failed");
+        const detail = data.detail;
+        const message =
+          typeof detail === "string"
+            ? detail
+            : detail
+              ? JSON.stringify(detail)
+              : "Backtest failed";
+        throw new Error(message);
       }
 
       setResult(data);
@@ -290,7 +297,7 @@ function BacktestPageContent() {
         // Chart is optional - don't fail the whole page
       }
     } catch (err) {
-      setError(`Backtest failed: ${err}`);
+      setError(`Backtest failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
