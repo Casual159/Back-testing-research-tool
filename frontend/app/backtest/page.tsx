@@ -270,12 +270,16 @@ function BacktestPageContent() {
 
       if (!response.ok) {
         const detail = data.detail;
-        const message =
-          typeof detail === "string"
-            ? detail
-            : detail
-              ? JSON.stringify(detail)
-              : "Backtest failed";
+        let message: string;
+        if (typeof detail === "string") {
+          message = detail;
+        } else if (detail && typeof detail === "object" && detail.message) {
+          message = detail.message;
+        } else if (detail) {
+          message = JSON.stringify(detail);
+        } else {
+          message = `Backtest failed (HTTP ${response.status})`;
+        }
         throw new Error(message);
       }
 
@@ -297,7 +301,12 @@ function BacktestPageContent() {
         // Chart is optional - don't fail the whole page
       }
     } catch (err) {
-      setError(`Backtest failed: ${err instanceof Error ? err.message : String(err)}`);
+      const msg = err instanceof Error
+        ? err.message
+        : (typeof err === "object" && err !== null && "message" in err)
+          ? String((err as Record<string, unknown>).message)
+          : typeof err === "string" ? err : "Unknown error";
+      setError(`Backtest failed: ${msg}`);
     } finally {
       setLoading(false);
     }
