@@ -7,6 +7,7 @@ Provides FastAPI dependencies that gate expensive endpoints:
 """
 
 import logging
+import os
 from typing import Optional
 
 from fastapi import HTTPException, Request
@@ -15,10 +16,10 @@ from api.usage import get_user_credit_balance
 
 logger = logging.getLogger(__name__)
 
+# Kill switch: set BILLING_ENABLED=false to bypass all billing checks.
+BILLING_ENABLED = os.getenv("BILLING_ENABLED", "false").lower() in ("true", "1", "yes")
+
 # Minimum balance required to start an expensive operation.
-# Agent chat cost is unknown upfront (1-20 iterations), so we just
-# check that the user has *some* balance. The actual cost is deducted
-# after the operation completes.
 MIN_BALANCE_THRESHOLD = 0.01
 
 
@@ -60,6 +61,9 @@ def require_active_account():
     from config.config import load_config
 
     async def _check(request: Request):
+        if not BILLING_ENABLED:
+            return None
+
         from api.dependencies import get_optional_user
 
         user = get_optional_user(request)

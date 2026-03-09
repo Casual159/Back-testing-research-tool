@@ -12,6 +12,9 @@ export const config = {
    * The proxy forwards to NEXT_PUBLIC_API_URL (Railway backend).
    */
   apiUrl: '/api/backend',
+
+  /** Feature flags */
+  billingEnabled: process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true',
 } as const;
 
 /**
